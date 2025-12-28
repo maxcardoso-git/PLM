@@ -9,10 +9,12 @@ COPY prisma.config.ts ./
 
 RUN npm ci
 
+# Generate Prisma client first
+RUN npx prisma generate
+
 COPY . .
 
 RUN npm run build
-RUN npx prisma generate
 
 # Production stage
 FROM node:20-alpine AS production
