@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../services/api';
 import type { Tenant, Organization } from '../types';
@@ -6,13 +6,10 @@ import type { Tenant, Organization } from '../types';
 interface TenantContextType {
   tenant: Tenant | null;
   organization: Organization | null;
-  tenants: Tenant[];
-  organizations: Organization[];
-  setTenant: (tenant: Tenant) => void;
-  setOrganization: (org: Organization) => void;
+  setTenantContext: (tenant: Tenant, organization: Organization) => void;
+  clearContext: () => void;
   loading: boolean;
-  refreshTenants: () => Promise<void>;
-  refreshOrganizations: () => Promise<void>;
+  isAuthenticated: boolean;
 }
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
@@ -20,69 +17,93 @@ const TenantContext = createContext<TenantContextType | undefined>(undefined);
 export function TenantProvider({ children }: { children: ReactNode }) {
   const [tenant, setTenantState] = useState<Tenant | null>(null);
   const [organization, setOrganizationState] = useState<Organization | null>(null);
-  const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const refreshTenants = async () => {
-    try {
-      const { items } = await api.getTenants();
-      setTenants(items);
-    } catch (error) {
-      console.error('Failed to fetch tenants:', error);
-    }
-  };
-
-  const refreshOrganizations = async () => {
-    if (!tenant) return;
-    try {
-      const { items } = await api.getOrganizations();
-      setOrganizations(items);
-    } catch (error) {
-      console.error('Failed to fetch organizations:', error);
-    }
-  };
-
+  // Initialize from localStorage (temporary until TAH integration)
   useEffect(() => {
     const init = async () => {
       setLoading(true);
-      await refreshTenants();
+
+      // Check for TAH session data (will be implemented via TAH SDK)
+      const tahTenantId = localStorage.getItem('tah_tenant_id');
+      const tahOrgId = localStorage.getItem('tah_organization_id');
+      const tahTenantName = localStorage.getItem('tah_tenant_name');
+      const tahOrgName = localStorage.getItem('tah_organization_name');
+
+      if (tahTenantId && tahOrgId) {
+        const t: Tenant = {
+          id: tahTenantId,
+          name: tahTenantName || 'Tenant',
+          status: 'active',
+          createdAt: new Date().toISOString(),
+        };
+        const o: Organization = {
+          id: tahOrgId,
+          tenantId: tahTenantId,
+          name: tahOrgName || 'Organization',
+          status: 'active',
+          createdAt: new Date().toISOString(),
+        };
+        setTenantState(t);
+        setOrganizationState(o);
+        api.setTenant(tahTenantId);
+        api.setOrganization(tahOrgId);
+      }
+
       setLoading(false);
     };
     init();
+
+    // Listen for TAH auth events
+    const handleTahAuth = (event: CustomEvent) => {
+      const { tenant, organization } = event.detail;
+      if (tenant && organization) {
+        setTenantContext(tenant, organization);
+      }
+    };
+
+    window.addEventListener('tah:authenticated', handleTahAuth as EventListener);
+    return () => {
+      window.removeEventListener('tah:authenticated', handleTahAuth as EventListener);
+    };
   }, []);
 
-  useEffect(() => {
-    if (tenant) {
-      api.setTenant(tenant.id);
-      refreshOrganizations();
-    }
-  }, [tenant]);
-
-  const setTenant = (t: Tenant) => {
+  const setTenantContext = useCallback((t: Tenant, org: Organization) => {
     setTenantState(t);
-    setOrganizationState(null);
-    localStorage.setItem('plm_tenant_id', t.id);
-  };
-
-  const setOrganization = (org: Organization) => {
     setOrganizationState(org);
+    api.setTenant(t.id);
     api.setOrganization(org.id);
-    localStorage.setItem('plm_organization_id', org.id);
-  };
+
+    // Store for persistence
+    localStorage.setItem('tah_tenant_id', t.id);
+    localStorage.setItem('tah_organization_id', org.id);
+    localStorage.setItem('tah_tenant_name', t.name);
+    localStorage.setItem('tah_organization_name', org.name);
+  }, []);
+
+  const clearContext = useCallback(() => {
+    setTenantState(null);
+    setOrganizationState(null);
+    api.setTenant('');
+    api.setOrganization('');
+
+    localStorage.removeItem('tah_tenant_id');
+    localStorage.removeItem('tah_organization_id');
+    localStorage.removeItem('tah_tenant_name');
+    localStorage.removeItem('tah_organization_name');
+  }, []);
+
+  const isAuthenticated = Boolean(tenant && organization);
 
   return (
     <TenantContext.Provider
       value={{
         tenant,
         organization,
-        tenants,
-        organizations,
-        setTenant,
-        setOrganization,
+        setTenantContext,
+        clearContext,
         loading,
-        refreshTenants,
-        refreshOrganizations,
+        isAuthenticated,
       }}
     >
       {children}

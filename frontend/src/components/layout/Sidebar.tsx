@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Workflow, FileText, Settings, ChevronDown } from 'lucide-react';
+import { LayoutDashboard, Workflow, FileText, Settings, Building2, User } from 'lucide-react';
 import { useTenant } from '../../context/TenantContext';
 import { clsx } from 'clsx';
 
@@ -12,7 +12,7 @@ const navigation = [
 
 export function Sidebar() {
   const location = useLocation();
-  const { tenant, organization, tenants, organizations, setTenant, setOrganization } = useTenant();
+  const { tenant, organization } = useTenant();
 
   return (
     <div className="flex flex-col w-64 bg-gray-900 text-white h-screen">
@@ -25,52 +25,30 @@ export function Sidebar() {
         <p className="text-xs text-gray-400 mt-1">Pipeline Management</p>
       </div>
 
-      {/* Tenant/Org Selector */}
-      <div className="p-4 border-b border-gray-800 space-y-3">
-        <div>
-          <label className="text-xs text-gray-400 uppercase tracking-wider">Tenant</label>
-          <div className="relative mt-1">
-            <select
-              value={tenant?.id || ''}
-              onChange={(e) => {
-                const t = tenants.find((t) => t.id === e.target.value);
-                if (t) setTenant(t);
-              }}
-              className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Select tenant...</option>
-              {tenants.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-          </div>
+      {/* TAH Context Info */}
+      <div className="p-4 border-b border-gray-800 space-y-2">
+        <div className="flex items-center gap-2 text-xs text-gray-400">
+          <Building2 size={14} />
+          <span className="uppercase tracking-wider">Context (TAH)</span>
         </div>
-
-        {tenant && (
-          <div>
-            <label className="text-xs text-gray-400 uppercase tracking-wider">Organization</label>
-            <div className="relative mt-1">
-              <select
-                value={organization?.id || ''}
-                onChange={(e) => {
-                  const org = organizations.find((o) => o.id === e.target.value);
-                  if (org) setOrganization(org);
-                }}
-                className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select organization...</option>
-                {organizations.map((org) => (
-                  <option key={org.id} value={org.id}>
-                    {org.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            </div>
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 px-2 py-1.5 bg-gray-800 rounded text-sm">
+            <User size={14} className="text-gray-500" />
+            <span className="text-gray-300 truncate">
+              {tenant?.name || 'Not authenticated'}
+            </span>
           </div>
+          {organization && (
+            <div className="flex items-center gap-2 px-2 py-1.5 bg-gray-800 rounded text-sm">
+              <Building2 size={14} className="text-gray-500" />
+              <span className="text-gray-300 truncate">{organization.name}</span>
+            </div>
+          )}
+        </div>
+        {!tenant && (
+          <p className="text-xs text-gray-500 italic">
+            Login via TAH to access pipelines
+          </p>
         )}
       </div>
 
