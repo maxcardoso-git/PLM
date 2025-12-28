@@ -1,0 +1,157 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.5rem;
+  }
+
+  * {
+    border-color: theme(colors.gray.200);
+  }
+
+  body {
+    background-color: theme(colors.gray.50);
+    color: theme(colors.gray.900);
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer components {
+  .card-shadow {
+    box-shadow: theme(boxShadow.sm);
+    transition: box-shadow 0.2s;
+  }
+
+  .card-shadow:hover {
+    box-shadow: theme(boxShadow.md);
+  }
+
+  .kanban-column {
+    background-color: theme(colors.gray.100);
+    border-radius: theme(borderRadius.lg);
+    padding: theme(spacing.3);
+    min-width: 300px;
+    max-width: 350px;
+    flex-shrink: 0;
+  }
+
+  .kanban-card {
+    background-color: white;
+    border-radius: theme(borderRadius.lg);
+    padding: theme(spacing.3);
+    cursor: grab;
+    box-shadow: theme(boxShadow.sm);
+    border: 1px solid theme(colors.gray.100);
+    transition: box-shadow 0.2s;
+  }
+
+  .kanban-card:hover {
+    box-shadow: theme(boxShadow.md);
+  }
+
+  .kanban-card:active {
+    cursor: grabbing;
+  }
+
+  .kanban-card.dragging {
+    opacity: 0.5;
+    transform: rotate(2deg) scale(1.05);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: theme(borderRadius.md);
+    font-size: theme(fontSize.sm);
+    font-weight: 500;
+    transition: color 0.15s, background-color 0.15s;
+  }
+
+  .btn:focus-visible {
+    outline: none;
+    ring: 2px;
+    ring-offset: 2px;
+  }
+
+  .btn:disabled {
+    pointer-events: none;
+    opacity: 0.5;
+  }
+
+  .btn-primary {
+    background-color: theme(colors.blue.600);
+    color: white;
+    padding: theme(spacing.2) theme(spacing.4);
+  }
+
+  .btn-primary:hover {
+    background-color: theme(colors.blue.700);
+  }
+
+  .btn-secondary {
+    background-color: theme(colors.gray.100);
+    color: theme(colors.gray.900);
+    padding: theme(spacing.2) theme(spacing.4);
+  }
+
+  .btn-secondary:hover {
+    background-color: theme(colors.gray.200);
+  }
+
+  .btn-ghost {
+    padding: theme(spacing.2) theme(spacing.3);
+  }
+
+  .btn-ghost:hover {
+    background-color: theme(colors.gray.100);
+  }
+
+  .input {
+    display: flex;
+    height: 2.5rem;
+    width: 100%;
+    border-radius: theme(borderRadius.md);
+    border: 1px solid theme(colors.gray.300);
+    background-color: white;
+    padding: theme(spacing.2) theme(spacing.3);
+    font-size: theme(fontSize.sm);
+  }
+
+  .input::placeholder {
+    color: theme(colors.gray.400);
+  }
+
+  .input:focus {
+    outline: none;
+    ring: 2px;
+    ring-color: theme(colors.blue.500);
+    border-color: transparent;
+  }
+
+  .input:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  .label {
+    font-size: theme(fontSize.sm);
+    font-weight: 500;
+    color: theme(colors.gray.700);
+  }
+}

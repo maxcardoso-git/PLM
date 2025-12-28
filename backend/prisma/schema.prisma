@@ -1,0 +1,417 @@
+// PLM - Pipeline Management
+// Prisma Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// =========================================================
+// ENUMS
+// =========================================================
+
+enum TenantStatus {
+  active
+  inactive
+}
+
+enum OrganizationStatus {
+  active
+  inactive
+}
+
+enum FormStatus {
+  draft
+  published
+  archived
+}
+
+enum PipelineLifecycleStatus {
+  draft
+  test
+  published
+  closed
+  archived
+}
+
+enum PipelineVersionStatus {
+  draft
+  test
+  published
+  archived
+}
+
+enum StageClassification {
+  NOT_STARTED
+  ON_GOING
+  WAITING
+  FINISHED
+  CANCELED
+}
+
+enum CardFormStatus {
+  FILLED
+  TO_FILL
+  LOCKED
+}
+
+enum CardPriority {
+  low
+  medium
+  high
+  urgent
+}
+
+enum CardStatus {
+  active
+  closed
+  archived
+}
+
+enum MoveReason {
+  manual
+  api
+  automation
+}
+
+enum OutboxStatus {
+  pending
+  sent
+  failed
+}
+
+enum EventType {
+  PLM_PIPE_CREATED
+  PLM_PIPE_PUBLISHED
+  PLM_PIPE_CLOSED
+  PLM_CARD_CREATED
+  PLM_CARD_MOVED
+  PLM_CARD_CLOSED
+}
+
+// =========================================================
+// TENANCY
+// =========================================================
+
+model Tenant {
+  id        String       @id @default(uuid()) @db.Uuid
+  name      String       @db.VarChar(255)
+  status    TenantStatus @default(active)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  organizations      Organization[]
+  formDefinitions    FormDefinition[]
+  pipelines          Pipeline[]
+  automationBindings AutomationBinding[]
+  cards              Card[]
+  outboxEvents       OutboxEvent[]
+
+  @@index([status])
+  @@map("tenants")
+}
+
+model Organization {
+  id        String             @id @default(uuid()) @db.Uuid
+  tenantId  String             @map("tenant_id") @db.Uuid
+  name      String             @db.VarChar(255)
+  status    OrganizationStatus @default(active)
+  createdAt DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  formDefinitions    FormDefinition[]
+  pipelines          Pipeline[]
+  automationBindings AutomationBinding[]
+  cards              Card[]
+  outboxEvents       OutboxEvent[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("organizations")
+}
+
+// =========================================================
+// FORM DEFINITIONS
+// =========================================================
+
+model FormDefinition {
+  id             String     @id @default(uuid()) @db.Uuid
+  tenantId       String     @map("tenant_id") @db.Uuid
+  organizationId String?    @map("organization_id") @db.Uuid
+  name           String     @db.VarChar(255)
+  version        Int        @default(1)
+  schemaJson     Json       @map("schema_json")
+  status         FormStatus @default(draft)
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+
+  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  organization Organization?          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  attachRules  StageFormAttachRule[]
+  cardForms    CardForm[]
+
+  @@unique([tenantId, organizationId, name, version], name: "uq_form_definition_version")
+  @@index([tenantId])
+  @@index([organizationId])
+  @@index([status])
+  @@map("form_definitions")
+}
+
+// =========================================================
+// PIPELINES
+// =========================================================
+
+model Pipeline {
+  id               String                  @id @default(uuid()) @db.Uuid
+  tenantId         String                  @map("tenant_id") @db.Uuid
+  organizationId   String                  @map("organization_id") @db.Uuid
+  key              String                  @db.VarChar(100)
+  name             String                  @db.VarChar(255)
+  description      String?                 @db.Text
+  lifecycleStatus  PipelineLifecycleStatus @default(draft) @map("lifecycle_status")
+  publishedVersion Int?                    @map("published_version")
+  createdBy        String?                 @map("created_by") @db.Uuid
+  createdAt        DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime                @updatedAt @map("updated_at") @db.Timestamptz
+
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  versions           PipelineVersion[]
+  automationBindings AutomationBinding[]
+  cards              Card[]
+
+  @@unique([organizationId, key], name: "uq_pipeline_key_org")
+  @@index([tenantId])
+  @@index([organizationId])
+  @@index([lifecycleStatus])
+  @@index([key])
+  @@map("pipelines")
+}
+
+model PipelineVersion {
+  id          String                @id @default(uuid()) @db.Uuid
+  pipelineId  String                @map("pipeline_id") @db.Uuid
+  version     Int
+  status      PipelineVersionStatus @default(draft)
+  configHash  String?               @map("config_hash") @db.VarChar(64)
+  createdAt   DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  publishedAt DateTime?             @map("published_at") @db.Timestamptz
+
+  pipeline    Pipeline          @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  stages      Stage[]
+  transitions StageTransition[]
+
+  @@unique([pipelineId, version], name: "uq_pipeline_version")
+  @@index([pipelineId])
+  @@index([status])
+  @@map("pipeline_versions")
+}
+
+// =========================================================
+// STAGES
+// =========================================================
+
+model Stage {
+  id                String              @id @default(uuid()) @db.Uuid
+  pipelineVersionId String              @map("pipeline_version_id") @db.Uuid
+  name              String              @db.VarChar(255)
+  stageOrder        Int                 @map("stage_order")
+  classification    StageClassification
+  color             String              @db.VarChar(7)
+  isInitial         Boolean             @default(false) @map("is_initial")
+  isFinal           Boolean             @default(false) @map("is_final")
+  wipLimit          Int?                @map("wip_limit")
+  slaHours          Int?                @map("sla_hours")
+  active            Boolean             @default(true)
+  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime            @updatedAt @map("updated_at") @db.Timestamptz
+
+  pipelineVersion        PipelineVersion       @relation(fields: [pipelineVersionId], references: [id], onDelete: Cascade)
+  formAttachRules        StageFormAttachRule[]
+  transitionsFrom        StageTransition[]     @relation("FromStage")
+  transitionsTo          StageTransition[]     @relation("ToStage")
+  cards                  Card[]
+  cardFormsAttachedAt    CardForm[]
+  moveHistoryFrom        CardMoveHistory[]     @relation("FromStageHistory")
+  moveHistoryTo          CardMoveHistory[]     @relation("ToStageHistory")
+  automationBindingsFrom AutomationBinding[]   @relation("FilterFromStage")
+  automationBindingsTo   AutomationBinding[]   @relation("FilterToStage")
+
+  @@index([pipelineVersionId])
+  @@index([pipelineVersionId, stageOrder])
+  @@map("stages")
+}
+
+model StageTransition {
+  id                String   @id @default(uuid()) @db.Uuid
+  pipelineVersionId String   @map("pipeline_version_id") @db.Uuid
+  fromStageId       String   @map("from_stage_id") @db.Uuid
+  toStageId         String   @map("to_stage_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  pipelineVersion PipelineVersion @relation(fields: [pipelineVersionId], references: [id], onDelete: Cascade)
+  fromStage       Stage           @relation("FromStage", fields: [fromStageId], references: [id], onDelete: Cascade)
+  toStage         Stage           @relation("ToStage", fields: [toStageId], references: [id], onDelete: Cascade)
+
+  @@unique([fromStageId, toStageId], name: "uq_stage_transition")
+  @@index([pipelineVersionId])
+  @@index([fromStageId])
+  @@index([toStageId])
+  @@map("stage_transitions")
+}
+
+model StageFormAttachRule {
+  id                String         @id @default(uuid()) @db.Uuid
+  stageId           String         @map("stage_id") @db.Uuid
+  formDefinitionId  String         @map("form_definition_id") @db.Uuid
+  defaultFormStatus CardFormStatus @default(TO_FILL) @map("default_form_status")
+  lockOnLeaveStage  Boolean        @default(false) @map("lock_on_leave_stage")
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  stage          Stage          @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  formDefinition FormDefinition @relation(fields: [formDefinitionId], references: [id], onDelete: Cascade)
+
+  @@unique([stageId, formDefinitionId], name: "uq_stage_form_attach")
+  @@index([stageId])
+  @@index([formDefinitionId])
+  @@map("stage_form_attach_rules")
+}
+
+// =========================================================
+// AUTOMATION BINDINGS
+// =========================================================
+
+model AutomationBinding {
+  id                String    @id @default(uuid()) @db.Uuid
+  tenantId          String    @map("tenant_id") @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  pipelineId        String    @map("pipeline_id") @db.Uuid
+  eventType         EventType @map("event_type")
+  filterFromStageId String?   @map("filter_from_stage_id") @db.Uuid
+  filterToStageId   String?   @map("filter_to_stage_id") @db.Uuid
+  automationPlanId  String    @map("automation_plan_id") @db.Uuid
+  enabled           Boolean   @default(true)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  pipeline        Pipeline     @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  filterFromStage Stage?       @relation("FilterFromStage", fields: [filterFromStageId], references: [id], onDelete: SetNull)
+  filterToStage   Stage?       @relation("FilterToStage", fields: [filterToStageId], references: [id], onDelete: SetNull)
+
+  @@index([pipelineId])
+  @@index([eventType])
+  @@map("automation_bindings")
+}
+
+// =========================================================
+// CARDS
+// =========================================================
+
+model Card {
+  id              String       @id @default(uuid()) @db.Uuid
+  tenantId        String       @map("tenant_id") @db.Uuid
+  organizationId  String       @map("organization_id") @db.Uuid
+  pipelineId      String       @map("pipeline_id") @db.Uuid
+  pipelineVersion Int          @map("pipeline_version")
+  currentStageId  String       @map("current_stage_id") @db.Uuid
+  title           String       @db.VarChar(500)
+  description     String?      @db.Text
+  priority        CardPriority @default(medium)
+  status          CardStatus   @default(active)
+  createdBy       String?      @map("created_by") @db.Uuid
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  closedAt        DateTime?    @map("closed_at") @db.Timestamptz
+
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  pipeline     Pipeline          @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  currentStage Stage             @relation(fields: [currentStageId], references: [id])
+  forms        CardForm[]
+  moveHistory  CardMoveHistory[]
+
+  @@index([tenantId])
+  @@index([organizationId])
+  @@index([pipelineId])
+  @@index([currentStageId])
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt(sort: Desc)])
+  @@index([pipelineId, status, currentStageId], name: "idx_cards_kanban")
+  @@map("cards")
+}
+
+model CardForm {
+  id                String         @id @default(uuid()) @db.Uuid
+  cardId            String         @map("card_id") @db.Uuid
+  formDefinitionId  String         @map("form_definition_id") @db.Uuid
+  formVersion       Int            @map("form_version")
+  status            CardFormStatus @default(TO_FILL)
+  data              Json           @default("{}")
+  attachedAtStageId String         @map("attached_at_stage_id") @db.Uuid
+  attachedAt        DateTime       @default(now()) @map("attached_at") @db.Timestamptz
+  updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+
+  card            Card           @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  formDefinition  FormDefinition @relation(fields: [formDefinitionId], references: [id])
+  attachedAtStage Stage          @relation(fields: [attachedAtStageId], references: [id])
+
+  @@unique([cardId, formDefinitionId, formVersion], name: "uq_card_form")
+  @@index([cardId])
+  @@index([formDefinitionId])
+  @@index([status])
+  @@map("card_forms")
+}
+
+model CardMoveHistory {
+  id          String     @id @default(uuid()) @db.Uuid
+  cardId      String     @map("card_id") @db.Uuid
+  fromStageId String     @map("from_stage_id") @db.Uuid
+  toStageId   String     @map("to_stage_id") @db.Uuid
+  movedBy     String?    @map("moved_by") @db.Uuid
+  movedAt     DateTime   @default(now()) @map("moved_at") @db.Timestamptz
+  reason      MoveReason @default(manual)
+
+  card      Card  @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  fromStage Stage @relation("FromStageHistory", fields: [fromStageId], references: [id])
+  toStage   Stage @relation("ToStageHistory", fields: [toStageId], references: [id])
+
+  @@index([cardId])
+  @@index([fromStageId])
+  @@index([toStageId])
+  @@index([movedAt(sort: Desc)])
+  @@map("card_move_history")
+}
+
+// =========================================================
+// OUTBOX EVENTS
+// =========================================================
+
+model OutboxEvent {
+  id             String       @id @default(uuid()) @db.Uuid
+  tenantId       String       @map("tenant_id") @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  eventType      String       @map("event_type") @db.VarChar(50)
+  entityType     String       @map("entity_type") @db.VarChar(50)
+  entityId       String       @map("entity_id") @db.Uuid
+  payload        Json
+  status         OutboxStatus @default(pending)
+  attempts       Int          @default(0)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  sentAt         DateTime?    @map("sent_at") @db.Timestamptz
+  lastError      String?      @map("last_error") @db.Text
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([entityType, entityId])
+  @@map("outbox_events")
+}

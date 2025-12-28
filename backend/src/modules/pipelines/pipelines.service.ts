@@ -1,0 +1,333 @@
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
+import { CreatePipelineDto, UpdatePipelineDto, ClonePipelineVersionDto } from './dto';
+import { TenantContext } from '../../common/decorators';
+
+@Injectable()
+export class PipelinesService {
+  constructor(private prisma: PrismaService) {}
+
+  async create(ctx: TenantContext, dto: CreatePipelineDto) {
+    const existing = await this.prisma.pipeline.findFirst({
+      where: {
+        organizationId: ctx.organizationId!,
+        key: dto.key,
+      },
+    });
+
+    if (existing) {
+      throw new ConflictException(`Pipeline with key "${dto.key}" already exists in this organization`);
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const pipeline = await tx.pipeline.create({
+        data: {
+          tenantId: ctx.tenantId,
+          organizationId: ctx.organizationId!,
+          key: dto.key,
+          name: dto.name,
+          description: dto.description,
+          lifecycleStatus: 'draft',
+        },
+      });
+
+      const version = await tx.pipelineVersion.create({
+        data: {
+          pipelineId: pipeline.id,
+          version: 1,
+          status: 'draft',
+        },
+      });
+
+      return {
+        ...pipeline,
+        latestVersion: version,
+      };
+    });
+  }
+
+  async findAll(ctx: TenantContext, lifecycleStatus?: string) {
+    return this.prisma.pipeline.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        organizationId: ctx.organizationId!,
+        ...(lifecycleStatus && { lifecycleStatus: lifecycleStatus as any }),
+      },
+      include: {
+        versions: {
+          orderBy: { version: 'desc' },
+          take: 1,
+        },
+        _count: {
+          select: {
+            cards: {
+              where: { status: 'active' },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async findOne(ctx: TenantContext, id: string) {
+    const pipeline = await this.prisma.pipeline.findFirst({
+      where: {
+        id,
+        tenantId: ctx.tenantId,
+        organizationId: ctx.organizationId!,
+      },
+      include: {
+        versions: {
+          orderBy: { version: 'desc' },
+        },
+        _count: {
+          select: {
+            cards: true,
+          },
+        },
+      },
+    });
+
+    if (!pipeline) {
+      throw new NotFoundException(`Pipeline ${id} not found`);
+    }
+
+    return pipeline;
+  }
+
+  async update(ctx: TenantContext, id: string, dto: UpdatePipelineDto) {
+    const pipeline = await this.findOne(ctx, id);
+
+    if (pipeline.lifecycleStatus === 'closed' || pipeline.lifecycleStatus === 'archived') {
+      throw new BadRequestException('Cannot update closed or archived pipeline');
+    }
+
+    return this.prisma.pipeline.update({
+      where: { id },
+      data: dto,
+    });
+  }
+
+  async close(ctx: TenantContext, id: string) {
+    const pipeline = await this.findOne(ctx, id);
+
+    if (pipeline.lifecycleStatus === 'closed') {
+      throw new BadRequestException('Pipeline is already closed');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.pipeline.update({
+        where: { id },
+        data: { lifecycleStatus: 'closed' },
+      });
+
+      await tx.outboxEvent.create({
+        data: {
+          tenantId: ctx.tenantId,
+          organizationId: ctx.organizationId!,
+          eventType: 'PLM.PIPE.CLOSED',
+          entityType: 'Pipeline',
+          entityId: id,
+          payload: { pipeline: updated },
+          status: 'pending',
+        },
+      });
+
+      return updated;
+    });
+  }
+
+  async getVersions(ctx: TenantContext, pipelineId: string) {
+    await this.findOne(ctx, pipelineId);
+
+    return this.prisma.pipelineVersion.findMany({
+      where: { pipelineId },
+      include: {
+        stages: {
+          orderBy: { stageOrder: 'asc' },
+        },
+        _count: {
+          select: { transitions: true },
+        },
+      },
+      orderBy: { version: 'desc' },
+    });
+  }
+
+  async getVersion(ctx: TenantContext, pipelineId: string, version: number) {
+    await this.findOne(ctx, pipelineId);
+
+    const pipelineVersion = await this.prisma.pipelineVersion.findFirst({
+      where: { pipelineId, version },
+      include: {
+        stages: {
+          orderBy: { stageOrder: 'asc' },
+          include: {
+            formAttachRules: {
+              include: {
+                formDefinition: {
+                  select: { id: true, name: true, version: true },
+                },
+              },
+            },
+            transitionsFrom: {
+              include: {
+                toStage: { select: { id: true, name: true } },
+              },
+            },
+          },
+        },
+        transitions: true,
+      },
+    });
+
+    if (!pipelineVersion) {
+      throw new NotFoundException(`Pipeline version ${version} not found`);
+    }
+
+    return pipelineVersion;
+  }
+
+  async cloneVersion(ctx: TenantContext, pipelineId: string, dto: ClonePipelineVersionDto) {
+    const pipeline = await this.findOne(ctx, pipelineId);
+
+    const sourceVersion = dto.fromVersion || pipeline.publishedVersion;
+    if (!sourceVersion) {
+      throw new BadRequestException('No source version specified and pipeline has no published version');
+    }
+
+    const source = await this.getVersion(ctx, pipelineId, sourceVersion);
+
+    const latestVersion = await this.prisma.pipelineVersion.findFirst({
+      where: { pipelineId },
+      orderBy: { version: 'desc' },
+    });
+
+    const newVersionNumber = (latestVersion?.version || 0) + 1;
+
+    return this.prisma.$transaction(async (tx) => {
+      const newVersion = await tx.pipelineVersion.create({
+        data: {
+          pipelineId,
+          version: newVersionNumber,
+          status: dto.targetStatus || 'draft',
+        },
+      });
+
+      const stageIdMap = new Map<string, string>();
+
+      for (const stage of source.stages) {
+        const newStage = await tx.stage.create({
+          data: {
+            pipelineVersionId: newVersion.id,
+            name: stage.name,
+            stageOrder: stage.stageOrder,
+            classification: stage.classification,
+            color: stage.color,
+            isInitial: stage.isInitial,
+            isFinal: stage.isFinal,
+            wipLimit: stage.wipLimit,
+            slaHours: stage.slaHours,
+            active: stage.active,
+          },
+        });
+        stageIdMap.set(stage.id, newStage.id);
+
+        for (const rule of stage.formAttachRules) {
+          await tx.stageFormAttachRule.create({
+            data: {
+              stageId: newStage.id,
+              formDefinitionId: rule.formDefinitionId,
+              defaultFormStatus: rule.defaultFormStatus,
+              lockOnLeaveStage: rule.lockOnLeaveStage,
+            },
+          });
+        }
+      }
+
+      for (const transition of source.transitions) {
+        const newFromId = stageIdMap.get(transition.fromStageId);
+        const newToId = stageIdMap.get(transition.toStageId);
+
+        if (newFromId && newToId) {
+          await tx.stageTransition.create({
+            data: {
+              pipelineVersionId: newVersion.id,
+              fromStageId: newFromId,
+              toStageId: newToId,
+            },
+          });
+        }
+      }
+
+      return this.getVersion(ctx, pipelineId, newVersionNumber);
+    });
+  }
+
+  async publishVersion(ctx: TenantContext, pipelineId: string, version: number) {
+    const pipeline = await this.findOne(ctx, pipelineId);
+    const pipelineVersion = await this.getVersion(ctx, pipelineId, version);
+
+    if (pipelineVersion.status === 'published') {
+      throw new BadRequestException('Version is already published');
+    }
+
+    const initialStages = pipelineVersion.stages.filter((s) => s.isInitial);
+    if (initialStages.length !== 1) {
+      throw new BadRequestException('Pipeline version must have exactly one initial stage');
+    }
+
+    const finalStages = pipelineVersion.stages.filter((s) => s.isFinal);
+    if (finalStages.length === 0) {
+      throw new BadRequestException('Pipeline version must have at least one final stage');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      if (pipeline.publishedVersion) {
+        await tx.pipelineVersion.updateMany({
+          where: { pipelineId, status: 'published' },
+          data: { status: 'archived' },
+        });
+      }
+
+      const updatedVersion = await tx.pipelineVersion.update({
+        where: { id: pipelineVersion.id },
+        data: {
+          status: 'published',
+          publishedAt: new Date(),
+        },
+      });
+
+      await tx.pipeline.update({
+        where: { id: pipelineId },
+        data: {
+          publishedVersion: version,
+          lifecycleStatus: 'published',
+        },
+      });
+
+      await tx.outboxEvent.create({
+        data: {
+          tenantId: ctx.tenantId,
+          organizationId: ctx.organizationId!,
+          eventType: 'PLM.PIPE.PUBLISHED',
+          entityType: 'Pipeline',
+          entityId: pipelineId,
+          payload: {
+            pipelineId,
+            version,
+          },
+          status: 'pending',
+        },
+      });
+
+      return updatedVersion;
+    });
+  }
+}
