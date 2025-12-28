@@ -3,6 +3,8 @@ import type { FormEvent } from 'react';
 import { Settings, Key, Link2, CheckCircle2, XCircle, TestTube2 } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+
 export function SettingsPage() {
   const { settings, updateExternalFormsConfig, isConfigured } = useSettings();
   const [baseUrl, setBaseUrl] = useState(settings.externalForms.baseUrl);
@@ -31,12 +33,14 @@ export function SettingsPage() {
     }
 
     setTestStatus('testing');
-    setTestMessage('Testing connection...');
+    setTestMessage('Testing connection via proxy...');
 
     try {
-      const response = await fetch(`${baseUrl.replace(/\/$/, '')}/data-entry-forms/external/list`, {
+      // Use PLM backend proxy to avoid CORS issues
+      const response = await fetch(`${API_BASE_URL}/external-forms/list`, {
         headers: {
-          'X-API-Key': apiKey,
+          'X-External-Api-Url': baseUrl.replace(/\/$/, ''),
+          'X-External-Api-Key': apiKey,
         },
       });
 
@@ -44,12 +48,15 @@ export function SettingsPage() {
         const data = await response.json();
         setTestStatus('success');
         setTestMessage(`Connection successful! Found ${data.items?.length || data.length || 0} forms.`);
-      } else if (response.status === 401 || response.status === 403) {
-        setTestStatus('error');
-        setTestMessage('Authentication failed. Please check your API Key.');
       } else {
-        setTestStatus('error');
-        setTestMessage(`Connection failed with status ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 401 || response.status === 403) {
+          setTestStatus('error');
+          setTestMessage('Authentication failed. Please check your API Key.');
+        } else {
+          setTestStatus('error');
+          setTestMessage(errorData.message || `Connection failed with status ${response.status}`);
+        }
       }
     } catch (error) {
       setTestStatus('error');

@@ -3,6 +3,8 @@ import { FileText, AlertCircle, Settings, ExternalLink, RefreshCw } from 'lucide
 import { Link } from 'react-router-dom';
 import { useSettings } from '../context/SettingsContext';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+
 interface ExternalForm {
   id: string;
   name: string;
@@ -26,17 +28,17 @@ export function FormsPage() {
     setError(null);
 
     try {
-      const response = await fetch(
-        `${settings.externalForms.baseUrl}/data-entry-forms/external/list`,
-        {
-          headers: {
-            'X-API-Key': settings.externalForms.apiKey,
-          },
-        }
-      );
+      // Use PLM backend proxy to avoid CORS issues
+      const response = await fetch(`${API_BASE_URL}/external-forms/list`, {
+        headers: {
+          'X-External-Api-Url': settings.externalForms.baseUrl,
+          'X-External-Api-Key': settings.externalForms.apiKey,
+        },
+      });
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch forms: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to fetch forms: ${response.status}`);
       }
 
       const data = await response.json();

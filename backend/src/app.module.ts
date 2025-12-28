@@ -13,6 +13,7 @@ import { StagesModule } from './modules/stages';
 import { CardsModule } from './modules/cards';
 import { AutomationsModule } from './modules/automations';
 import { AppFeaturesModule } from './modules/app-features';
+import { ExternalFormsModule } from './modules/external-forms';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { AppFeaturesModule } from './modules/app-features';
     CardsModule,
     AutomationsModule,
     AppFeaturesModule,
+    ExternalFormsModule,
   ],
   providers: [
     {
