@@ -36,7 +36,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        // Deep merge with defaults to handle schema migrations
+        return {
+          ...defaultSettings,
+          ...parsed,
+          externalForms: {
+            ...defaultSettings.externalForms,
+            ...parsed.externalForms,
+          },
+        };
       } catch {
         return defaultSettings;
       }

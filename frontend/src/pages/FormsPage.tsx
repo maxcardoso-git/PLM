@@ -49,7 +49,25 @@ export function FormsPage() {
       }
 
       const data = await response.json();
-      setForms(data.items || data || []);
+
+      // Handle various API response structures
+      let formsList: ExternalForm[] = [];
+      if (Array.isArray(data)) {
+        formsList = data;
+      } else if (Array.isArray(data.items)) {
+        formsList = data.items;
+      } else if (Array.isArray(data.data)) {
+        formsList = data.data;
+      } else if (Array.isArray(data.results)) {
+        formsList = data.results;
+      } else if (Array.isArray(data.forms)) {
+        formsList = data.forms;
+      } else {
+        console.warn('Unexpected API response structure:', data);
+        throw new Error('Unexpected API response format. Check the List Endpoint configuration.');
+      }
+
+      setForms(formsList);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch forms');
     } finally {
