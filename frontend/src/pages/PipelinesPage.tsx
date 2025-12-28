@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import type { FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Workflow, ArrowRight, Users } from 'lucide-react';
+import { Plus, Workflow, ArrowRight, Users, AlertCircle } from 'lucide-react';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
 import { Modal } from '../components/ui';
@@ -13,6 +14,7 @@ export function PipelinesPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newPipeline, setNewPipeline] = useState({ key: '', name: '', description: '' });
   const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchPipelines = async () => {
     if (!organization) return;
@@ -20,8 +22,8 @@ export function PipelinesPage() {
     try {
       const { items } = await api.getPipelines();
       setPipelines(items);
-    } catch (error) {
-      console.error('Failed to fetch pipelines:', error);
+    } catch (err) {
+      console.error('Failed to fetch pipelines:', err);
     } finally {
       setLoading(false);
     }
@@ -31,18 +33,20 @@ export function PipelinesPage() {
     fetchPipelines();
   }, [organization]);
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
     if (!newPipeline.key || !newPipeline.name) return;
 
     setCreating(true);
+    setError(null);
     try {
       await api.createPipeline(newPipeline);
       setShowCreateModal(false);
       setNewPipeline({ key: '', name: '', description: '' });
       fetchPipelines();
-    } catch (error) {
-      console.error('Failed to create pipeline:', error);
+    } catch (err: any) {
+      const message = err.response?.data?.message || err.message || 'Failed to create pipeline';
+      setError(message);
     } finally {
       setCreating(false);
     }
@@ -140,10 +144,20 @@ export function PipelinesPage() {
       {/* Create Pipeline Modal */}
       <Modal
         isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
+        onClose={() => {
+          setShowCreateModal(false);
+          setError(null);
+        }}
         title="Create Pipeline"
       >
         <form onSubmit={handleCreate} className="space-y-4">
+          {error && (
+            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              <AlertCircle size={16} />
+              {error}
+            </div>
+          )}
+
           <div>
             <label className="label">Key</label>
             <input
@@ -183,7 +197,10 @@ export function PipelinesPage() {
           <div className="flex justify-end gap-3 pt-4">
             <button
               type="button"
-              onClick={() => setShowCreateModal(false)}
+              onClick={() => {
+                setShowCreateModal(false);
+                setError(null);
+              }}
               className="btn-secondary"
             >
               Cancel

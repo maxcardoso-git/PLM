@@ -12,6 +12,7 @@ import { PipelinesModule } from './modules/pipelines';
 import { StagesModule } from './modules/stages';
 import { CardsModule } from './modules/cards';
 import { AutomationsModule } from './modules/automations';
+import { AppFeaturesModule } from './modules/app-features';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { AutomationsModule } from './modules/automations';
     StagesModule,
     CardsModule,
     AutomationsModule,
+    AppFeaturesModule,
   ],
   providers: [
     {
