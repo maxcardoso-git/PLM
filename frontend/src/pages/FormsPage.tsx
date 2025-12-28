@@ -29,11 +29,18 @@ export function FormsPage() {
 
     try {
       // Use PLM backend proxy to avoid CORS issues
-      const response = await fetch(`${API_BASE_URL}/external-forms/list`, {
+      const endpoint = settings.externalForms.listEndpoint || '/data-entry-forms/external/list';
+      const response = await fetch(`${API_BASE_URL}/external-forms/proxy`, {
+        method: 'POST',
         headers: {
-          'X-External-Api-Url': settings.externalForms.baseUrl,
-          'X-External-Api-Key': settings.externalForms.apiKey,
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          baseUrl: settings.externalForms.baseUrl,
+          endpoint,
+          apiKey: settings.externalForms.apiKey,
+          method: 'GET',
+        }),
       });
 
       if (!response.ok) {
@@ -54,7 +61,7 @@ export function FormsPage() {
     if (isConfigured) {
       fetchForms();
     }
-  }, [isConfigured, settings.externalForms.baseUrl]);
+  }, [isConfigured, settings.externalForms.baseUrl, settings.externalForms.listEndpoint]);
 
   if (!isConfigured) {
     return (

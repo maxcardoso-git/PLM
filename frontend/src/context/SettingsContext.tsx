@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 
 export interface ExternalFormsConfig {
   baseUrl: string;
+  listEndpoint: string;
   apiKey: string;
   enabled: boolean;
 }
@@ -20,6 +21,7 @@ interface SettingsContextType {
 const defaultSettings: PLMSettings = {
   externalForms: {
     baseUrl: '',
+    listEndpoint: '/data-entry-forms/external/list',
     apiKey: '',
     enabled: false,
   },

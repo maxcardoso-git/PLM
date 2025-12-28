@@ -7,13 +7,41 @@ import {
   Headers,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiHeader, ApiBody } from '@nestjs/swagger';
 import { ExternalFormsService } from './external-forms.service';
+
+interface ProxyRequestDto {
+  baseUrl: string;
+  endpoint: string;
+  apiKey: string;
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  body?: Record<string, any>;
+}
 
 @ApiTags('External Forms Proxy')
 @Controller('external-forms')
 export class ExternalFormsController {
   constructor(private readonly externalFormsService: ExternalFormsService) {}
+
+  @Post('proxy')
+  @ApiOperation({ summary: 'Generic proxy to external API' })
+  @ApiBody({ description: 'Proxy request configuration' })
+  @ApiResponse({ status: 200, description: 'Response from external API' })
+  @ApiResponse({ status: 400, description: 'Missing required fields' })
+  @ApiResponse({ status: 502, description: 'External API connection failed' })
+  async proxy(@Body() dto: ProxyRequestDto) {
+    if (!dto.baseUrl || !dto.endpoint || !dto.apiKey) {
+      throw new BadRequestException('baseUrl, endpoint, and apiKey are required');
+    }
+
+    return this.externalFormsService.proxy({
+      baseUrl: dto.baseUrl.replace(/\/$/, ''),
+      endpoint: dto.endpoint.startsWith('/') ? dto.endpoint : `/${dto.endpoint}`,
+      apiKey: dto.apiKey,
+      method: dto.method || 'GET',
+      body: dto.body,
+    });
+  }
 
   @Get('list')
   @ApiOperation({ summary: 'List forms from external API (proxy)' })

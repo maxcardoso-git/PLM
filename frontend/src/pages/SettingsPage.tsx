@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { Settings, Key, Link2, CheckCircle2, XCircle, TestTube2 } from 'lucide-react';
+import { Settings, Key, Link2, CheckCircle2, XCircle, TestTube2, Route } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
@@ -8,6 +8,9 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/
 export function SettingsPage() {
   const { settings, updateExternalFormsConfig, isConfigured } = useSettings();
   const [baseUrl, setBaseUrl] = useState(settings.externalForms.baseUrl);
+  const [listEndpoint, setListEndpoint] = useState(
+    settings.externalForms.listEndpoint || '/data-entry-forms/external/list'
+  );
   const [apiKey, setApiKey] = useState(settings.externalForms.apiKey);
   const [enabled, setEnabled] = useState(settings.externalForms.enabled);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
@@ -18,6 +21,7 @@ export function SettingsPage() {
     e.preventDefault();
     updateExternalFormsConfig({
       baseUrl: baseUrl.replace(/\/$/, ''),
+      listEndpoint: listEndpoint.startsWith('/') ? listEndpoint : `/${listEndpoint}`,
       apiKey,
       enabled,
     });
@@ -37,11 +41,18 @@ export function SettingsPage() {
 
     try {
       // Use PLM backend proxy to avoid CORS issues
-      const response = await fetch(`${API_BASE_URL}/external-forms/list`, {
+      const endpoint = listEndpoint.startsWith('/') ? listEndpoint : `/${listEndpoint}`;
+      const response = await fetch(`${API_BASE_URL}/external-forms/proxy`, {
+        method: 'POST',
         headers: {
-          'X-External-Api-Url': baseUrl.replace(/\/$/, ''),
-          'X-External-Api-Key': apiKey,
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          baseUrl: baseUrl.replace(/\/$/, ''),
+          endpoint,
+          apiKey,
+          method: 'GET',
+        }),
       });
 
       if (response.ok) {
@@ -119,7 +130,26 @@ export function SettingsPage() {
               <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             </div>
             <p className="mt-1 text-xs text-gray-500">
-              The base URL of the Forms API (without trailing slash)
+              The base URL of the Forms API (e.g., http://72.61.52.70:3080/api/v1)
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              List Endpoint
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={listEndpoint}
+                onChange={(e) => setListEndpoint(e.target.value)}
+                placeholder="/data-entry-forms/external/list"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <Route className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              The endpoint path to list forms (e.g., /data-entry-forms/external/list)
             </p>
           </div>
 
