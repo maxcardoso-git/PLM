@@ -36,9 +36,8 @@ export class TenantGuard implements CanActivate {
       throw new BadRequestException('X-Organization-Id header is required');
     }
 
-    if (organizationId && !uuidRegex.test(organizationId)) {
-      throw new BadRequestException('X-Organization-Id must be a valid UUID');
-    }
+    // Organization ID can be any string (not required to be UUID)
+    // This allows flexibility for different organization ID formats
 
     return true;
   }
