@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileText, AlertCircle, Settings, ExternalLink, RefreshCw } from 'lucide-react';
+import { FileText, AlertCircle, Settings, ExternalLink, RefreshCw, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useSettings } from '../context/SettingsContext';
 
@@ -187,6 +187,14 @@ export function FormsPage() {
                   >
                     {form.status}
                   </span>
+                  <Link
+                    to={`/forms/${form.id}`}
+                    className="flex items-center gap-1 px-2 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded"
+                    title="View form"
+                  >
+                    <Eye size={16} />
+                    View
+                  </Link>
                   <a
                     href={`${settings.externalForms.baseUrl}/data-entry-forms/external/${form.id}/schema`}
                     target="_blank"
