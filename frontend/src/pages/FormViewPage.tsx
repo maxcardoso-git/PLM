@@ -58,7 +58,37 @@ export function FormViewPage() {
       }
 
       const data = await response.json();
-      setSchema(data);
+
+      // Handle various API response structures
+      let schemaData: FormSchema;
+      if (data.schema) {
+        schemaData = data.schema;
+      } else if (data.data) {
+        schemaData = data.data;
+      } else if (data.form) {
+        schemaData = data.form;
+      } else {
+        schemaData = data;
+      }
+
+      // Normalize fields array - might be in different locations
+      if (!schemaData.fields) {
+        if (data.fields) {
+          schemaData.fields = data.fields;
+        } else if (data.schema?.fields) {
+          schemaData.fields = data.schema.fields;
+        } else if (schemaData.formFields) {
+          schemaData.fields = schemaData.formFields;
+        } else if (schemaData.sections) {
+          // Flatten sections into fields
+          schemaData.fields = schemaData.sections.flatMap((s: any) => s.fields || []);
+        }
+      }
+
+      console.log('Form schema response:', data);
+      console.log('Normalized schema:', schemaData);
+
+      setSchema(schemaData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch form schema');
     } finally {
