@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { Settings, Key, Link2, CheckCircle2, XCircle, TestTube2, Route } from 'lucide-react';
+import { Settings, Key, Link2, CheckCircle2, XCircle, TestTube2, Route, Building2, Hash } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
 
 export function SettingsPage() {
-  const { settings, updateExternalFormsConfig, isConfigured } = useSettings();
+  const { settings, updateExternalFormsConfig, updateTenantConfig, isConfigured, isTenantConfigured } = useSettings();
   const [baseUrl, setBaseUrl] = useState(settings.externalForms.baseUrl);
   const [listEndpoint, setListEndpoint] = useState(
     settings.externalForms.listEndpoint || '/data-entry-forms/external/list'
@@ -16,6 +16,11 @@ export function SettingsPage() {
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [testMessage, setTestMessage] = useState('');
   const [saved, setSaved] = useState(false);
+
+  // Tenant configuration
+  const [tenantId, setTenantId] = useState(settings.tenant.tenantId);
+  const [orgId, setOrgId] = useState(settings.tenant.orgId);
+  const [tenantSaved, setTenantSaved] = useState(false);
 
   const handleSave = (e: FormEvent) => {
     e.preventDefault();
@@ -233,12 +238,106 @@ export function SettingsPage() {
         </form>
       </div>
 
-      {/* TAH Integration Info */}
-      <div className="mt-6 bg-gray-50 rounded-lg border border-gray-200 p-4">
-        <h3 className="text-sm font-medium text-gray-700 mb-2">TAH Integration</h3>
-        <p className="text-sm text-gray-500">
-          Tenant and Organization context will be automatically provided by TAH (Tenant Access Hub)
-          after authentication. No manual selection is required.
+      {/* Tenant Configuration */}
+      <div className="mt-6 bg-white rounded-lg shadow border border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <Building2 className="text-purple-600" size={20} />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Tenant Configuration</h2>
+                <p className="text-sm text-gray-500">Configure Tenant and Organization for API calls</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {isTenantConfigured ? (
+                <span className="flex items-center gap-1 text-sm text-green-600">
+                  <CheckCircle2 size={16} />
+                  Configured
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-sm text-gray-400">
+                  <XCircle size={16} />
+                  Not configured
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            updateTenantConfig({ tenantId, orgId });
+            setTenantSaved(true);
+            setTimeout(() => setTenantSaved(false), 3000);
+          }}
+          className="p-6 space-y-4"
+        >
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tenant ID
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={tenantId}
+                onChange={(e) => setTenantId(e.target.value)}
+                placeholder="766fea59-f15c-4443-bb7d-aec965c1131d"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-mono text-sm"
+              />
+              <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              The UUID of the tenant (X-Tenant-Id header)
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Organization ID
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={orgId}
+                onChange={(e) => setOrgId(e.target.value)}
+                placeholder="Org-1"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              />
+              <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              The organization identifier (X-Organization-Id header)
+            </p>
+          </div>
+
+          {tenantSaved && (
+            <div className="p-3 rounded-lg text-sm bg-green-50 text-green-700 flex items-center gap-2">
+              <CheckCircle2 size={16} />
+              Tenant settings saved successfully!
+            </div>
+          )}
+
+          <div className="pt-4">
+            <button
+              type="submit"
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700"
+            >
+              Save Tenant Settings
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Info */}
+      <div className="mt-6 bg-blue-50 rounded-lg border border-blue-200 p-4">
+        <h3 className="text-sm font-medium text-blue-700 mb-2">TAH Integration (Future)</h3>
+        <p className="text-sm text-blue-600">
+          In a future version, Tenant and Organization context will be automatically provided by TAH
+          (Tenant Access Hub) after authentication.
         </p>
       </div>
     </div>

@@ -8,14 +8,22 @@ export interface ExternalFormsConfig {
   enabled: boolean;
 }
 
+export interface TenantConfig {
+  tenantId: string;
+  orgId: string;
+}
+
 export interface PLMSettings {
   externalForms: ExternalFormsConfig;
+  tenant: TenantConfig;
 }
 
 interface SettingsContextType {
   settings: PLMSettings;
   updateExternalFormsConfig: (config: Partial<ExternalFormsConfig>) => void;
+  updateTenantConfig: (config: Partial<TenantConfig>) => void;
   isConfigured: boolean;
+  isTenantConfigured: boolean;
 }
 
 const defaultSettings: PLMSettings = {
@@ -24,6 +32,10 @@ const defaultSettings: PLMSettings = {
     listEndpoint: '/data-entry-forms/external/list',
     apiKey: '',
     enabled: false,
+  },
+  tenant: {
+    tenantId: '',
+    orgId: '',
   },
 };
 
@@ -44,6 +56,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           externalForms: {
             ...defaultSettings.externalForms,
             ...parsed.externalForms,
+          },
+          tenant: {
+            ...defaultSettings.tenant,
+            ...parsed.tenant,
           },
         };
       } catch {
@@ -67,10 +83,25 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const updateTenantConfig = (config: Partial<TenantConfig>) => {
+    setSettings((prev) => ({
+      ...prev,
+      tenant: {
+        ...prev.tenant,
+        ...config,
+      },
+    }));
+  };
+
   const isConfigured = Boolean(
     settings.externalForms.baseUrl &&
     settings.externalForms.apiKey &&
     settings.externalForms.enabled
+  );
+
+  const isTenantConfigured = Boolean(
+    settings.tenant.tenantId &&
+    settings.tenant.orgId
   );
 
   return (
@@ -78,7 +109,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       value={{
         settings,
         updateExternalFormsConfig,
+        updateTenantConfig,
         isConfigured,
+        isTenantConfigured,
       }}
     >
       {children}
