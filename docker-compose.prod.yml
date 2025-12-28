@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: plm_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-plm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-plm_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-plm}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-plm}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - plm_network
+
+  backend:
+    image: ${BACKEND_IMAGE:-ghcr.io/maxcardoso-git/plm/backend:latest}
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: plm_backend
+    restart: always
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-plm}:${POSTGRES_PASSWORD:-plm_secret}@postgres:5432/${POSTGRES_DB:-plm}?schema=public
+      PORT: 3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    networks:
+      - plm_network
+
+  frontend:
+    image: ${FRONTEND_IMAGE:-ghcr.io/maxcardoso-git/plm/frontend:latest}
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api/v1}
+    container_name: plm_frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - plm_network
+
+volumes:
+  postgres_data:
+
+networks:
+  plm_network:
+    driver: bridge
