@@ -273,6 +273,10 @@ export function SettingsPage() {
             updateTenantConfig({ tenantId, orgId });
             setTenantSaved(true);
             setTimeout(() => setTenantSaved(false), 3000);
+            // Dispatch event to notify TenantContext
+            window.dispatchEvent(new CustomEvent('plm:tenant-updated', {
+              detail: { tenantId, orgId }
+            }));
           }}
           className="p-6 space-y-4"
         >
