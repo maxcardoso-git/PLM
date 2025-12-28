@@ -23,6 +23,9 @@ interface FormSchema {
   version?: string;
   status: string;
   fields: FormField[];
+  // Alternative field locations from different API structures
+  formFields?: FormField[];
+  sections?: { fields: FormField[] }[];
 }
 
 export function FormViewPage() {
