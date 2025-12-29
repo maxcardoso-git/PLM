@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { FileText, AlertCircle, RefreshCw, Eye, FolderOpen, Settings, ExternalLink } from 'lucide-react';
+import { FileText, AlertCircle, RefreshCw, Eye, FolderOpen, Settings, ExternalLink, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useSettings } from '../context/SettingsContext';
+import { Modal } from '../components/ui';
 
 interface FormDefinition {
   id: string;
@@ -13,6 +14,29 @@ interface FormDefinition {
   projectName?: string;
   createdAt?: string;
   updatedAt?: string;
+}
+
+interface FormField {
+  id: string;
+  type: string;
+  label: string;
+  required?: boolean;
+  placeholder?: string;
+  options?: { label: string; value: string }[];
+  min?: number;
+  max?: number;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+  helpText?: string;
+  defaultValue?: string | number | boolean;
+}
+
+interface FormSchema {
+  id: string;
+  name: string;
+  description?: string;
+  fields: FormField[];
 }
 
 interface FormsByProject {
@@ -30,6 +54,13 @@ export function FormsPage() {
   const [error, setError] = useState<string | null>(null);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
 
+  // Form preview state
+  const [selectedForm, setSelectedForm] = useState<FormDefinition | null>(null);
+  const [formSchema, setFormSchema] = useState<FormSchema | null>(null);
+  const [loadingSchema, setLoadingSchema] = useState(false);
+  const [schemaError, setSchemaError] = useState<string | null>(null);
+  const [formValues, setFormValues] = useState<Record<string, any>>({});
+
   const fetchForms = async () => {
     if (!isConfigured) return;
 
@@ -37,7 +68,6 @@ export function FormsPage() {
     setError(null);
 
     try {
-      // Fetch from external API via proxy
       const { baseUrl, listEndpoint, apiKey } = settings.externalForms;
       const response = await fetch(`${API_BASE_URL}/external-forms/proxy`, {
         method: 'POST',
@@ -57,7 +87,6 @@ export function FormsPage() {
       }
 
       const data = await response.json();
-      // Ensure forms is always an array
       let forms: FormDefinition[] = [];
       if (Array.isArray(data)) {
         forms = data;
@@ -67,7 +96,6 @@ export function FormsPage() {
         forms = data.data;
       }
 
-      // Group forms by project
       const grouped = forms.reduce((acc: Record<string, FormsByProject>, form) => {
         const projectId = form.projectId || 'no-project';
         const projectName = form.projectName || 'Sem Projeto';
@@ -88,14 +116,75 @@ export function FormsPage() {
       );
 
       setFormsByProject(sortedProjects);
-
-      // Auto-expand all projects initially
       setExpandedProjects(new Set(sortedProjects.map(p => p.projectId)));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch forms');
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchFormSchema = async (form: FormDefinition) => {
+    setSelectedForm(form);
+    setLoadingSchema(true);
+    setSchemaError(null);
+    setFormSchema(null);
+    setFormValues({});
+
+    try {
+      const { baseUrl, apiKey } = settings.externalForms;
+      const response = await fetch(`${API_BASE_URL}/external-forms/proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          baseUrl,
+          endpoint: `/data-entry-forms/${form.id}/schema`,
+          apiKey,
+          method: 'GET',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch form schema: ${response.status}`);
+      }
+
+      const data = await response.json();
+      // Handle different response formats
+      const schema = data.data || data;
+      setFormSchema(schema);
+
+      // Initialize form values with defaults
+      const initialValues: Record<string, any> = {};
+      if (schema.fields) {
+        schema.fields.forEach((field: FormField) => {
+          if (field.defaultValue !== undefined) {
+            initialValues[field.id] = field.defaultValue;
+          } else if (field.type === 'boolean') {
+            initialValues[field.id] = false;
+          } else {
+            initialValues[field.id] = '';
+          }
+        });
+      }
+      setFormValues(initialValues);
+    } catch (err) {
+      setSchemaError(err instanceof Error ? err.message : 'Failed to fetch form schema');
+    } finally {
+      setLoadingSchema(false);
+    }
+  };
+
+  const handleFieldChange = (fieldId: string, value: any) => {
+    setFormValues(prev => ({ ...prev, [fieldId]: value }));
+  };
+
+  const closePreview = () => {
+    setSelectedForm(null);
+    setFormSchema(null);
+    setSchemaError(null);
+    setFormValues({});
   };
 
   useEffect(() => {
@@ -114,6 +203,179 @@ export function FormsPage() {
       }
       return next;
     });
+  };
+
+  const renderField = (field: FormField) => {
+    const value = formValues[field.id] ?? '';
+    const baseInputClass = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500";
+
+    switch (field.type) {
+      case 'text':
+      case 'email':
+      case 'tel':
+      case 'url':
+        return (
+          <input
+            type={field.type}
+            value={value}
+            onChange={(e) => handleFieldChange(field.id, e.target.value)}
+            placeholder={field.placeholder}
+            className={baseInputClass}
+            minLength={field.minLength}
+            maxLength={field.maxLength}
+            pattern={field.pattern}
+          />
+        );
+
+      case 'number':
+        return (
+          <input
+            type="number"
+            value={value}
+            onChange={(e) => handleFieldChange(field.id, e.target.value)}
+            placeholder={field.placeholder}
+            className={baseInputClass}
+            min={field.min}
+            max={field.max}
+          />
+        );
+
+      case 'date':
+        return (
+          <input
+            type="date"
+            value={value}
+            onChange={(e) => handleFieldChange(field.id, e.target.value)}
+            className={baseInputClass}
+          />
+        );
+
+      case 'datetime':
+        return (
+          <input
+            type="datetime-local"
+            value={value}
+            onChange={(e) => handleFieldChange(field.id, e.target.value)}
+            className={baseInputClass}
+          />
+        );
+
+      case 'time':
+        return (
+          <input
+            type="time"
+            value={value}
+            onChange={(e) => handleFieldChange(field.id, e.target.value)}
+            className={baseInputClass}
+          />
+        );
+
+      case 'textarea':
+        return (
+          <textarea
+            value={value}
+            onChange={(e) => handleFieldChange(field.id, e.target.value)}
+            placeholder={field.placeholder}
+            className={baseInputClass}
+            rows={4}
+            minLength={field.minLength}
+            maxLength={field.maxLength}
+          />
+        );
+
+      case 'select':
+        return (
+          <select
+            value={value}
+            onChange={(e) => handleFieldChange(field.id, e.target.value)}
+            className={baseInputClass}
+          >
+            <option value="">Selecione...</option>
+            {field.options?.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        );
+
+      case 'radio':
+        return (
+          <div className="space-y-2">
+            {field.options?.map((opt) => (
+              <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name={field.id}
+                  value={opt.value}
+                  checked={value === opt.value}
+                  onChange={(e) => handleFieldChange(field.id, e.target.value)}
+                  className="w-4 h-4 text-blue-600"
+                />
+                <span className="text-sm text-gray-700">{opt.label}</span>
+              </label>
+            ))}
+          </div>
+        );
+
+      case 'checkbox':
+        return (
+          <div className="space-y-2">
+            {field.options?.map((opt) => (
+              <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  value={opt.value}
+                  checked={Array.isArray(value) ? value.includes(opt.value) : false}
+                  onChange={(e) => {
+                    const currentValues = Array.isArray(value) ? value : [];
+                    if (e.target.checked) {
+                      handleFieldChange(field.id, [...currentValues, opt.value]);
+                    } else {
+                      handleFieldChange(field.id, currentValues.filter((v: string) => v !== opt.value));
+                    }
+                  }}
+                  className="w-4 h-4 text-blue-600 rounded"
+                />
+                <span className="text-sm text-gray-700">{opt.label}</span>
+              </label>
+            ))}
+          </div>
+        );
+
+      case 'boolean':
+        return (
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={!!value}
+              onChange={(e) => handleFieldChange(field.id, e.target.checked)}
+              className="w-4 h-4 text-blue-600 rounded"
+            />
+            <span className="text-sm text-gray-700">Sim</span>
+          </label>
+        );
+
+      case 'file':
+        return (
+          <input
+            type="file"
+            onChange={(e) => handleFieldChange(field.id, e.target.files?.[0]?.name || '')}
+            className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+          />
+        );
+
+      default:
+        return (
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => handleFieldChange(field.id, e.target.value)}
+            placeholder={field.placeholder}
+            className={baseInputClass}
+          />
+        );
+    }
   };
 
   const totalForms = formsByProject.reduce((sum, p) => sum + p.forms.length, 0);
@@ -266,10 +528,12 @@ export function FormsPage() {
                           {form.status}
                         </span>
                         <button
-                          className="flex items-center gap-1 px-2 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded"
-                          title="Ver detalhes"
+                          onClick={() => fetchFormSchema(form)}
+                          className="flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg font-medium"
+                          title="Visualizar formulário"
                         >
                           <Eye size={16} />
+                          Simular
                         </button>
                       </div>
                     </div>
@@ -280,6 +544,78 @@ export function FormsPage() {
           ))}
         </div>
       )}
+
+      {/* Form Preview Modal */}
+      <Modal
+        isOpen={!!selectedForm}
+        onClose={closePreview}
+        title={selectedForm?.name || 'Visualizar Formulário'}
+        size="2xl"
+      >
+        <div className="max-h-[70vh] overflow-y-auto">
+          {loadingSchema ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Loader2 size={32} className="animate-spin text-blue-500" />
+              <p className="text-gray-500 mt-3">Carregando formulário...</p>
+            </div>
+          ) : schemaError ? (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+              <div className="flex items-center gap-2">
+                <AlertCircle size={16} />
+                {schemaError}
+              </div>
+            </div>
+          ) : formSchema ? (
+            <div className="space-y-6">
+              {formSchema.description && (
+                <p className="text-gray-600 text-sm bg-gray-50 p-3 rounded-lg">
+                  {formSchema.description}
+                </p>
+              )}
+
+              {formSchema.fields && formSchema.fields.length > 0 ? (
+                <div className="space-y-5">
+                  {formSchema.fields.map((field) => (
+                    <div key={field.id}>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {field.label}
+                        {field.required && <span className="text-red-500 ml-1">*</span>}
+                      </label>
+                      {renderField(field)}
+                      {field.helpText && (
+                        <p className="text-xs text-gray-500 mt-1">{field.helpText}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <FileText size={32} className="mx-auto mb-2 opacity-50" />
+                  <p>Este formulário não possui campos definidos.</p>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                <button
+                  onClick={closePreview}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                >
+                  Fechar
+                </button>
+                <button
+                  onClick={() => {
+                    console.log('Form values:', formValues);
+                    alert('Dados do formulário (simulação):\n\n' + JSON.stringify(formValues, null, 2));
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
+                >
+                  Testar Envio
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </Modal>
     </div>
   );
 }
