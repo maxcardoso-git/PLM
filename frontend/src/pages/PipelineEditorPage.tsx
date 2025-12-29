@@ -1624,33 +1624,65 @@ export function PipelineEditorPage() {
             {triggerForm.conditions.length > 0 ? (
               <div className="space-y-2">
                 {triggerForm.conditions.map((condition, index) => {
-                  const selectedForm = availableForms.find(f => f.id === triggerForm.formDefinitionId);
-                  const formFields = selectedForm?.schemaJson?.fields || selectedForm?.fields || [];
+                  // Card attributes
+                  const cardFields = [
+                    { id: 'card.title', name: 'Título', group: 'Card' },
+                    { id: 'card.description', name: 'Descrição', group: 'Card' },
+                    { id: 'card.priority', name: 'Prioridade', group: 'Card' },
+                    { id: 'card.status', name: 'Status', group: 'Card' },
+                  ];
+
+                  // Form fields from attached forms
+                  const attachedFormFields: { id: string; name: string; group: string }[] = [];
+                  if (triggerStage?.formAttachRules) {
+                    triggerStage.formAttachRules.forEach((rule) => {
+                      const formName = rule.formDefinition?.name || rule.externalFormName || 'Formulário';
+                      const form = availableForms.find(f => f.id === (rule.formDefinitionId || rule.externalFormId));
+                      const fields = form?.schemaJson?.fields || form?.fields || [];
+                      fields.forEach((field) => {
+                        attachedFormFields.push({
+                          id: `form.${rule.formDefinitionId || rule.externalFormId}.${field.id}`,
+                          name: field.label || field.name || field.id,
+                          group: formName,
+                        });
+                      });
+                    });
+                  }
+
+                  const allFields = [...cardFields, ...attachedFormFields];
 
                   return (
                     <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
-                      {formFields.length > 0 ? (
-                        <select
-                          value={condition.fieldPath}
-                          onChange={(e) => updateCondition(index, 'fieldPath', e.target.value)}
-                          className="input text-xs flex-1"
-                        >
-                          <option value="">Selecione um campo...</option>
-                          {formFields.map((field) => (
+                      <select
+                        value={condition.fieldPath}
+                        onChange={(e) => updateCondition(index, 'fieldPath', e.target.value)}
+                        className="input text-xs flex-1"
+                      >
+                        <option value="">Selecione um campo...</option>
+                        <optgroup label="Card">
+                          {cardFields.map((field) => (
                             <option key={field.id} value={field.id}>
-                              {field.label || field.name || field.id}
+                              {field.name}
                             </option>
                           ))}
-                        </select>
-                      ) : (
-                        <input
-                          type="text"
-                          value={condition.fieldPath}
-                          onChange={(e) => updateCondition(index, 'fieldPath', e.target.value)}
-                          className="input text-xs flex-1"
-                          placeholder="Campo (ex: status)"
-                        />
-                      )}
+                        </optgroup>
+                        {triggerStage?.formAttachRules?.map((rule) => {
+                          const formName = rule.formDefinition?.name || rule.externalFormName || 'Formulário';
+                          const formId = rule.formDefinitionId || rule.externalFormId;
+                          const form = availableForms.find(f => f.id === formId);
+                          const fields = form?.schemaJson?.fields || form?.fields || [];
+                          if (fields.length === 0) return null;
+                          return (
+                            <optgroup key={rule.id} label={formName}>
+                              {fields.map((field) => (
+                                <option key={`${formId}.${field.id}`} value={`form.${formId}.${field.id}`}>
+                                  {field.label || field.name || field.id}
+                                </option>
+                              ))}
+                            </optgroup>
+                          );
+                        })}
+                      </select>
                       <select
                         value={condition.operator}
                         onChange={(e) => updateCondition(index, 'operator', e.target.value)}
