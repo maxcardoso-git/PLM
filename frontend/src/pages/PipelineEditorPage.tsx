@@ -373,6 +373,8 @@ export function PipelineEditorPage() {
         }
 
         const data = await response.json();
+        console.log('Forms API raw response:', data);
+
         let allForms: FormDefinition[] = [];
         if (Array.isArray(data)) {
           allForms = data;
@@ -382,12 +384,23 @@ export function PipelineEditorPage() {
           allForms = data.data;
         }
 
+        console.log('Pipeline projectId:', pipeline?.projectId);
+        console.log('All forms count:', allForms.length);
+
+        // Debug: log all forms with their project and status info
+        allForms.forEach((form, i) => {
+          const formAny = form as any;
+          const formProjectId = form.project?.id || form.projectId || formAny.project_id || formAny.projectId;
+          const biaValue = formAny.biaStatus || formAny.BIAStatus || formAny.bia_status || formAny.biastatus;
+          console.log(`Form ${i}: "${form.name}" - projectId=${formProjectId}, status=${form.status}, biaStatus=${biaValue}`);
+        });
+
         // Filter by pipeline's project and status (Published AND Approved)
         const filteredForms = allForms.filter(form => {
           const formAny = form as any;
 
           // Check if form belongs to same project as pipeline
-          const formProjectId = form.project?.id || form.projectId || formAny.project_id;
+          const formProjectId = form.project?.id || form.projectId || formAny.project_id || formAny.projectId;
           const matchesProject = !pipeline?.projectId || formProjectId === pipeline.projectId;
 
           // Check status: Published AND Approved (BIA)
@@ -395,10 +408,14 @@ export function PipelineEditorPage() {
           const biaValue = formAny.biaStatus || formAny.BIAStatus || formAny.bia_status || formAny.biastatus;
           const isApproved = biaValue?.toLowerCase() === 'approved';
 
-          return matchesProject && isPublished && isApproved;
+          const passes = matchesProject && isPublished && isApproved;
+          if (!passes) {
+            console.log(`Form "${form.name}" filtered out: matchesProject=${matchesProject}, isPublished=${isPublished}, isApproved=${isApproved}`);
+          }
+          return passes;
         });
 
-        console.log('External forms for project', pipeline?.projectId, ':', filteredForms.length);
+        console.log('Filtered forms count:', filteredForms.length);
         setAvailableForms(filteredForms);
       } catch (err) {
         console.error('Failed to fetch external forms:', err);
