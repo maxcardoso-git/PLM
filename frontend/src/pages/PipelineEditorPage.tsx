@@ -488,11 +488,16 @@ export function PipelineEditorPage() {
         selectedForm: selectedForm?.name,
       });
 
+      // Build payload - for external forms, only include version if it's a valid number
+      const externalVersion = selectedForm?.version != null
+        ? (typeof selectedForm.version === 'string' ? parseInt(selectedForm.version, 10) : selectedForm.version)
+        : undefined;
+
       const payload = isUsingExternalForms
         ? {
             externalFormId: selectedFormId,
             externalFormName: selectedForm?.name || 'Unknown Form',
-            externalFormVersion: selectedForm?.version,
+            ...(externalVersion != null && !isNaN(externalVersion) ? { externalFormVersion: externalVersion } : {}),
             defaultFormStatus: formSettings.defaultFormStatus,
             lockOnLeaveStage: formSettings.lockOnLeaveStage,
           }
