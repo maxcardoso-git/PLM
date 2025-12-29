@@ -12,6 +12,10 @@ import {
   CheckCircle2,
   Circle,
   Flag,
+  AlertTriangle,
+  X,
+  CheckCircle,
+  AlertCircle,
 } from 'lucide-react';
 import { useTenant } from '../context/TenantContext';
 import { Modal } from '../components/ui';
@@ -93,6 +97,14 @@ export function PipelineEditorPage() {
   const [transitionFrom, setTransitionFrom] = useState<Stage | null>(null);
   const [transitionTo, setTransitionTo] = useState<string>('');
   const [savingTransition, setSavingTransition] = useState(false);
+
+  // Confirmation modal
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{ type: string; data?: any } | null>(null);
+  const [publishing, setPublishing] = useState(false);
+
+  // Toast notification
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const headers = {
     'Content-Type': 'application/json',
@@ -215,17 +227,22 @@ export function PipelineEditorPage() {
     }
   };
 
-  const handleDeleteStage = async (stageId: string) => {
-    if (!confirm('Delete this stage?')) return;
+  const handleDeleteStageClick = (stage: Stage) => {
+    setConfirmAction({ type: 'deleteStage', data: stage });
+    setShowConfirmModal(true);
+  };
 
+  const handleDeleteStage = async (stageId: string) => {
     try {
       await fetch(`${API_BASE_URL}/stages/${stageId}`, {
         method: 'DELETE',
         headers,
       });
+      setShowConfirmModal(false);
       fetchVersionStages(selectedVersion);
+      showToast('success', 'Etapa excluída com sucesso!');
     } catch (err) {
-      console.error('Failed to delete stage:', err);
+      showToast('error', 'Falha ao excluir etapa');
     }
   };
 
@@ -260,9 +277,20 @@ export function PipelineEditorPage() {
     }
   };
 
-  const handlePublish = async () => {
-    if (!pipelineId || !confirm('Publish this version? This will make it available for new cards.')) return;
+  const showToast = (type: 'success' | 'error', message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 4000);
+  };
 
+  const handlePublishClick = () => {
+    setConfirmAction({ type: 'publish' });
+    setShowConfirmModal(true);
+  };
+
+  const handlePublish = async () => {
+    if (!pipelineId) return;
+
+    setPublishing(true);
     try {
       const res = await fetch(
         `${API_BASE_URL}/pipelines/${pipelineId}/versions/${selectedVersion}/publish`,
@@ -277,10 +305,13 @@ export function PipelineEditorPage() {
         throw new Error(data.message || 'Failed to publish');
       }
 
+      setShowConfirmModal(false);
       fetchPipeline();
-      alert('Pipeline published successfully!');
+      showToast('success', 'Pipeline publicado com sucesso!');
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to publish');
+      showToast('error', err instanceof Error ? err.message : 'Falha ao publicar');
+    } finally {
+      setPublishing(false);
     }
   };
 
@@ -340,13 +371,13 @@ export function PipelineEditorPage() {
           )}
 
           <button
-            onClick={handlePublish}
+            onClick={handlePublishClick}
             disabled={!canPublish}
             className="btn-primary"
             title={!canPublish ? 'Need at least one initial and one final stage' : ''}
           >
             <CheckCircle2 size={18} className="mr-2" />
-            Publish Version
+            Publicar
           </button>
         </div>
       </div>
@@ -467,7 +498,7 @@ export function PipelineEditorPage() {
                         <Settings size={16} />
                       </button>
                       <button
-                        onClick={() => handleDeleteStage(stage.id)}
+                        onClick={() => handleDeleteStageClick(stage)}
                         className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded"
                       >
                         <Trash2 size={16} />
@@ -631,6 +662,101 @@ export function PipelineEditorPage() {
           </div>
         </div>
       </Modal>
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => !publishing && setShowConfirmModal(false)}
+          />
+          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+            <div className="p-6">
+              <div className="flex items-center gap-4">
+                <div className={`p-3 rounded-full ${
+                  confirmAction?.type === 'publish'
+                    ? 'bg-blue-100'
+                    : 'bg-red-100'
+                }`}>
+                  {confirmAction?.type === 'publish' ? (
+                    <CheckCircle2 size={24} className="text-blue-600" />
+                  ) : (
+                    <AlertTriangle size={24} className="text-red-600" />
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {confirmAction?.type === 'publish'
+                      ? 'Publicar Pipeline'
+                      : 'Excluir Etapa'}
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {confirmAction?.type === 'publish'
+                      ? 'Esta versão ficará disponível para novos cards.'
+                      : `Tem certeza que deseja excluir "${confirmAction?.data?.name}"?`}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-100">
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                disabled={publishing}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  if (confirmAction?.type === 'publish') {
+                    handlePublish();
+                  } else if (confirmAction?.type === 'deleteStage') {
+                    handleDeleteStage(confirmAction.data.id);
+                  }
+                }}
+                disabled={publishing}
+                className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2 ${
+                  confirmAction?.type === 'publish'
+                    ? 'bg-blue-600 hover:bg-blue-700'
+                    : 'bg-red-600 hover:bg-red-700'
+                }`}
+              >
+                {publishing && (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                )}
+                {confirmAction?.type === 'publish'
+                  ? publishing ? 'Publicando...' : 'Publicar'
+                  : 'Excluir'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
+          <div className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border ${
+            toast.type === 'success'
+              ? 'bg-green-50 border-green-200 text-green-800'
+              : 'bg-red-50 border-red-200 text-red-800'
+          }`}>
+            {toast.type === 'success' ? (
+              <CheckCircle size={20} className="text-green-500" />
+            ) : (
+              <AlertCircle size={20} className="text-red-500" />
+            )}
+            <span className="text-sm font-medium">{toast.message}</span>
+            <button
+              onClick={() => setToast(null)}
+              className="ml-2 p-1 rounded hover:bg-black/5 transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
