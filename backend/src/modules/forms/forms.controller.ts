@@ -40,6 +40,17 @@ export class FormsController {
     return { items };
   }
 
+  @Get(':formId/pipelines')
+  @ApiOperation({ summary: 'Get pipelines that use this form' })
+  @ApiResponse({ status: 200, description: 'List of pipelines with linked stages' })
+  async findLinkedPipelines(
+    @Tenant() ctx: TenantContext,
+    @Param('formId') formId: string,
+  ) {
+    const items = await this.formsService.findLinkedPipelines(ctx, formId);
+    return { items };
+  }
+
   @Get(':formId')
   @ApiOperation({ summary: 'Get form definition' })
   @ApiResponse({ status: 200, description: 'Form found' })

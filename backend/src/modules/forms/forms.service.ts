@@ -107,4 +107,65 @@ export class FormsService {
       },
     });
   }
+
+  /**
+   * Find pipelines that have the specified form attached to any of their stages.
+   * This works with both internal form IDs and external form IDs (for imported forms).
+   */
+  async findLinkedPipelines(ctx: TenantContext, formId: string) {
+    // Find all stage-form attach rules for this form
+    const attachRules = await this.prisma.stageFormAttachRule.findMany({
+      where: {
+        formDefinitionId: formId,
+      },
+      include: {
+        stage: {
+          include: {
+            pipelineVersion: {
+              include: {
+                pipeline: {
+                  select: {
+                    id: true,
+                    key: true,
+                    name: true,
+                    tenantId: true,
+                    orgId: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Filter by tenant and collect unique pipelines with their stages
+    const pipelineMap = new Map<string, {
+      pipeline: { id: string; key: string; name: string };
+      stages: { id: string; name: string; versionNumber: number }[];
+    }>();
+
+    for (const rule of attachRules) {
+      const pipeline = rule.stage.pipelineVersion.pipeline;
+
+      // Filter by tenant
+      if (pipeline.tenantId !== ctx.tenantId) continue;
+      if (ctx.orgId && pipeline.orgId !== ctx.orgId) continue;
+
+      if (!pipelineMap.has(pipeline.id)) {
+        pipelineMap.set(pipeline.id, {
+          pipeline: { id: pipeline.id, key: pipeline.key, name: pipeline.name },
+          stages: [],
+        });
+      }
+
+      pipelineMap.get(pipeline.id)!.stages.push({
+        id: rule.stage.id,
+        name: rule.stage.name,
+        versionNumber: rule.stage.pipelineVersion.version,
+      });
+    }
+
+    return Array.from(pipelineMap.values());
+  }
 }

@@ -21,13 +21,28 @@ interface FormDefinition {
   updatedAt?: string;
 }
 
+interface FormFieldOption {
+  label: string;
+  value: string;
+}
+
 interface FormField {
-  id: string;
+  id?: string;
+  name?: string;
   type: string;
   label: string;
   required?: boolean;
   placeholder?: string;
-  options?: { label: string; value: string }[];
+  description?: string;
+  // Options can be strings OR objects with label/value
+  options?: (string | FormFieldOption)[];
+  validation?: {
+    min?: number;
+    max?: number;
+    minLength?: number;
+    maxLength?: number;
+    pattern?: string;
+  };
   min?: number;
   max?: number;
   minLength?: number;
@@ -36,6 +51,20 @@ interface FormField {
   helpText?: string;
   defaultValue?: string | number | boolean;
 }
+
+// Helper to get field identifier (id or name)
+const getFieldId = (field: FormField): string => field.id || field.name || '';
+
+// Helper to normalize options to {label, value} format
+const normalizeOptions = (options?: (string | FormFieldOption)[]): FormFieldOption[] => {
+  if (!options) return [];
+  return options.map(opt => {
+    if (typeof opt === 'string') {
+      return { label: opt, value: opt };
+    }
+    return opt;
+  });
+};
 
 interface FormSchema {
   id: string;
@@ -193,12 +222,13 @@ export function FormsPage() {
       const initialValues: Record<string, any> = {};
       if (schema.fields) {
         schema.fields.forEach((field: FormField) => {
+          const fieldId = getFieldId(field);
           if (field.defaultValue !== undefined) {
-            initialValues[field.id] = field.defaultValue;
-          } else if (field.type === 'boolean') {
-            initialValues[field.id] = false;
+            initialValues[fieldId] = field.defaultValue;
+          } else if (field.type === 'boolean' || field.type === 'checkbox') {
+            initialValues[fieldId] = false;
           } else {
-            initialValues[field.id] = '';
+            initialValues[fieldId] = '';
           }
         });
       }
@@ -240,8 +270,15 @@ export function FormsPage() {
   };
 
   const renderField = (field: FormField) => {
-    const value = formValues[field.id] ?? '';
+    const fieldId = getFieldId(field);
+    const value = formValues[fieldId] ?? '';
     const baseInputClass = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500";
+    // Get validation constraints from either flat properties or nested validation object
+    const minVal = field.min ?? field.validation?.min;
+    const maxVal = field.max ?? field.validation?.max;
+    const minLength = field.minLength ?? field.validation?.minLength;
+    const maxLength = field.maxLength ?? field.validation?.maxLength;
+    const pattern = field.pattern ?? field.validation?.pattern;
 
     switch (field.type) {
       case 'text':
@@ -252,25 +289,26 @@ export function FormsPage() {
           <input
             type={field.type}
             value={value}
-            onChange={(e) => handleFieldChange(field.id, e.target.value)}
+            onChange={(e) => handleFieldChange(fieldId, e.target.value)}
             placeholder={field.placeholder}
             className={baseInputClass}
-            minLength={field.minLength}
-            maxLength={field.maxLength}
-            pattern={field.pattern}
+            minLength={minLength}
+            maxLength={maxLength}
+            pattern={pattern}
           />
         );
 
       case 'number':
+      case 'rating':
         return (
           <input
             type="number"
             value={value}
-            onChange={(e) => handleFieldChange(field.id, e.target.value)}
+            onChange={(e) => handleFieldChange(fieldId, e.target.value)}
             placeholder={field.placeholder}
             className={baseInputClass}
-            min={field.min}
-            max={field.max}
+            min={minVal}
+            max={maxVal}
           />
         );
 
@@ -279,7 +317,7 @@ export function FormsPage() {
           <input
             type="date"
             value={value}
-            onChange={(e) => handleFieldChange(field.id, e.target.value)}
+            onChange={(e) => handleFieldChange(fieldId, e.target.value)}
             className={baseInputClass}
           />
         );
@@ -289,7 +327,7 @@ export function FormsPage() {
           <input
             type="datetime-local"
             value={value}
-            onChange={(e) => handleFieldChange(field.id, e.target.value)}
+            onChange={(e) => handleFieldChange(fieldId, e.target.value)}
             className={baseInputClass}
           />
         );
@@ -299,7 +337,7 @@ export function FormsPage() {
           <input
             type="time"
             value={value}
-            onChange={(e) => handleFieldChange(field.id, e.target.value)}
+            onChange={(e) => handleFieldChange(fieldId, e.target.value)}
             className={baseInputClass}
           />
         );
@@ -308,42 +346,45 @@ export function FormsPage() {
         return (
           <textarea
             value={value}
-            onChange={(e) => handleFieldChange(field.id, e.target.value)}
+            onChange={(e) => handleFieldChange(fieldId, e.target.value)}
             placeholder={field.placeholder}
             className={baseInputClass}
             rows={4}
-            minLength={field.minLength}
-            maxLength={field.maxLength}
+            minLength={minLength}
+            maxLength={maxLength}
           />
         );
 
-      case 'select':
+      case 'select': {
+        const options = normalizeOptions(field.options);
         return (
           <select
             value={value}
-            onChange={(e) => handleFieldChange(field.id, e.target.value)}
+            onChange={(e) => handleFieldChange(fieldId, e.target.value)}
             className={baseInputClass}
           >
             <option value="">Selecione...</option>
-            {field.options?.map((opt) => (
+            {options.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
             ))}
           </select>
         );
+      }
 
-      case 'radio':
+      case 'radio': {
+        const options = normalizeOptions(field.options);
         return (
           <div className="space-y-2">
-            {field.options?.map((opt) => (
+            {options.map((opt) => (
               <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="radio"
-                  name={field.id}
+                  name={fieldId}
                   value={opt.value}
                   checked={value === opt.value}
-                  onChange={(e) => handleFieldChange(field.id, e.target.value)}
+                  onChange={(e) => handleFieldChange(fieldId, e.target.value)}
                   className="w-4 h-4 text-blue-600"
                 />
                 <span className="text-sm text-gray-700">{opt.label}</span>
@@ -351,31 +392,49 @@ export function FormsPage() {
             ))}
           </div>
         );
+      }
 
-      case 'checkbox':
+      case 'checkbox': {
+        // Checkbox with options (multiple selection)
+        if (field.options && field.options.length > 0) {
+          const options = normalizeOptions(field.options);
+          return (
+            <div className="space-y-2">
+              {options.map((opt) => (
+                <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    value={opt.value}
+                    checked={Array.isArray(value) ? value.includes(opt.value) : false}
+                    onChange={(e) => {
+                      const currentValues = Array.isArray(value) ? value : [];
+                      if (e.target.checked) {
+                        handleFieldChange(fieldId, [...currentValues, opt.value]);
+                      } else {
+                        handleFieldChange(fieldId, currentValues.filter((v: string) => v !== opt.value));
+                      }
+                    }}
+                    className="w-4 h-4 text-blue-600 rounded"
+                  />
+                  <span className="text-sm text-gray-700">{opt.label}</span>
+                </label>
+              ))}
+            </div>
+          );
+        }
+        // Single checkbox (boolean-like)
         return (
-          <div className="space-y-2">
-            {field.options?.map((opt) => (
-              <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  value={opt.value}
-                  checked={Array.isArray(value) ? value.includes(opt.value) : false}
-                  onChange={(e) => {
-                    const currentValues = Array.isArray(value) ? value : [];
-                    if (e.target.checked) {
-                      handleFieldChange(field.id, [...currentValues, opt.value]);
-                    } else {
-                      handleFieldChange(field.id, currentValues.filter((v: string) => v !== opt.value));
-                    }
-                  }}
-                  className="w-4 h-4 text-blue-600 rounded"
-                />
-                <span className="text-sm text-gray-700">{opt.label}</span>
-              </label>
-            ))}
-          </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={!!value}
+              onChange={(e) => handleFieldChange(fieldId, e.target.checked)}
+              className="w-4 h-4 text-blue-600 rounded"
+            />
+            <span className="text-sm text-gray-700">Sim</span>
+          </label>
         );
+      }
 
       case 'boolean':
         return (
@@ -383,7 +442,7 @@ export function FormsPage() {
             <input
               type="checkbox"
               checked={!!value}
-              onChange={(e) => handleFieldChange(field.id, e.target.checked)}
+              onChange={(e) => handleFieldChange(fieldId, e.target.checked)}
               className="w-4 h-4 text-blue-600 rounded"
             />
             <span className="text-sm text-gray-700">Sim</span>
@@ -394,7 +453,7 @@ export function FormsPage() {
         return (
           <input
             type="file"
-            onChange={(e) => handleFieldChange(field.id, e.target.files?.[0]?.name || '')}
+            onChange={(e) => handleFieldChange(fieldId, e.target.files?.[0]?.name || '')}
             className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
           />
         );
@@ -404,7 +463,7 @@ export function FormsPage() {
           <input
             type="text"
             value={value}
-            onChange={(e) => handleFieldChange(field.id, e.target.value)}
+            onChange={(e) => handleFieldChange(fieldId, e.target.value)}
             placeholder={field.placeholder}
             className={baseInputClass}
           />
@@ -610,14 +669,14 @@ export function FormsPage() {
               {formSchema.fields && formSchema.fields.length > 0 ? (
                 <div className="space-y-5">
                   {formSchema.fields.map((field) => (
-                    <div key={field.id}>
+                    <div key={getFieldId(field)}>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         {field.label}
                         {field.required && <span className="text-red-500 ml-1">*</span>}
                       </label>
                       {renderField(field)}
-                      {field.helpText && (
-                        <p className="text-xs text-gray-500 mt-1">{field.helpText}</p>
+                      {(field.helpText || field.description) && (
+                        <p className="text-xs text-gray-500 mt-1">{field.helpText || field.description}</p>
                       )}
                     </div>
                   ))}
