@@ -18,6 +18,9 @@ import {
   AlertCircle,
   FileText,
   Link2,
+  XCircle,
+  GitBranch,
+  List,
 } from 'lucide-react';
 import { useTenant } from '../context/TenantContext';
 import { Modal } from '../components/ui';
@@ -36,6 +39,11 @@ interface FormAttachRule {
   };
 }
 
+interface Transition {
+  id: string;
+  toStage: { id: string; name: string; color: string };
+}
+
 interface Stage {
   id: string;
   name: string;
@@ -47,9 +55,11 @@ interface Stage {
   wipLimit?: number;
   slaHours?: number;
   active: boolean;
-  transitionsFrom?: { toStage: { id: string; name: string; color: string } }[];
+  transitionsFrom?: Transition[];
   formAttachRules?: FormAttachRule[];
 }
+
+type EditorTab = 'stages' | 'flow';
 
 interface FormDefinition {
   id: string;
@@ -99,6 +109,7 @@ export function PipelineEditorPage() {
   const [stages, setStages] = useState<Stage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<EditorTab>('stages');
 
   // Stage modal
   const [showStageModal, setShowStageModal] = useState(false);
@@ -124,6 +135,7 @@ export function PipelineEditorPage() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ type: string; data?: any } | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [unpublishing, setUnpublishing] = useState(false);
 
   // Toast notification
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -303,10 +315,25 @@ export function PipelineEditorPage() {
       );
       setShowTransitionModal(false);
       fetchVersionStages(selectedVersion);
+      showToast('success', 'Transição adicionada!');
     } catch (err) {
       console.error('Failed to create transition:', err);
+      showToast('error', 'Falha ao adicionar transição');
     } finally {
       setSavingTransition(false);
+    }
+  };
+
+  const handleDeleteTransition = async (transitionId: string) => {
+    try {
+      await fetch(`${API_BASE_URL}/transitions/${transitionId}`, {
+        method: 'DELETE',
+        headers,
+      });
+      fetchVersionStages(selectedVersion);
+      showToast('success', 'Transição removida!');
+    } catch (err) {
+      showToast('error', 'Falha ao remover transição');
     }
   };
 
@@ -417,6 +444,39 @@ export function PipelineEditorPage() {
     }
   };
 
+  const handleUnpublishClick = () => {
+    setConfirmAction({ type: 'unpublish' });
+    setShowConfirmModal(true);
+  };
+
+  const handleUnpublish = async () => {
+    if (!pipelineId) return;
+
+    setUnpublishing(true);
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/pipelines/${pipelineId}/versions/${selectedVersion}/unpublish`,
+        {
+          method: 'POST',
+          headers,
+        }
+      );
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || 'Failed to unpublish');
+      }
+
+      setShowConfirmModal(false);
+      fetchPipeline();
+      showToast('success', 'Pipeline despublicado com sucesso!');
+    } catch (err) {
+      showToast('error', err instanceof Error ? err.message : 'Falha ao despublicar');
+    } finally {
+      setUnpublishing(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -441,6 +501,7 @@ export function PipelineEditorPage() {
     stages.some((s) => s.isInitial) &&
     stages.some((s) => s.isFinal) &&
     currentVersion?.status === 'draft';
+  const canUnpublish = currentVersion?.status === 'published';
 
   return (
     <div className="h-full flex flex-col">
@@ -469,6 +530,16 @@ export function PipelineEditorPage() {
             >
               <Play size={18} className="mr-2" />
               View Kanban
+            </button>
+          )}
+
+          {canUnpublish && (
+            <button
+              onClick={handleUnpublishClick}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
+            >
+              <XCircle size={18} />
+              Despublicar
             </button>
           )}
 
@@ -511,15 +582,42 @@ export function PipelineEditorPage() {
         </button>
       </div>
 
-      {/* Stages */}
+      {/* Tabs */}
+      <div className="flex items-center gap-1 mb-4 border-b border-gray-200">
+        <button
+          onClick={() => setActiveTab('stages')}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+            activeTab === 'stages'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          }`}
+        >
+          <List size={16} />
+          Etapas ({stages.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('flow')}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+            activeTab === 'flow'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          }`}
+        >
+          <GitBranch size={16} />
+          Fluxo Visual
+        </button>
+      </div>
+
+      {/* Stages Tab */}
+      {activeTab === 'stages' && (
       <div className="flex-1 overflow-auto">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900">
-            Stages ({stages.length})
+            Configurar Etapas e Transições
           </h2>
           <button onClick={handleCreateStage} className="btn-primary btn-sm">
             <Plus size={16} className="mr-1" />
-            Add Stage
+            Adicionar Etapa
           </button>
         </div>
 
@@ -572,22 +670,30 @@ export function PipelineEditorPage() {
                     </div>
 
                     {/* Transitions */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       {stage.transitionsFrom?.map((t) => (
                         <span
-                          key={t.toStage.id}
-                          className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600 flex items-center gap-1"
+                          key={t.id}
+                          className="text-xs px-2 py-1 rounded-full bg-blue-50 text-blue-700 flex items-center gap-1 group"
                         >
                           <ArrowRight size={12} />
                           {t.toStage.name}
+                          <button
+                            onClick={() => handleDeleteTransition(t.id)}
+                            className="ml-1 text-blue-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Remover transição"
+                          >
+                            <X size={12} />
+                          </button>
                         </span>
                       ))}
                       <button
                         onClick={() => handleAddTransition(stage)}
-                        className="p-1 text-blue-500 hover:bg-blue-50 rounded"
-                        title="Add transition"
+                        className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded-full border border-dashed border-blue-300"
+                        title="Adicionar transição"
                       >
-                        <ArrowRight size={16} />
+                        <Plus size={12} />
+                        Transição
                       </button>
                     </div>
 
@@ -652,6 +758,196 @@ export function PipelineEditorPage() {
           </div>
         )}
       </div>
+      )}
+
+      {/* Flow Visualization Tab */}
+      {activeTab === 'flow' && (
+        <div className="flex-1 overflow-auto">
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Visualização do Fluxo</h3>
+
+            {stages.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <GitBranch size={48} className="mx-auto mb-3 text-gray-300" />
+                <p>Adicione etapas para visualizar o fluxo</p>
+              </div>
+            ) : (
+              <div className="space-y-8">
+                {/* Legend */}
+                <div className="flex items-center gap-6 text-xs text-gray-500 border-b pb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-green-500" />
+                    <span>Etapa Inicial</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-blue-500" />
+                    <span>Etapa Final</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <ArrowRight size={14} className="text-gray-400" />
+                    <span>Transição permitida</span>
+                  </div>
+                </div>
+
+                {/* Flow Diagram */}
+                <div className="relative">
+                  {/* Stages as columns */}
+                  <div className="flex gap-4 overflow-x-auto pb-4">
+                    {stages
+                      .sort((a, b) => a.stageOrder - b.stageOrder)
+                      .map((stage, index) => (
+                        <div
+                          key={stage.id}
+                          className="flex-shrink-0 w-48"
+                        >
+                          {/* Stage Node */}
+                          <div
+                            className={`relative p-4 rounded-lg border-2 ${
+                              stage.isInitial
+                                ? 'border-green-500 bg-green-50'
+                                : stage.isFinal
+                                ? 'border-blue-500 bg-blue-50'
+                                : 'border-gray-200 bg-white'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 mb-2">
+                              <div
+                                className="w-4 h-4 rounded-full"
+                                style={{ backgroundColor: stage.color }}
+                              />
+                              <span className="font-medium text-gray-900 text-sm truncate">
+                                {stage.name}
+                              </span>
+                            </div>
+
+                            {stage.isInitial && (
+                              <div className="flex items-center gap-1 text-xs text-green-600 mb-1">
+                                <Play size={10} />
+                                <span>Início</span>
+                              </div>
+                            )}
+                            {stage.isFinal && (
+                              <div className="flex items-center gap-1 text-xs text-blue-600 mb-1">
+                                <Flag size={10} />
+                                <span>Final</span>
+                              </div>
+                            )}
+
+                            {/* Transitions from this stage */}
+                            {stage.transitionsFrom && stage.transitionsFrom.length > 0 && (
+                              <div className="mt-3 pt-2 border-t border-gray-200">
+                                <p className="text-xs text-gray-500 mb-1">Pode ir para:</p>
+                                <div className="space-y-1">
+                                  {stage.transitionsFrom.map((t) => (
+                                    <div
+                                      key={t.id}
+                                      className="flex items-center gap-1 text-xs text-gray-700 bg-gray-100 rounded px-2 py-1"
+                                    >
+                                      <ArrowRight size={10} className="text-gray-400" />
+                                      <span className="truncate">{t.toStage.name}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* No transitions warning */}
+                            {(!stage.transitionsFrom || stage.transitionsFrom.length === 0) && !stage.isFinal && (
+                              <div className="mt-3 pt-2 border-t border-gray-200">
+                                <div className="flex items-center gap-1 text-xs text-amber-600">
+                                  <AlertTriangle size={10} />
+                                  <span>Sem transições</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Arrow to next */}
+                          {index < stages.length - 1 && (
+                            <div className="absolute top-1/2 -right-4 transform -translate-y-1/2 text-gray-300">
+                              <ArrowRight size={20} />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                </div>
+
+                {/* Transition Matrix */}
+                <div className="mt-8">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Matriz de Transições</h4>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full border border-gray-200 text-xs">
+                      <thead>
+                        <tr className="bg-gray-50">
+                          <th className="border border-gray-200 px-3 py-2 text-left font-medium text-gray-600">
+                            De \ Para
+                          </th>
+                          {stages.map((s) => (
+                            <th
+                              key={s.id}
+                              className="border border-gray-200 px-3 py-2 text-center font-medium text-gray-600"
+                            >
+                              <div className="flex items-center gap-1 justify-center">
+                                <div
+                                  className="w-2 h-2 rounded-full"
+                                  style={{ backgroundColor: s.color }}
+                                />
+                                <span className="truncate max-w-[60px]">{s.name}</span>
+                              </div>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {stages.map((fromStage) => (
+                          <tr key={fromStage.id}>
+                            <td className="border border-gray-200 px-3 py-2 font-medium text-gray-700 bg-gray-50">
+                              <div className="flex items-center gap-1">
+                                <div
+                                  className="w-2 h-2 rounded-full"
+                                  style={{ backgroundColor: fromStage.color }}
+                                />
+                                <span className="truncate max-w-[80px]">{fromStage.name}</span>
+                              </div>
+                            </td>
+                            {stages.map((toStage) => {
+                              const hasTransition = fromStage.transitionsFrom?.some(
+                                (t) => t.toStage.id === toStage.id
+                              );
+                              const isSame = fromStage.id === toStage.id;
+                              return (
+                                <td
+                                  key={toStage.id}
+                                  className={`border border-gray-200 px-3 py-2 text-center ${
+                                    isSame
+                                      ? 'bg-gray-100'
+                                      : hasTransition
+                                      ? 'bg-green-50'
+                                      : ''
+                                  }`}
+                                >
+                                  {isSame ? (
+                                    <span className="text-gray-300">-</span>
+                                  ) : hasTransition ? (
+                                    <CheckCircle size={14} className="text-green-500 mx-auto" />
+                                  ) : (
+                                    <span className="text-gray-300">○</span>
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Stage Modal */}
       <Modal
@@ -887,7 +1183,7 @@ export function PipelineEditorPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div
             className="absolute inset-0 bg-black/50"
-            onClick={() => !publishing && setShowConfirmModal(false)}
+            onClick={() => !publishing && !unpublishing && setShowConfirmModal(false)}
           />
           <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
             <div className="p-6">
@@ -895,10 +1191,14 @@ export function PipelineEditorPage() {
                 <div className={`p-3 rounded-full ${
                   confirmAction?.type === 'publish'
                     ? 'bg-blue-100'
+                    : confirmAction?.type === 'unpublish'
+                    ? 'bg-amber-100'
                     : 'bg-red-100'
                 }`}>
                   {confirmAction?.type === 'publish' ? (
                     <CheckCircle2 size={24} className="text-blue-600" />
+                  ) : confirmAction?.type === 'unpublish' ? (
+                    <XCircle size={24} className="text-amber-600" />
                   ) : (
                     <AlertTriangle size={24} className="text-red-600" />
                   )}
@@ -907,6 +1207,8 @@ export function PipelineEditorPage() {
                   <h3 className="text-lg font-semibold text-gray-900">
                     {confirmAction?.type === 'publish'
                       ? 'Publicar Pipeline'
+                      : confirmAction?.type === 'unpublish'
+                      ? 'Despublicar Pipeline'
                       : confirmAction?.type === 'detachForm'
                       ? 'Desvincular Formulário'
                       : 'Excluir Etapa'}
@@ -914,6 +1216,8 @@ export function PipelineEditorPage() {
                   <p className="text-sm text-gray-500 mt-1">
                     {confirmAction?.type === 'publish'
                       ? 'Esta versão ficará disponível para novos cards.'
+                      : confirmAction?.type === 'unpublish'
+                      ? 'Esta versão voltará para rascunho e não poderá receber novos cards até ser republicada.'
                       : confirmAction?.type === 'detachForm'
                       ? 'Tem certeza que deseja remover este formulário da etapa?'
                       : `Tem certeza que deseja excluir "${confirmAction?.data?.name}"?`}
@@ -925,7 +1229,7 @@ export function PipelineEditorPage() {
             <div className="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-100">
               <button
                 onClick={() => setShowConfirmModal(false)}
-                disabled={publishing}
+                disabled={publishing || unpublishing}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
                 Cancelar
@@ -934,24 +1238,30 @@ export function PipelineEditorPage() {
                 onClick={() => {
                   if (confirmAction?.type === 'publish') {
                     handlePublish();
+                  } else if (confirmAction?.type === 'unpublish') {
+                    handleUnpublish();
                   } else if (confirmAction?.type === 'deleteStage') {
                     handleDeleteStage(confirmAction.data.id);
                   } else if (confirmAction?.type === 'detachForm') {
                     executeDetachForm(confirmAction.data.ruleId);
                   }
                 }}
-                disabled={publishing}
+                disabled={publishing || unpublishing}
                 className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2 ${
                   confirmAction?.type === 'publish'
                     ? 'bg-blue-600 hover:bg-blue-700'
+                    : confirmAction?.type === 'unpublish'
+                    ? 'bg-amber-600 hover:bg-amber-700'
                     : 'bg-red-600 hover:bg-red-700'
                 }`}
               >
-                {publishing && (
+                {(publishing || unpublishing) && (
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 )}
                 {confirmAction?.type === 'publish'
                   ? publishing ? 'Publicando...' : 'Publicar'
+                  : confirmAction?.type === 'unpublish'
+                  ? unpublishing ? 'Despublicando...' : 'Despublicar'
                   : confirmAction?.type === 'detachForm'
                   ? 'Desvincular'
                   : 'Excluir'}

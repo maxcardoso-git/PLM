@@ -119,4 +119,16 @@ export class PipelinesController {
   ) {
     return this.pipelinesService.publishVersion(ctx, pipelineId, version);
   }
+
+  @Post(':pipelineId/versions/:version/unpublish')
+  @ApiOperation({ summary: 'Unpublish pipeline version (revert to draft)' })
+  @ApiResponse({ status: 200, description: 'Version unpublished' })
+  @ApiResponse({ status: 400, description: 'Cannot unpublish if active cards exist' })
+  unpublishVersion(
+    @Tenant() ctx: TenantContext,
+    @Param('pipelineId', ParseUUIDPipe) pipelineId: string,
+    @Param('version', ParseIntPipe) version: number,
+  ) {
+    return this.pipelinesService.unpublishVersion(ctx, pipelineId, version);
+  }
 }

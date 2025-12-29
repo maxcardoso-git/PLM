@@ -8,6 +8,13 @@ export interface ExternalFormsConfig {
   enabled: boolean;
 }
 
+export interface ExternalProjectsConfig {
+  baseUrl: string;
+  listEndpoint: string;
+  apiKey: string;
+  enabled: boolean;
+}
+
 export interface TenantConfig {
   tenantId: string;
   orgId: string;
@@ -15,14 +22,17 @@ export interface TenantConfig {
 
 export interface PLMSettings {
   externalForms: ExternalFormsConfig;
+  externalProjects: ExternalProjectsConfig;
   tenant: TenantConfig;
 }
 
 interface SettingsContextType {
   settings: PLMSettings;
   updateExternalFormsConfig: (config: Partial<ExternalFormsConfig>) => void;
+  updateExternalProjectsConfig: (config: Partial<ExternalProjectsConfig>) => void;
   updateTenantConfig: (config: Partial<TenantConfig>) => void;
   isConfigured: boolean;
+  isProjectsConfigured: boolean;
   isTenantConfigured: boolean;
 }
 
@@ -30,6 +40,12 @@ const defaultSettings: PLMSettings = {
   externalForms: {
     baseUrl: '',
     listEndpoint: '/data-entry-forms/external/list',
+    apiKey: '',
+    enabled: false,
+  },
+  externalProjects: {
+    baseUrl: '',
+    listEndpoint: '/projects/external/list',
     apiKey: '',
     enabled: false,
   },
@@ -57,6 +73,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             ...defaultSettings.externalForms,
             ...parsed.externalForms,
           },
+          externalProjects: {
+            ...defaultSettings.externalProjects,
+            ...parsed.externalProjects,
+          },
           tenant: {
             ...defaultSettings.tenant,
             ...parsed.tenant,
@@ -83,6 +103,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const updateExternalProjectsConfig = (config: Partial<ExternalProjectsConfig>) => {
+    setSettings((prev) => ({
+      ...prev,
+      externalProjects: {
+        ...prev.externalProjects,
+        ...config,
+      },
+    }));
+  };
+
   const updateTenantConfig = (config: Partial<TenantConfig>) => {
     setSettings((prev) => ({
       ...prev,
@@ -99,6 +129,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     settings.externalForms.enabled
   );
 
+  const isProjectsConfigured = Boolean(
+    settings.externalProjects.baseUrl &&
+    settings.externalProjects.apiKey &&
+    settings.externalProjects.enabled
+  );
+
   const isTenantConfigured = Boolean(
     settings.tenant.tenantId &&
     settings.tenant.orgId
@@ -109,8 +145,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       value={{
         settings,
         updateExternalFormsConfig,
+        updateExternalProjectsConfig,
         updateTenantConfig,
         isConfigured,
+        isProjectsConfigured,
         isTenantConfigured,
       }}
     >

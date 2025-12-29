@@ -1,73 +1,37 @@
 import { useState, useEffect } from 'react';
-import { FileText, AlertCircle, Settings, ExternalLink, RefreshCw, Eye } from 'lucide-react';
+import { FileText, AlertCircle, RefreshCw, Eye, Plus, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useSettings } from '../context/SettingsContext';
+import { api } from '../services/api';
+import { useTenant } from '../context/TenantContext';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+type TabFilter = 'all' | 'published' | 'draft';
 
-interface ExternalForm {
+interface FormDefinition {
   id: string;
   name: string;
-  description?: string;
   status: string;
-  version?: number;
+  version: number;
   createdAt?: string;
   updatedAt?: string;
 }
 
 export function FormsPage() {
-  const { settings, isConfigured } = useSettings();
-  const [forms, setForms] = useState<ExternalForm[]>([]);
+  const { organization } = useTenant();
+  const [forms, setForms] = useState<FormDefinition[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabFilter>('all');
 
-  const fetchForms = async () => {
-    if (!isConfigured) return;
+  const fetchForms = async (filter?: TabFilter) => {
+    if (!organization) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      // Use PLM backend proxy to avoid CORS issues
-      const endpoint = settings.externalForms.listEndpoint || '/data-entry-forms/external/list';
-      const response = await fetch(`${API_BASE_URL}/external-forms/proxy`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          baseUrl: settings.externalForms.baseUrl,
-          endpoint,
-          apiKey: settings.externalForms.apiKey,
-          method: 'GET',
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Failed to fetch forms: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      // Handle various API response structures
-      let formsList: ExternalForm[] = [];
-      if (Array.isArray(data)) {
-        formsList = data;
-      } else if (Array.isArray(data.items)) {
-        formsList = data.items;
-      } else if (Array.isArray(data.data)) {
-        formsList = data.data;
-      } else if (Array.isArray(data.results)) {
-        formsList = data.results;
-      } else if (Array.isArray(data.forms)) {
-        formsList = data.forms;
-      } else {
-        console.warn('Unexpected API response structure:', data);
-        throw new Error('Unexpected API response format. Check the List Endpoint configuration.');
-      }
-
-      setForms(formsList);
+      const status = filter === 'all' || !filter ? undefined : filter;
+      const { items } = await api.getForms(status);
+      setForms(items || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch forms');
     } finally {
@@ -76,37 +40,24 @@ export function FormsPage() {
   };
 
   useEffect(() => {
-    if (isConfigured) {
-      fetchForms();
+    if (organization) {
+      fetchForms(activeTab);
     }
-  }, [isConfigured, settings.externalForms.baseUrl, settings.externalForms.listEndpoint]);
+  }, [organization, activeTab]);
 
-  if (!isConfigured) {
+  const tabs: { key: TabFilter; label: string }[] = [
+    { key: 'all', label: 'Todos' },
+    { key: 'published', label: 'Publicados' },
+    { key: 'draft', label: 'Rascunhos' },
+  ];
+
+  if (!organization) {
     return (
-      <div className="p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <FileText className="text-gray-400" size={28} />
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Forms</h1>
-            <p className="text-sm text-gray-500">External form definitions</p>
-          </div>
-        </div>
-
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 text-center">
-          <AlertCircle className="mx-auto text-amber-500 mb-3" size={40} />
-          <h2 className="text-lg font-semibold text-amber-800 mb-2">
-            External Forms API Not Configured
-          </h2>
-          <p className="text-sm text-amber-700 mb-4">
-            Please configure the external Forms API in Settings to view available forms.
-          </p>
-          <Link
-            to="/settings"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700"
-          >
-            <Settings size={16} />
-            Go to Settings
-          </Link>
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <Users size={48} className="mx-auto text-gray-400 mb-4" />
+          <h2 className="text-xl font-semibold text-gray-600">Selecione uma Organização</h2>
+          <p className="text-gray-500 mt-2">Escolha um tenant e organização na barra lateral para ver formulários.</p>
         </div>
       </div>
     );
@@ -118,20 +69,44 @@ export function FormsPage() {
         <div className="flex items-center gap-3">
           <FileText className="text-gray-400" size={28} />
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Forms</h1>
-            <p className="text-sm text-gray-500">
-              External form definitions from {new URL(settings.externalForms.baseUrl).host}
-            </p>
+            <h1 className="text-2xl font-bold text-gray-900">Formulários</h1>
+            <p className="text-sm text-gray-500">Definições de formulários</p>
           </div>
         </div>
-        <button
-          onClick={fetchForms}
-          disabled={loading}
-          className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50"
-        >
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => fetchForms(activeTab)}
+            disabled={loading}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50"
+          >
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+            Atualizar
+          </button>
+          <Link
+            to="/forms/new"
+            className="btn-primary"
+          >
+            <Plus size={18} className="mr-2" />
+            Novo Formulário
+          </Link>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-1 mb-6 border-b border-gray-200">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+              activeTab === tab.key
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {error && (
@@ -148,9 +123,31 @@ export function FormsPage() {
           <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full" />
         </div>
       ) : forms.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
+        <div className="text-center py-12 bg-white rounded-lg border border-dashed border-gray-300">
           <FileText className="mx-auto mb-3 text-gray-300" size={48} />
-          <p>No forms available</p>
+          <h2 className="text-lg font-medium text-gray-600">
+            {activeTab === 'all'
+              ? 'Nenhum formulário ainda'
+              : activeTab === 'published'
+              ? 'Nenhum formulário publicado'
+              : 'Nenhum rascunho'}
+          </h2>
+          <p className="text-gray-500 mt-1">
+            {activeTab === 'all'
+              ? 'Crie seu primeiro formulário para começar'
+              : activeTab === 'published'
+              ? 'Publique um formulário para vê-lo aqui'
+              : 'Formulários em rascunho aparecerão aqui'}
+          </p>
+          {activeTab === 'all' && (
+            <Link
+              to="/forms/new"
+              className="btn-primary mt-4 inline-flex"
+            >
+              <Plus size={18} className="mr-2" />
+              Criar Formulário
+            </Link>
+          )}
         </div>
       ) : (
         <div className="grid gap-4">
@@ -166,12 +163,8 @@ export function FormsPage() {
                   </div>
                   <div>
                     <h3 className="font-medium text-gray-900">{form.name}</h3>
-                    {form.description && (
-                      <p className="text-sm text-gray-500 mt-1">{form.description}</p>
-                    )}
                     <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
-                      <span>ID: {form.id}</span>
-                      {form.version && <span>v{form.version}</span>}
+                      <span>v{form.version}</span>
                     </div>
                   </div>
                 </div>
@@ -190,20 +183,11 @@ export function FormsPage() {
                   <Link
                     to={`/forms/${form.id}`}
                     className="flex items-center gap-1 px-2 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded"
-                    title="View form"
+                    title="Ver formulário"
                   >
                     <Eye size={16} />
-                    View
+                    Ver
                   </Link>
-                  <a
-                    href={`${settings.externalForms.baseUrl}/data-entry-forms/external/${form.id}/schema`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-1 text-gray-400 hover:text-blue-600"
-                    title="View schema"
-                  >
-                    <ExternalLink size={16} />
-                  </a>
                 </div>
               </div>
             </div>

@@ -330,4 +330,64 @@ export class PipelinesService {
       return updatedVersion;
     });
   }
+
+  async unpublishVersion(ctx: TenantContext, pipelineId: string, version: number) {
+    const pipeline = await this.findOne(ctx, pipelineId);
+    const pipelineVersion = await this.getVersion(ctx, pipelineId, version);
+
+    if (pipelineVersion.status !== 'published') {
+      throw new BadRequestException('Version is not published');
+    }
+
+    // Check if there are active cards using this version
+    const activeCardsCount = await this.prisma.card.count({
+      where: {
+        pipelineId,
+        status: 'active',
+      },
+    });
+
+    if (activeCardsCount > 0) {
+      throw new BadRequestException(
+        `Cannot unpublish: there are ${activeCardsCount} active cards in this pipeline. Archive or move them first.`,
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // Revert version to draft
+      const updatedVersion = await tx.pipelineVersion.update({
+        where: { id: pipelineVersion.id },
+        data: {
+          status: 'draft',
+          publishedAt: null,
+        },
+      });
+
+      // Clear published version from pipeline
+      await tx.pipeline.update({
+        where: { id: pipelineId },
+        data: {
+          publishedVersion: null,
+          lifecycleStatus: 'draft',
+        },
+      });
+
+      await tx.outboxEvent.create({
+        data: {
+          tenantId: ctx.tenantId,
+          orgId: ctx.orgId!,
+          eventType: 'PLM.PIPE.UNPUBLISHED',
+          entityType: 'Pipeline',
+          entityId: pipelineId,
+          payload: {
+            pipelineId,
+            version,
+          },
+          status: 'pending',
+        },
+      });
+
+      return updatedVersion;
+    });
+  }
 }

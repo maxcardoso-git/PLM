@@ -7,6 +7,8 @@ import { useTenant } from '../context/TenantContext';
 import { Modal } from '../components/ui';
 import type { Pipeline } from '../types';
 
+type TabFilter = 'all' | 'published' | 'draft';
+
 export function PipelinesPage() {
   const { organization } = useTenant();
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
@@ -15,12 +17,14 @@ export function PipelinesPage() {
   const [newPipeline, setNewPipeline] = useState({ key: '', name: '', description: '' });
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabFilter>('all');
 
-  const fetchPipelines = async () => {
+  const fetchPipelines = async (filter?: TabFilter) => {
     if (!organization) return;
     setLoading(true);
     try {
-      const { items } = await api.getPipelines();
+      const status = filter === 'all' || !filter ? undefined : filter;
+      const { items } = await api.getPipelines(status);
       setPipelines(items);
     } catch (err) {
       console.error('Failed to fetch pipelines:', err);
@@ -30,8 +34,8 @@ export function PipelinesPage() {
   };
 
   useEffect(() => {
-    fetchPipelines();
-  }, [organization]);
+    fetchPipelines(activeTab);
+  }, [organization, activeTab]);
 
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
@@ -43,7 +47,7 @@ export function PipelinesPage() {
       await api.createPipeline(newPipeline);
       setShowCreateModal(false);
       setNewPipeline({ key: '', name: '', description: '' });
-      fetchPipelines();
+      fetchPipelines(activeTab);
     } catch (err: any) {
       const message = err.response?.data?.message || err.message || 'Failed to create pipeline';
       setError(message);
@@ -72,6 +76,12 @@ export function PipelinesPage() {
     );
   }
 
+  const tabs: { key: TabFilter; label: string }[] = [
+    { key: 'all', label: 'Todos' },
+    { key: 'published', label: 'Publicados' },
+    { key: 'draft', label: 'Rascunhos' },
+  ];
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -88,6 +98,23 @@ export function PipelinesPage() {
         </button>
       </div>
 
+      {/* Tabs */}
+      <div className="flex items-center gap-1 mb-6 border-b border-gray-200">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+              activeTab === tab.key
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <div className="text-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
@@ -96,15 +123,29 @@ export function PipelinesPage() {
       ) : pipelines.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-lg border border-dashed border-gray-300">
           <Workflow size={48} className="mx-auto text-gray-400 mb-4" />
-          <h2 className="text-lg font-medium text-gray-600">No pipelines yet</h2>
-          <p className="text-gray-500 mt-1">Create your first pipeline to get started</p>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="btn-primary mt-4"
-          >
-            <Plus size={18} className="mr-2" />
-            Create Pipeline
-          </button>
+          <h2 className="text-lg font-medium text-gray-600">
+            {activeTab === 'all'
+              ? 'Nenhum pipeline ainda'
+              : activeTab === 'published'
+              ? 'Nenhum pipeline publicado'
+              : 'Nenhum rascunho'}
+          </h2>
+          <p className="text-gray-500 mt-1">
+            {activeTab === 'all'
+              ? 'Crie seu primeiro pipeline para começar'
+              : activeTab === 'published'
+              ? 'Publique um pipeline para vê-lo aqui'
+              : 'Pipelines em rascunho aparecerão aqui'}
+          </p>
+          {activeTab === 'all' && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="btn-primary mt-4"
+            >
+              <Plus size={18} className="mr-2" />
+              Criar Pipeline
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

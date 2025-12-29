@@ -18,11 +18,13 @@ export function Sidebar() {
     <div className="flex flex-col w-64 bg-gray-900 text-white h-screen">
       {/* Logo */}
       <div className="p-4 border-b border-gray-800">
-        <h1 className="text-xl font-bold flex items-center gap-2">
-          <Workflow className="text-blue-400" />
-          PLM
-        </h1>
-        <p className="text-xs text-gray-400 mt-1">Pipeline Management</p>
+        <Link to="/" className="flex items-center gap-3">
+          <img src="/PLM-logo.svg" alt="PLM" className="w-10 h-10" />
+          <div>
+            <h1 className="text-xl font-bold">PLM</h1>
+            <p className="text-xs text-gray-400">Pipeline Management</p>
+          </div>
+        </Link>
       </div>
 
       {/* TAH Context Info */}

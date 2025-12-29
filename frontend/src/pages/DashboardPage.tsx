@@ -1,54 +1,154 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Workflow, FileText, Settings, ArrowRight } from 'lucide-react';
+import { Workflow, FileText, Settings, ArrowRight, LayoutGrid, CheckCircle2, Clock, Users } from 'lucide-react';
 import { useTenant } from '../context/TenantContext';
+import { api } from '../services/api';
+
+interface DashboardStats {
+  totalPipelines: number;
+  publishedPipelines: number;
+  draftPipelines: number;
+  totalForms: number;
+}
 
 export function DashboardPage() {
   const { tenant, organization } = useTenant();
+  const [stats, setStats] = useState<DashboardStats>({
+    totalPipelines: 0,
+    publishedPipelines: 0,
+    draftPipelines: 0,
+    totalForms: 0,
+  });
+  const [loadingStats, setLoadingStats] = useState(false);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (!organization) return;
+
+      setLoadingStats(true);
+      try {
+        const [allPipelines, publishedPipelines, draftPipelines, allForms] = await Promise.all([
+          api.getPipelines(),
+          api.getPipelines('published'),
+          api.getPipelines('draft'),
+          api.getForms(),
+        ]);
+
+        setStats({
+          totalPipelines: allPipelines.items?.length || 0,
+          publishedPipelines: publishedPipelines.items?.length || 0,
+          draftPipelines: draftPipelines.items?.length || 0,
+          totalForms: allForms.items?.length || 0,
+        });
+      } catch (err) {
+        console.error('Failed to fetch stats:', err);
+      } finally {
+        setLoadingStats(false);
+      }
+    };
+
+    fetchStats();
+  }, [organization]);
 
   const quickLinks = [
     {
       title: 'Pipelines',
-      description: 'Manage your workflow pipelines and Kanban boards',
+      description: 'Gerencie seus workflows e quadros Kanban',
       icon: Workflow,
       href: '/pipelines',
       color: 'bg-blue-500',
     },
     {
-      title: 'Forms',
-      description: 'Design and manage form definitions',
+      title: 'Formulários',
+      description: 'Crie e gerencie definições de formulários',
       icon: FileText,
       href: '/forms',
       color: 'bg-purple-500',
     },
     {
-      title: 'Settings',
-      description: 'Configure automations and integrations',
+      title: 'Configurações',
+      description: 'Configure automações e integrações',
       icon: Settings,
       href: '/settings',
       color: 'bg-gray-500',
     },
   ];
 
+  const statCards = [
+    {
+      label: 'Total Pipelines',
+      value: stats.totalPipelines,
+      icon: LayoutGrid,
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-50',
+    },
+    {
+      label: 'Publicados',
+      value: stats.publishedPipelines,
+      icon: CheckCircle2,
+      color: 'text-green-600',
+      bgColor: 'bg-green-50',
+    },
+    {
+      label: 'Rascunhos',
+      value: stats.draftPipelines,
+      icon: Clock,
+      color: 'text-amber-600',
+      bgColor: 'bg-amber-50',
+    },
+    {
+      label: 'Formulários',
+      value: stats.totalForms,
+      icon: FileText,
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-50',
+    },
+  ];
+
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Welcome to PLM</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
         <p className="text-gray-500 mt-2">
-          Pipeline Management - Your multi-tenant workflow engine
+          Visão geral do seu ambiente PLM
         </p>
       </div>
 
       {/* Context Info */}
       {tenant && organization && (
-        <div className="bg-white rounded-lg border border-gray-200 p-4 mb-8">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg p-6 mb-8 text-white">
           <div className="flex items-center gap-4">
+            <div className="p-3 bg-white/20 rounded-lg">
+              <Users size={24} />
+            </div>
             <div className="flex-1">
-              <h3 className="font-medium text-gray-900">Current Context</h3>
-              <p className="text-sm text-gray-500">
+              <p className="text-blue-100 text-sm">Contexto Atual</p>
+              <h3 className="font-semibold text-lg">
                 {tenant.name} / {organization.name}
-              </p>
+              </h3>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Stats */}
+      {organization && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          {statCards.map((stat) => (
+            <div key={stat.label} className="bg-white rounded-lg border border-gray-200 p-4">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${stat.bgColor}`}>
+                  <stat.icon size={20} className={stat.color} />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {loadingStats ? '-' : stat.value}
+                  </p>
+                  <p className="text-xs text-gray-500">{stat.label}</p>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
