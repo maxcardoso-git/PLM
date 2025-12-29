@@ -111,7 +111,7 @@ export function PipelinesPage() {
           {pipelines.map((pipeline) => (
             <Link
               key={pipeline.id}
-              to={`/pipelines/${pipeline.id}`}
+              to={pipeline.publishedVersion ? `/pipelines/${pipeline.id}` : `/pipelines/${pipeline.id}/edit`}
               className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow group"
             >
               <div className="flex items-start justify-between">
