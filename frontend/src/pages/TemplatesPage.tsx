@@ -11,7 +11,8 @@ import {
   ArrowRight,
   Copy,
   X,
-  CheckCircle2
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
@@ -229,20 +230,23 @@ export function TemplatesPage() {
   const [showPreview, setShowPreview] = useState(false);
   const [creating, setCreating] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handlePreview = (template: PipelineTemplate) => {
     setSelectedTemplate(template);
     setShowPreview(true);
     setSuccess(false);
+    setError(null);
   };
 
   const handleUseTemplate = async (template: PipelineTemplate) => {
     if (!organization) {
-      alert('Selecione uma organização na barra lateral antes de criar um pipeline.');
+      setError('Selecione uma organização na barra lateral antes de criar um pipeline.');
       return;
     }
 
     setCreating(true);
+    setError(null);
     try {
       // Create the pipeline
       const pipeline = await api.createPipeline({
@@ -282,9 +286,10 @@ export function TemplatesPage() {
         setShowPreview(false);
         navigate(`/pipelines/${pipeline.id}/edit`);
       }, 1500);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to create pipeline from template:', err);
-      alert('Erro ao criar pipeline. Tente novamente.');
+      const message = err.response?.data?.message || err.message || 'Erro ao criar pipeline. Tente novamente.';
+      setError(message);
     } finally {
       setCreating(false);
     }
@@ -401,6 +406,13 @@ export function TemplatesPage() {
                   </div>
                 </div>
 
+                {!organization && (
+                  <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <AlertCircle className="text-amber-600 flex-shrink-0" size={18} />
+                    <p className="text-sm text-amber-700">Selecione uma organização na barra lateral para criar este pipeline.</p>
+                  </div>
+                )}
+
                 <div>
                   <h4 className="text-sm font-medium text-gray-700 mb-3">Estágios do Pipeline</h4>
                   <div className="flex flex-wrap gap-2">
@@ -440,6 +452,24 @@ export function TemplatesPage() {
                   </div>
                 </div>
 
+                {error && (
+                  <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex-shrink-0 w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                      <AlertCircle className="text-red-600" size={20} />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-red-800">Erro</p>
+                      <p className="text-sm text-red-600">{error}</p>
+                    </div>
+                    <button
+                      onClick={() => setError(null)}
+                      className="text-red-400 hover:text-red-600"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                )}
+
                 <div className="flex justify-end gap-3 pt-4 border-t">
                   <button
                     onClick={() => setShowPreview(false)}
@@ -451,8 +481,8 @@ export function TemplatesPage() {
                   </button>
                   <button
                     onClick={() => handleUseTemplate(selectedTemplate)}
-                    disabled={creating}
-                    className="btn-primary"
+                    disabled={creating || !organization}
+                    className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {creating ? (
                       <>
