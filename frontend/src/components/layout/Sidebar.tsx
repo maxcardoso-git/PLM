@@ -1,29 +1,33 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Workflow, FileText, LayoutTemplate, Settings, Building2, User } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { LayoutDashboard, Workflow, FileText, LayoutTemplate, Settings, Building2, User, Zap } from 'lucide-react';
 import { useTenant } from '../../context/TenantContext';
+import { LanguageSelector } from './LanguageSelector';
 import { clsx } from 'clsx';
 
-const navigation = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Pipelines', href: '/pipelines', icon: Workflow },
-  { name: 'Forms', href: '/forms', icon: FileText },
-  { name: 'Templates', href: '/templates', icon: LayoutTemplate },
-  { name: 'Settings', href: '/settings', icon: Settings },
+const navigationKeys = [
+  { key: 'dashboard', href: '/', icon: LayoutDashboard },
+  { key: 'pipelines', href: '/pipelines', icon: Workflow },
+  { key: 'forms', href: '/forms', icon: FileText },
+  { key: 'integrations', href: '/integrations', icon: Zap },
+  { key: 'templates', href: '/templates', icon: LayoutTemplate },
+  { key: 'settings', href: '/settings', icon: Settings },
 ];
 
 export function Sidebar() {
   const location = useLocation();
   const { tenant, organization } = useTenant();
+  const { t } = useTranslation();
 
   return (
     <div className="flex flex-col w-64 bg-gray-900 text-white h-screen">
       {/* Logo */}
       <div className="p-4 border-b border-gray-800">
         <Link to="/" className="flex items-center gap-3">
-          <img src="/PLM-logo.svg" alt="PLM" className="w-10 h-10" />
+          <img src="/PLM-Logo.png" alt="PLM" className="w-10 h-10" />
           <div>
             <h1 className="text-xl font-bold">PLM</h1>
-            <p className="text-xs text-gray-400">Pipeline Management</p>
+            <p className="text-xs text-gray-400">{t('sidebar.pipelineManagement')}</p>
           </div>
         </Link>
       </div>
@@ -32,13 +36,13 @@ export function Sidebar() {
       <div className="p-4 border-b border-gray-800 space-y-2">
         <div className="flex items-center gap-2 text-xs text-gray-400">
           <Building2 size={14} />
-          <span className="uppercase tracking-wider">Context (TAH)</span>
+          <span className="uppercase tracking-wider">{t('sidebar.context')} (TAH)</span>
         </div>
         <div className="space-y-1">
           <div className="flex items-center gap-2 px-2 py-1.5 bg-gray-800 rounded text-sm">
             <User size={14} className="text-gray-500" />
             <span className="text-gray-300 truncate">
-              {tenant?.name || 'Not authenticated'}
+              {tenant?.name || t('sidebar.notAuthenticated')}
             </span>
           </div>
           {organization && (
@@ -50,20 +54,20 @@ export function Sidebar() {
         </div>
         {!tenant && (
           <p className="text-xs text-gray-500 italic">
-            Login via TAH to access pipelines
+            {t('sidebar.loginVia')}
           </p>
         )}
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-1">
-        {navigation.map((item) => {
+        {navigationKeys.map((item) => {
           const isActive = location.pathname === item.href ||
             (item.href !== '/' && location.pathname.startsWith(item.href));
 
           return (
             <Link
-              key={item.name}
+              key={item.key}
               to={item.href}
               className={clsx(
                 'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
@@ -73,15 +77,18 @@ export function Sidebar() {
               )}
             >
               <item.icon size={20} />
-              {item.name}
+              {t(`sidebar.${item.key}`)}
             </Link>
           );
         })}
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-gray-800 text-xs text-gray-500">
-        PLM v1.0.0
+      <div className="p-4 border-t border-gray-800">
+        <div className="flex items-center justify-between">
+          <LanguageSelector />
+          <span className="text-xs text-gray-500">v1.0.0</span>
+        </div>
       </div>
     </div>
   );

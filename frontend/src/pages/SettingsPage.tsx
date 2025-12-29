@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { Settings, Key, Link2, CheckCircle2, XCircle, TestTube2, Route, Building2, Hash, FolderKanban } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Settings, Key, Link2, CheckCircle2, XCircle, TestTube2, Route, Building2, Hash, FolderKanban, KeyRound } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 export function SettingsPage() {
-  const { settings, updateExternalFormsConfig, updateExternalProjectsConfig, updateTenantConfig, isConfigured, isProjectsConfigured, isTenantConfigured } = useSettings();
+  const { t } = useTranslation();
+  const { settings, updateExternalFormsConfig, updateExternalProjectsConfig, updateTenantConfig, updateApiKeysServiceConfig, isConfigured, isProjectsConfigured, isTenantConfigured, isApiKeysConfigured } = useSettings();
   // Forms API configuration
   const [baseUrl, setBaseUrl] = useState(settings.externalForms.baseUrl);
   const [listEndpoint, setListEndpoint] = useState(
@@ -34,6 +36,17 @@ export function SettingsPage() {
   const [orgId, setOrgId] = useState(settings.tenant.orgId);
   const [tenantSaved, setTenantSaved] = useState(false);
 
+  // API Keys Service configuration
+  const [apiKeysBaseUrl, setApiKeysBaseUrl] = useState(settings.apiKeysService.baseUrl);
+  const [apiKeysListEndpoint, setApiKeysListEndpoint] = useState(
+    settings.apiKeysService.listEndpoint || '/api-keys'
+  );
+  const [apiKeysApiKey, setApiKeysApiKey] = useState(settings.apiKeysService.apiKey);
+  const [apiKeysEnabled, setApiKeysEnabled] = useState(settings.apiKeysService.enabled);
+  const [apiKeysTestStatus, setApiKeysTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+  const [apiKeysTestMessage, setApiKeysTestMessage] = useState('');
+  const [apiKeysSaved, setApiKeysSaved] = useState(false);
+
   // Forms API handlers
   const handleSave = (e: FormEvent) => {
     e.preventDefault();
@@ -50,15 +63,14 @@ export function SettingsPage() {
   const handleTest = async () => {
     if (!baseUrl || !apiKey) {
       setTestStatus('error');
-      setTestMessage('Please fill in Base URL and API Key first');
+      setTestMessage(t('settings.connectionFailed'));
       return;
     }
 
     setTestStatus('testing');
-    setTestMessage('Testing connection via proxy...');
+    setTestMessage(t('settings.testing'));
 
     try {
-      // Use PLM backend proxy to avoid CORS issues
       const endpoint = listEndpoint.startsWith('/') ? listEndpoint : `/${listEndpoint}`;
       const response = await fetch(`${API_BASE_URL}/external-forms/proxy`, {
         method: 'POST',
@@ -75,24 +87,17 @@ export function SettingsPage() {
 
       if (response.ok) {
         const data = await response.json();
-        // OrchestratorAI returns { success: true, data: [...], pagination: {...} }
         const forms = data.data || data.items || data;
         const count = Array.isArray(forms) ? forms.length : 0;
         setTestStatus('success');
-        setTestMessage(`Connection successful! Found ${count} forms.`);
+        setTestMessage(`${t('settings.connectionSuccess')} (${count} forms)`);
       } else {
-        const errorData = await response.json().catch(() => ({}));
-        if (response.status === 401 || response.status === 403) {
-          setTestStatus('error');
-          setTestMessage('Authentication failed. Please check your API Key.');
-        } else {
-          setTestStatus('error');
-          setTestMessage(errorData.message || `Connection failed with status ${response.status}`);
-        }
+        setTestStatus('error');
+        setTestMessage(t('settings.connectionFailed'));
       }
     } catch {
       setTestStatus('error');
-      setTestMessage('Connection failed. Please check the Base URL.');
+      setTestMessage(t('settings.connectionFailed'));
     }
   };
 
@@ -112,12 +117,12 @@ export function SettingsPage() {
   const handleProjectsTest = async () => {
     if (!projectsBaseUrl || !projectsApiKey) {
       setProjectsTestStatus('error');
-      setProjectsTestMessage('Please fill in Base URL and API Key first');
+      setProjectsTestMessage(t('settings.connectionFailed'));
       return;
     }
 
     setProjectsTestStatus('testing');
-    setProjectsTestMessage('Testing connection via proxy...');
+    setProjectsTestMessage(t('settings.testing'));
 
     try {
       const endpoint = projectsListEndpoint.startsWith('/') ? projectsListEndpoint : `/${projectsListEndpoint}`;
@@ -136,24 +141,71 @@ export function SettingsPage() {
 
       if (response.ok) {
         const data = await response.json();
-        // OrchestratorAI returns { success: true, data: [...], pagination: {...} }
         const projects = data.data || data.items || data;
         const count = Array.isArray(projects) ? projects.length : 0;
         setProjectsTestStatus('success');
-        setProjectsTestMessage(`Connection successful! Found ${count} projects.`);
+        setProjectsTestMessage(`${t('settings.connectionSuccess')} (${count} projects)`);
       } else {
-        const errorData = await response.json().catch(() => ({}));
-        if (response.status === 401 || response.status === 403) {
-          setProjectsTestStatus('error');
-          setProjectsTestMessage('Authentication failed. Please check your API Key.');
-        } else {
-          setProjectsTestStatus('error');
-          setProjectsTestMessage(errorData.message || `Connection failed with status ${response.status}`);
-        }
+        setProjectsTestStatus('error');
+        setProjectsTestMessage(t('settings.connectionFailed'));
       }
     } catch {
       setProjectsTestStatus('error');
-      setProjectsTestMessage('Connection failed. Please check the Base URL.');
+      setProjectsTestMessage(t('settings.connectionFailed'));
+    }
+  };
+
+  // API Keys Service handlers
+  const handleApiKeysSave = (e: FormEvent) => {
+    e.preventDefault();
+    updateApiKeysServiceConfig({
+      baseUrl: apiKeysBaseUrl.replace(/\/$/, ''),
+      listEndpoint: apiKeysListEndpoint.startsWith('/') ? apiKeysListEndpoint : `/${apiKeysListEndpoint}`,
+      apiKey: apiKeysApiKey,
+      enabled: apiKeysEnabled,
+    });
+    setApiKeysSaved(true);
+    setTimeout(() => setApiKeysSaved(false), 3000);
+  };
+
+  const handleApiKeysTest = async () => {
+    if (!apiKeysBaseUrl || !apiKeysApiKey) {
+      setApiKeysTestStatus('error');
+      setApiKeysTestMessage(t('settings.connectionFailed'));
+      return;
+    }
+
+    setApiKeysTestStatus('testing');
+    setApiKeysTestMessage(t('settings.testing'));
+
+    try {
+      const endpoint = apiKeysListEndpoint.startsWith('/') ? apiKeysListEndpoint : `/${apiKeysListEndpoint}`;
+      const response = await fetch(`${API_BASE_URL}/external-forms/proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          baseUrl: apiKeysBaseUrl.replace(/\/$/, ''),
+          endpoint,
+          apiKey: apiKeysApiKey,
+          method: 'GET',
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const keys = data.data || data.items || data;
+        const count = Array.isArray(keys) ? keys.length : 0;
+        setApiKeysTestStatus('success');
+        setApiKeysTestMessage(`${t('settings.connectionSuccess')} (${count} API keys)`);
+      } else {
+        setApiKeysTestStatus('error');
+        setApiKeysTestMessage(t('settings.connectionFailed'));
+      }
+    } catch {
+      setApiKeysTestStatus('error');
+      setApiKeysTestMessage(t('settings.connectionFailed'));
     }
   };
 
@@ -162,8 +214,8 @@ export function SettingsPage() {
       <div className="flex items-center gap-3 mb-6">
         <Settings className="text-gray-400" size={28} />
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-          <p className="text-sm text-gray-500">Configure PLM integrations and preferences</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('settings.title')}</h1>
+          <p className="text-sm text-gray-500">{t('settings.subtitle')}</p>
         </div>
       </div>
 
@@ -176,20 +228,20 @@ export function SettingsPage() {
                 <Link2 className="text-blue-600" size={20} />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">External Forms API</h2>
-                <p className="text-sm text-gray-500">Connect to external form definitions service</p>
+                <h2 className="text-lg font-semibold text-gray-900">{t('settings.externalFormsApi')}</h2>
+                <p className="text-sm text-gray-500">{t('settings.externalFormsDesc')}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               {isConfigured ? (
                 <span className="flex items-center gap-1 text-sm text-green-600">
                   <CheckCircle2 size={16} />
-                  Connected
+                  {t('settings.connected')}
                 </span>
               ) : (
                 <span className="flex items-center gap-1 text-sm text-gray-400">
                   <XCircle size={16} />
-                  Not configured
+                  {t('settings.notConfigured')}
                 </span>
               )}
             </div>
@@ -199,7 +251,7 @@ export function SettingsPage() {
         <form onSubmit={handleSave} className="p-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Base URL
+              {t('settings.baseUrl')}
             </label>
             <div className="relative">
               <input
@@ -211,14 +263,11 @@ export function SettingsPage() {
               />
               <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             </div>
-            <p className="mt-1 text-xs text-gray-500">
-              The base URL of the Forms API (e.g., http://72.61.52.70:3080/api/v1)
-            </p>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              List Endpoint
+              {t('settings.listEndpoint')}
             </label>
             <div className="relative">
               <input
@@ -230,14 +279,11 @@ export function SettingsPage() {
               />
               <Route className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             </div>
-            <p className="mt-1 text-xs text-gray-500">
-              The endpoint path to list forms (e.g., /data-entry-forms/external/list)
-            </p>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              API Key
+              {t('settings.apiKey')}
             </label>
             <div className="relative">
               <input
@@ -249,9 +295,6 @@ export function SettingsPage() {
               />
               <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             </div>
-            <p className="mt-1 text-xs text-gray-500">
-              The X-API-Key header value for authentication
-            </p>
           </div>
 
           <div className="flex items-center gap-3">
@@ -264,10 +307,9 @@ export function SettingsPage() {
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
             </label>
-            <span className="text-sm font-medium text-gray-700">Enable external forms integration</span>
+            <span className="text-sm font-medium text-gray-700">{t('settings.enableIntegration')}</span>
           </div>
 
-          {/* Test Connection */}
           {testStatus !== 'idle' && (
             <div
               className={`p-3 rounded-lg text-sm flex items-center gap-2 ${
@@ -287,11 +329,10 @@ export function SettingsPage() {
             </div>
           )}
 
-          {/* Saved notification */}
           {saved && (
             <div className="p-3 rounded-lg text-sm bg-green-50 text-green-700 flex items-center gap-2">
               <CheckCircle2 size={16} />
-              Settings saved successfully!
+              {t('settings.settingsSaved')}
             </div>
           )}
 
@@ -303,13 +344,13 @@ export function SettingsPage() {
               className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
               <TestTube2 size={16} />
-              Test Connection
+              {t('settings.testConnection')}
             </button>
             <button
               type="submit"
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
             >
-              Save Settings
+              {t('settings.saveSettings')}
             </button>
           </div>
         </form>
@@ -324,20 +365,20 @@ export function SettingsPage() {
                 <FolderKanban className="text-green-600" size={20} />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">External Projects API</h2>
-                <p className="text-sm text-gray-500">Connect to external projects service</p>
+                <h2 className="text-lg font-semibold text-gray-900">{t('settings.externalProjectsApi')}</h2>
+                <p className="text-sm text-gray-500">{t('settings.externalProjectsDesc')}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               {isProjectsConfigured ? (
                 <span className="flex items-center gap-1 text-sm text-green-600">
                   <CheckCircle2 size={16} />
-                  Connected
+                  {t('settings.connected')}
                 </span>
               ) : (
                 <span className="flex items-center gap-1 text-sm text-gray-400">
                   <XCircle size={16} />
-                  Not configured
+                  {t('settings.notConfigured')}
                 </span>
               )}
             </div>
@@ -347,7 +388,7 @@ export function SettingsPage() {
         <form onSubmit={handleProjectsSave} className="p-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Base URL
+              {t('settings.baseUrl')}
             </label>
             <div className="relative">
               <input
@@ -359,14 +400,11 @@ export function SettingsPage() {
               />
               <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             </div>
-            <p className="mt-1 text-xs text-gray-500">
-              The base URL of the Projects API (e.g., http://72.61.52.70:3080/api/v1)
-            </p>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              List Endpoint
+              {t('settings.listEndpoint')}
             </label>
             <div className="relative">
               <input
@@ -378,14 +416,11 @@ export function SettingsPage() {
               />
               <Route className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             </div>
-            <p className="mt-1 text-xs text-gray-500">
-              The endpoint path to list projects (e.g., /projects)
-            </p>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              API Key
+              {t('settings.apiKey')}
             </label>
             <div className="relative">
               <input
@@ -397,9 +432,6 @@ export function SettingsPage() {
               />
               <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             </div>
-            <p className="mt-1 text-xs text-gray-500">
-              The X-API-Key header value for authentication
-            </p>
           </div>
 
           <div className="flex items-center gap-3">
@@ -412,10 +444,9 @@ export function SettingsPage() {
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
             </label>
-            <span className="text-sm font-medium text-gray-700">Enable external projects integration</span>
+            <span className="text-sm font-medium text-gray-700">{t('settings.enableIntegration')}</span>
           </div>
 
-          {/* Test Connection */}
           {projectsTestStatus !== 'idle' && (
             <div
               className={`p-3 rounded-lg text-sm flex items-center gap-2 ${
@@ -435,11 +466,10 @@ export function SettingsPage() {
             </div>
           )}
 
-          {/* Saved notification */}
           {projectsSaved && (
             <div className="p-3 rounded-lg text-sm bg-green-50 text-green-700 flex items-center gap-2">
               <CheckCircle2 size={16} />
-              Settings saved successfully!
+              {t('settings.settingsSaved')}
             </div>
           )}
 
@@ -451,13 +481,13 @@ export function SettingsPage() {
               className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
               <TestTube2 size={16} />
-              Test Connection
+              {t('settings.testConnection')}
             </button>
             <button
               type="submit"
               className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700"
             >
-              Save Settings
+              {t('settings.saveSettings')}
             </button>
           </div>
         </form>
@@ -472,20 +502,20 @@ export function SettingsPage() {
                 <Building2 className="text-purple-600" size={20} />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Tenant Configuration</h2>
-                <p className="text-sm text-gray-500">Configure Tenant and Organization for API calls</p>
+                <h2 className="text-lg font-semibold text-gray-900">{t('settings.tenantConfig')}</h2>
+                <p className="text-sm text-gray-500">{t('settings.tenantConfigDesc')}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               {isTenantConfigured ? (
                 <span className="flex items-center gap-1 text-sm text-green-600">
                   <CheckCircle2 size={16} />
-                  Configured
+                  {t('settings.connected')}
                 </span>
               ) : (
                 <span className="flex items-center gap-1 text-sm text-gray-400">
                   <XCircle size={16} />
-                  Not configured
+                  {t('settings.notConfigured')}
                 </span>
               )}
             </div>
@@ -498,7 +528,6 @@ export function SettingsPage() {
             updateTenantConfig({ tenantId, orgId });
             setTenantSaved(true);
             setTimeout(() => setTenantSaved(false), 3000);
-            // Dispatch event to notify TenantContext
             window.dispatchEvent(new CustomEvent('plm:tenant-updated', {
               detail: { tenantId, orgId }
             }));
@@ -507,7 +536,7 @@ export function SettingsPage() {
         >
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tenant ID
+              {t('settings.tenantId')}
             </label>
             <div className="relative">
               <input
@@ -519,14 +548,11 @@ export function SettingsPage() {
               />
               <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             </div>
-            <p className="mt-1 text-xs text-gray-500">
-              The UUID of the tenant (X-Tenant-Id header)
-            </p>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Organization ID
+              {t('settings.organizationId')}
             </label>
             <div className="relative">
               <input
@@ -538,15 +564,12 @@ export function SettingsPage() {
               />
               <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             </div>
-            <p className="mt-1 text-xs text-gray-500">
-              The organization identifier (X-Organization-Id header)
-            </p>
           </div>
 
           {tenantSaved && (
             <div className="p-3 rounded-lg text-sm bg-green-50 text-green-700 flex items-center gap-2">
               <CheckCircle2 size={16} />
-              Tenant settings saved successfully!
+              {t('settings.settingsSaved')}
             </div>
           )}
 
@@ -555,19 +578,147 @@ export function SettingsPage() {
               type="submit"
               className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700"
             >
-              Save Tenant Settings
+              {t('settings.saveSettings')}
             </button>
           </div>
         </form>
       </div>
 
-      {/* Info */}
-      <div className="mt-6 bg-blue-50 rounded-lg border border-blue-200 p-4">
-        <h3 className="text-sm font-medium text-blue-700 mb-2">TAH Integration (Future)</h3>
-        <p className="text-sm text-blue-600">
-          In a future version, Tenant and Organization context will be automatically provided by TAH
-          (Tenant Access Hub) after authentication.
-        </p>
+      {/* API Keys Service Configuration */}
+      <div className="mt-6 bg-white rounded-lg shadow border border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-orange-100 rounded-lg">
+                <KeyRound className="text-orange-600" size={20} />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">{t('settings.apiKeysService')}</h2>
+                <p className="text-sm text-gray-500">{t('settings.apiKeysServiceDesc')}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {isApiKeysConfigured ? (
+                <span className="flex items-center gap-1 text-sm text-green-600">
+                  <CheckCircle2 size={16} />
+                  {t('settings.connected')}
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-sm text-gray-400">
+                  <XCircle size={16} />
+                  {t('settings.notConfigured')}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <form onSubmit={handleApiKeysSave} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t('settings.baseUrl')}
+            </label>
+            <div className="relative">
+              <input
+                type="url"
+                value={apiKeysBaseUrl}
+                onChange={(e) => setApiKeysBaseUrl(e.target.value)}
+                placeholder="http://72.61.52.70:3080/api/v1"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+              />
+              <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t('settings.listEndpoint')}
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={apiKeysListEndpoint}
+                onChange={(e) => setApiKeysListEndpoint(e.target.value)}
+                placeholder="/api-keys"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+              />
+              <Route className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t('settings.apiKey')}
+            </label>
+            <div className="relative">
+              <input
+                type="password"
+                value={apiKeysApiKey}
+                onChange={(e) => setApiKeysApiKey(e.target.value)}
+                placeholder="orc_abf9cb8d..."
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+              />
+              <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={apiKeysEnabled}
+                onChange={(e) => setApiKeysEnabled(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
+            </label>
+            <span className="text-sm font-medium text-gray-700">{t('settings.enableIntegration')}</span>
+          </div>
+
+          {apiKeysTestStatus !== 'idle' && (
+            <div
+              className={`p-3 rounded-lg text-sm flex items-center gap-2 ${
+                apiKeysTestStatus === 'testing'
+                  ? 'bg-orange-50 text-orange-700'
+                  : apiKeysTestStatus === 'success'
+                  ? 'bg-green-50 text-green-700'
+                  : 'bg-red-50 text-red-700'
+              }`}
+            >
+              {apiKeysTestStatus === 'testing' && (
+                <div className="animate-spin h-4 w-4 border-2 border-orange-500 border-t-transparent rounded-full" />
+              )}
+              {apiKeysTestStatus === 'success' && <CheckCircle2 size={16} />}
+              {apiKeysTestStatus === 'error' && <XCircle size={16} />}
+              {apiKeysTestMessage}
+            </div>
+          )}
+
+          {apiKeysSaved && (
+            <div className="p-3 rounded-lg text-sm bg-green-50 text-green-700 flex items-center gap-2">
+              <CheckCircle2 size={16} />
+              {t('settings.settingsSaved')}
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={handleApiKeysTest}
+              disabled={apiKeysTestStatus === 'testing'}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              <TestTube2 size={16} />
+              {t('settings.testConnection')}
+            </button>
+            <button
+              type="submit"
+              className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700"
+            >
+              {t('settings.saveSettings')}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

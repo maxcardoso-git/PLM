@@ -392,4 +392,48 @@ export class PipelinesService {
       return updatedVersion;
     });
   }
+
+  async delete(ctx: TenantContext, id: string) {
+    const pipeline = await this.findOne(ctx, id);
+
+    // Check if there are active cards using this pipeline
+    const activeCardsCount = await this.prisma.card.count({
+      where: {
+        pipelineId: id,
+        status: 'active',
+      },
+    });
+
+    if (activeCardsCount > 0) {
+      throw new BadRequestException(
+        `Cannot delete: there are ${activeCardsCount} active cards in this pipeline. Archive or delete them first.`,
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // Delete all cards (archived ones)
+      await tx.card.deleteMany({
+        where: { pipelineId: id },
+      });
+
+      // Delete pipeline (cascade will handle versions, stages, transitions, etc.)
+      await tx.pipeline.delete({
+        where: { id },
+      });
+
+      await tx.outboxEvent.create({
+        data: {
+          tenantId: ctx.tenantId,
+          orgId: ctx.orgId!,
+          eventType: 'PLM.PIPE.DELETED',
+          entityType: 'Pipeline',
+          entityId: id,
+          payload: { pipelineId: id, pipelineName: pipeline.name },
+          status: 'pending',
+        },
+      });
+
+      return { deleted: true, id };
+    });
+  }
 }

@@ -120,9 +120,25 @@ export class CreateTransitionDto {
 }
 
 export class AttachFormDto {
-  @ApiProperty()
+  @ApiPropertyOptional({ description: 'ID of local form definition (UUID)' })
+  @IsOptional()
   @IsUUID()
-  formDefinitionId: string;
+  formDefinitionId?: string;
+
+  @ApiPropertyOptional({ description: 'ID of external form (any string format)' })
+  @IsOptional()
+  @IsString()
+  externalFormId?: string;
+
+  @ApiPropertyOptional({ description: 'Name of external form for display' })
+  @IsOptional()
+  @IsString()
+  externalFormName?: string;
+
+  @ApiPropertyOptional({ description: 'Version of external form' })
+  @IsOptional()
+  @IsInt()
+  externalFormVersion?: number;
 
   @ApiProperty({ enum: ['FILLED', 'TO_FILL'] })
   @IsEnum(['FILLED', 'TO_FILL'])

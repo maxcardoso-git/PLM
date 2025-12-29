@@ -163,3 +163,104 @@ export interface MoveBlockedError {
   message: string;
   details?: any;
 }
+
+// Integration Types
+export interface Integration {
+  id: string;
+  tenantId: string;
+  orgId: string;
+  key: string;
+  name: string;
+  description?: string;
+  externalApiKeyId: string;
+  externalApiKeyName?: string;
+  httpMethod: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  endpoint?: string;
+  defaultPayload?: Record<string, any>;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExternalApiKey {
+  id: string;
+  name: string;
+  key?: string;
+  status?: string;
+}
+
+// Stage Trigger Types
+export type TriggerEventType = 'CARD_MOVEMENT' | 'FORM_FIELD_CHANGE';
+export type TriggerOperator =
+  | 'EQUALS'
+  | 'NOT_EQUALS'
+  | 'GREATER_THAN'
+  | 'LESS_THAN'
+  | 'GREATER_OR_EQUAL'
+  | 'LESS_OR_EQUAL'
+  | 'CONTAINS'
+  | 'NOT_CONTAINS'
+  | 'IS_EMPTY'
+  | 'IS_NOT_EMPTY';
+
+export interface StageTriggerCondition {
+  id: string;
+  triggerId: string;
+  fieldPath: string;
+  operator: TriggerOperator;
+  value: string;
+  createdAt: string;
+}
+
+export interface StageTrigger {
+  id: string;
+  stageId: string;
+  integrationId: string;
+  eventType: TriggerEventType;
+  fromStageId?: string;
+  formDefinitionId?: string;
+  fieldId?: string;
+  executionOrder: number;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+  integration: {
+    id: string;
+    name: string;
+    key: string;
+  };
+  fromStage?: {
+    id: string;
+    name: string;
+  };
+  formDefinition?: {
+    id: string;
+    name: string;
+  };
+  conditions: StageTriggerCondition[];
+}
+
+export interface CreateStageTriggerPayload {
+  integrationId: string;
+  eventType: TriggerEventType;
+  fromStageId?: string;
+  formDefinitionId?: string;
+  fieldId?: string;
+  executionOrder?: number;
+  enabled?: boolean;
+  conditions?: {
+    fieldPath: string;
+    operator: TriggerOperator;
+    value: string;
+  }[];
+}
+
+export interface UpdateStageTriggerPayload {
+  integrationId?: string;
+  eventType?: TriggerEventType;
+  fromStageId?: string;
+  formDefinitionId?: string;
+  fieldId?: string;
+  executionOrder?: number;
+  enabled?: boolean;
+}

@@ -4,6 +4,7 @@ import {
   Post,
   Body,
   Patch,
+  Delete,
   Param,
   Query,
   ParseUUIDPipe,
@@ -130,5 +131,16 @@ export class PipelinesController {
     @Param('version', ParseIntPipe) version: number,
   ) {
     return this.pipelinesService.unpublishVersion(ctx, pipelineId, version);
+  }
+
+  @Delete(':pipelineId')
+  @ApiOperation({ summary: 'Delete pipeline' })
+  @ApiResponse({ status: 200, description: 'Pipeline deleted' })
+  @ApiResponse({ status: 400, description: 'Cannot delete if active cards exist' })
+  delete(
+    @Tenant() ctx: TenantContext,
+    @Param('pipelineId', ParseUUIDPipe) pipelineId: string,
+  ) {
+    return this.pipelinesService.delete(ctx, pipelineId);
   }
 }

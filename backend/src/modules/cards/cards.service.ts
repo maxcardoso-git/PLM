@@ -73,14 +73,17 @@ export class CardsService {
       const formsToAttach: any[] = [];
 
       for (const rule of initialStage.formAttachRules) {
-        formsToAttach.push({
-          cardId: card.id,
-          formDefinitionId: rule.formDefinitionId,
-          formVersion: rule.formDefinition.version,
-          status: rule.defaultFormStatus,
-          data: {},
-          attachedAtStageId: initialStage.id,
-        });
+        // Only attach local forms (external forms don't have formDefinitionId)
+        if (rule.formDefinitionId && rule.formDefinition) {
+          formsToAttach.push({
+            cardId: card.id,
+            formDefinitionId: rule.formDefinitionId,
+            formVersion: rule.formDefinition.version,
+            status: rule.defaultFormStatus,
+            data: {},
+            attachedAtStageId: initialStage.id,
+          });
+        }
       }
 
       if (dto.forms) {
@@ -320,7 +323,8 @@ export class CardsService {
       }
 
       for (const rule of currentStage.formAttachRules) {
-        if (rule.lockOnLeaveStage) {
+        // Only process local forms (external forms don't have formDefinitionId)
+        if (rule.lockOnLeaveStage && rule.formDefinitionId) {
           await tx.cardForm.updateMany({
             where: {
               cardId,
@@ -348,7 +352,8 @@ export class CardsService {
 
       const existingFormIds = cardData.forms.map((f) => f.formDefinitionId);
       for (const rule of targetStage.formAttachRules) {
-        if (!existingFormIds.includes(rule.formDefinitionId)) {
+        // Only attach local forms (external forms don't have formDefinitionId)
+        if (rule.formDefinitionId && rule.formDefinition && !existingFormIds.includes(rule.formDefinitionId)) {
           await tx.cardForm.create({
             data: {
               cardId,

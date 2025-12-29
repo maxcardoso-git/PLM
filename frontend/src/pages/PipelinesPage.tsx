@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Workflow, Users, AlertCircle, Settings, Play, FolderOpen, RefreshCw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Plus, Workflow, Users, AlertCircle, Settings, Play, FolderOpen, RefreshCw, Trash2 } from 'lucide-react';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
 import { useSettings } from '../context/SettingsContext';
@@ -27,6 +28,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 export function PipelinesPage() {
   const { organization } = useTenant();
   const { settings, isProjectsConfigured } = useSettings();
+  const { t } = useTranslation();
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,9 +39,10 @@ export function PipelinesPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabFilter>('all');
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
+  const [deleteModal, setDeleteModal] = useState<{ show: boolean; pipeline: Pipeline | null }>({ show: false, pipeline: null });
+  const [deleting, setDeleting] = useState(false);
 
   const fetchProjects = async () => {
-    console.log('fetchProjects - isProjectsConfigured:', isProjectsConfigured, 'settings:', settings.externalProjects);
     if (!isProjectsConfigured) return;
 
     setLoadingProjects(true);
@@ -58,8 +61,6 @@ export function PipelinesPage() {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('Projects API response:', data);
-        // Handle different API response formats
         let projectsList: Project[] = [];
         if (Array.isArray(data)) {
           projectsList = data;
@@ -68,10 +69,7 @@ export function PipelinesPage() {
         } else if (data && Array.isArray(data.data)) {
           projectsList = data.data;
         }
-        console.log('Parsed projects:', projectsList);
         setProjects(projectsList);
-      } else {
-        console.error('Projects API error:', response.status, await response.text());
       }
     } catch (err) {
       console.error('Failed to fetch projects:', err);
@@ -88,7 +86,6 @@ export function PipelinesPage() {
       const { items } = await api.getPipelines(status);
       setPipelines(items);
 
-      // Auto-expand all projects
       const projectIds = new Set(items.map((p: Pipeline) => p.projectId || 'no-project'));
       setExpandedProjects(projectIds);
     } catch (err) {
@@ -137,6 +134,23 @@ export function PipelinesPage() {
     });
   };
 
+  const handleDelete = async () => {
+    if (!deleteModal.pipeline) return;
+
+    setDeleting(true);
+    setError(null);
+    try {
+      await api.deletePipeline(deleteModal.pipeline.id);
+      setDeleteModal({ show: false, pipeline: null });
+      fetchPipelines(activeTab);
+    } catch (err: any) {
+      const message = err.response?.data?.message || err.message || t('pipelines.failedToDelete');
+      setError(message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const toggleProject = (projectId: string) => {
     setExpandedProjects(prev => {
       const next = new Set(prev);
@@ -149,13 +163,12 @@ export function PipelinesPage() {
     });
   };
 
-  // Group pipelines by project
   const pipelinesByProject: PipelinesByProject[] = (() => {
     const grouped: Record<string, PipelinesByProject> = {};
 
     pipelines.forEach(pipeline => {
       const projectId = pipeline.projectId || 'no-project';
-      const projectName = pipeline.projectName || 'Sem Projeto';
+      const projectName = pipeline.projectName || t('pipelines.noProject');
 
       if (!grouped[projectId]) {
         grouped[projectId] = { projectId, projectName, pipelines: [] };
@@ -183,26 +196,26 @@ export function PipelinesPage() {
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
           <Users size={48} className="mx-auto text-gray-400 mb-4" />
-          <h2 className="text-xl font-semibold text-gray-600">Selecione uma Organização</h2>
-          <p className="text-gray-500 mt-2">Escolha um tenant e organização na barra lateral para ver pipelines.</p>
+          <h2 className="text-xl font-semibold text-gray-600">{t('pipelines.selectOrganization')}</h2>
+          <p className="text-gray-500 mt-2">{t('pipelines.selectOrgMsg')}</p>
         </div>
       </div>
     );
   }
 
-  const tabs: { key: TabFilter; label: string }[] = [
-    { key: 'all', label: 'Todos' },
-    { key: 'published', label: 'Publicados' },
-    { key: 'draft', label: 'Rascunhos' },
+  const tabs: { key: TabFilter; labelKey: string }[] = [
+    { key: 'all', labelKey: 'pipelines.allTab' },
+    { key: 'published', labelKey: 'pipelines.publishedTab' },
+    { key: 'draft', labelKey: 'pipelines.draftsTab' },
   ];
 
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Pipelines</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('pipelines.title')}</h1>
           <p className="text-gray-500 mt-1">
-            {pipelines.length} pipeline{pipelines.length !== 1 ? 's' : ''} em {pipelinesByProject.length} projeto{pipelinesByProject.length !== 1 ? 's' : ''}
+            {pipelines.length} pipeline{pipelines.length !== 1 ? 's' : ''} - {pipelinesByProject.length} {pipelinesByProject.length !== 1 ? t('pipelines.projectPlural') : t('pipelines.projectSingular')}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -218,7 +231,7 @@ export function PipelinesPage() {
             className="btn-primary"
           >
             <Plus size={18} className="mr-2" />
-            Novo Pipeline
+            {t('pipelines.newPipeline')}
           </button>
         </div>
       </div>
@@ -235,7 +248,7 @@ export function PipelinesPage() {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
@@ -243,24 +256,24 @@ export function PipelinesPage() {
       {loading ? (
         <div className="text-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="text-gray-500 mt-2">Carregando pipelines...</p>
+          <p className="text-gray-500 mt-2">{t('pipelines.loadingPipelines')}</p>
         </div>
       ) : pipelines.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-lg border border-dashed border-gray-300">
           <Workflow size={48} className="mx-auto text-gray-400 mb-4" />
           <h2 className="text-lg font-medium text-gray-600">
             {activeTab === 'all'
-              ? 'Nenhum pipeline ainda'
+              ? t('pipelines.noPipelinesYet')
               : activeTab === 'published'
-              ? 'Nenhum pipeline publicado'
-              : 'Nenhum rascunho'}
+              ? t('pipelines.noPublishedPipelines')
+              : t('pipelines.noDrafts')}
           </h2>
           <p className="text-gray-500 mt-1">
             {activeTab === 'all'
-              ? 'Crie seu primeiro pipeline para começar'
+              ? t('pipelines.createFirstPipeline')
               : activeTab === 'published'
-              ? 'Publique um pipeline para vê-lo aqui'
-              : 'Pipelines em rascunho aparecerão aqui'}
+              ? t('pipelines.publishPipelineToSee')
+              : t('pipelines.draftPipelinesAppear')}
           </p>
           {activeTab === 'all' && (
             <button
@@ -268,7 +281,7 @@ export function PipelinesPage() {
               className="btn-primary mt-4"
             >
               <Plus size={18} className="mr-2" />
-              Criar Pipeline
+              {t('pipelines.createPipeline')}
             </button>
           )}
         </div>
@@ -279,7 +292,6 @@ export function PipelinesPage() {
               key={group.projectId}
               className="bg-white border border-gray-200 rounded-lg overflow-hidden"
             >
-              {/* Project Header */}
               <button
                 onClick={() => toggleProject(group.projectId)}
                 className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
@@ -307,7 +319,6 @@ export function PipelinesPage() {
                 </svg>
               </button>
 
-              {/* Pipelines List */}
               {expandedProjects.has(group.projectId) && (
                 <div className="border-t border-gray-200 p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {group.pipelines.map((pipeline) => (
@@ -331,22 +342,29 @@ export function PipelinesPage() {
 
                       <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-200">
                         <span className="text-xs text-gray-500">
-                          {pipeline.publishedVersion ? `v${pipeline.publishedVersion}` : 'Não publicado'}
+                          {pipeline.publishedVersion ? `v${pipeline.publishedVersion}` : t('pipelines.notPublished')}
                         </span>
                         <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setDeleteModal({ show: true, pipeline })}
+                            className="flex items-center gap-1 px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 rounded-md transition-colors"
+                            title={t('pipelines.deletePipeline')}
+                          >
+                            <Trash2 size={14} />
+                          </button>
                           <Link
                             to={`/pipelines/${pipeline.id}/edit`}
                             className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-100 rounded-md transition-colors"
-                            title="Editar pipeline"
+                            title={t('pipelines.editPipeline')}
                           >
                             <Settings size={14} />
-                            Editar
+                            {t('common.edit')}
                           </Link>
                           {pipeline.publishedVersion && (
                             <Link
                               to={`/pipelines/${pipeline.id}`}
                               className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
-                              title="Ver Kanban"
+                              title="Kanban"
                             >
                               <Play size={14} />
                               Kanban
@@ -363,6 +381,65 @@ export function PipelinesPage() {
         </div>
       )}
 
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteModal.show}
+        onClose={() => {
+          setDeleteModal({ show: false, pipeline: null });
+          setError(null);
+        }}
+        title={t('pipelines.deletePipeline')}
+      >
+        <div className="space-y-4">
+          {error && (
+            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              <AlertCircle size={16} />
+              {error}
+            </div>
+          )}
+
+          <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-red-100 rounded-full">
+                <Trash2 className="text-red-600" size={20} />
+              </div>
+              <div>
+                <h4 className="font-medium text-red-800">{t('pipelines.confirmDelete')}</h4>
+                <p className="text-sm text-red-700 mt-1">
+                  {t('pipelines.aboutToDelete')} <strong>"{deleteModal.pipeline?.name}"</strong>.
+                  {t('pipelines.cannotBeUndone')}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-sm text-gray-600">
+            {t('pipelines.allDataDeleted')}
+          </p>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteModal({ show: false, pipeline: null });
+                setError(null);
+              }}
+              className="btn-secondary"
+              disabled={deleting}
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+            >
+              {deleting ? t('pipelines.deleting') : t('pipelines.deletePipeline')}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Create Pipeline Modal */}
       <Modal
         isOpen={showCreateModal}
@@ -370,7 +447,7 @@ export function PipelinesPage() {
           setShowCreateModal(false);
           setError(null);
         }}
-        title="Criar Pipeline"
+        title={t('pipelines.createPipeline')}
       >
         <form onSubmit={handleCreate} className="space-y-4">
           {error && (
@@ -380,59 +457,58 @@ export function PipelinesPage() {
             </div>
           )}
 
-          {/* Project Selection */}
           {isProjectsConfigured && (
             <div>
-              <label className="label">Projeto</label>
+              <label className="label">{t('pipelines.project')}</label>
               <select
                 value={newPipeline.projectId}
                 onChange={(e) => handleProjectSelect(e.target.value)}
                 className="input mt-1"
               >
-                <option value="">Selecionar projeto...</option>
+                <option value="">{t('pipelines.selectProject')}</option>
                 {projects.map((project) => (
                   <option key={project.id} value={project.id}>
                     {project.name}
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-gray-500 mt-1">Associe este pipeline a um projeto externo</p>
+              <p className="text-xs text-gray-500 mt-1">{t('pipelines.associateProject')}</p>
             </div>
           )}
 
           <div>
-            <label className="label">Key</label>
+            <label className="label">{t('pipelines.key')}</label>
             <input
               type="text"
               value={newPipeline.key}
               onChange={(e) => setNewPipeline({ ...newPipeline, key: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
               className="input mt-1"
-              placeholder="ex: vendas_pipeline"
+              placeholder={t('pipelines.keyPlaceholder')}
               required
             />
-            <p className="text-xs text-gray-500 mt-1">Identificador único para este pipeline</p>
+            <p className="text-xs text-gray-500 mt-1">{t('pipelines.keyDescription')}</p>
           </div>
 
           <div>
-            <label className="label">Nome</label>
+            <label className="label">{t('common.name')}</label>
             <input
               type="text"
               value={newPipeline.name}
               onChange={(e) => setNewPipeline({ ...newPipeline, name: e.target.value })}
               className="input mt-1"
-              placeholder="ex: Pipeline de Vendas"
+              placeholder={t('pipelines.namePlaceholder')}
               required
             />
           </div>
 
           <div>
-            <label className="label">Descrição</label>
+            <label className="label">{t('common.description')}</label>
             <textarea
               value={newPipeline.description}
               onChange={(e) => setNewPipeline({ ...newPipeline, description: e.target.value })}
               className="input mt-1"
               rows={3}
-              placeholder="Descrição opcional..."
+              placeholder={t('pipelines.descriptionPlaceholder')}
             />
           </div>
 
@@ -445,14 +521,14 @@ export function PipelinesPage() {
               }}
               className="btn-secondary"
             >
-              Cancelar
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
               disabled={creating || !newPipeline.key || !newPipeline.name}
               className="btn-primary"
             >
-              {creating ? 'Criando...' : 'Criar Pipeline'}
+              {creating ? t('pipelines.creating') : t('pipelines.createPipeline')}
             </button>
           </div>
         </form>

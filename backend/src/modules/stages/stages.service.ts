@@ -86,6 +86,21 @@ export class StagesService {
             toStage: { select: { id: true, name: true, color: true } },
           },
         },
+        triggers: {
+          include: {
+            integration: {
+              select: { id: true, name: true, key: true },
+            },
+            fromStage: {
+              select: { id: true, name: true },
+            },
+            formDefinition: {
+              select: { id: true, name: true },
+            },
+            conditions: true,
+          },
+          orderBy: { executionOrder: 'asc' },
+        },
         _count: {
           select: { cards: { where: { status: 'active' } } },
         },
@@ -285,40 +300,75 @@ export class StagesService {
       throw new BadRequestException('Cannot modify published version');
     }
 
-    const formDef = await this.prisma.formDefinition.findFirst({
-      where: {
-        id: dto.formDefinitionId,
-        tenantId: ctx.tenantId,
-        status: 'published',
-      },
-    });
-
-    if (!formDef) {
-      throw new NotFoundException('Form definition not found or not published');
+    // Must provide either local form or external form
+    if (!dto.formDefinitionId && !dto.externalFormId) {
+      throw new BadRequestException('Either formDefinitionId or externalFormId is required');
     }
 
-    const existing = await this.prisma.stageFormAttachRule.findFirst({
+    // If using local form, validate it exists
+    if (dto.formDefinitionId) {
+      const formDef = await this.prisma.formDefinition.findFirst({
+        where: {
+          id: dto.formDefinitionId,
+          tenantId: ctx.tenantId,
+          status: 'published',
+        },
+      });
+
+      if (!formDef) {
+        throw new NotFoundException('Form definition not found or not published');
+      }
+
+      const existing = await this.prisma.stageFormAttachRule.findFirst({
+        where: {
+          stageId,
+          formDefinitionId: dto.formDefinitionId,
+        },
+      });
+
+      if (existing) {
+        throw new ConflictException('Form is already attached to this stage');
+      }
+
+      return this.prisma.stageFormAttachRule.create({
+        data: {
+          stageId,
+          formDefinitionId: dto.formDefinitionId,
+          defaultFormStatus: dto.defaultFormStatus,
+          lockOnLeaveStage: dto.lockOnLeaveStage || false,
+        },
+        include: {
+          formDefinition: {
+            select: { id: true, name: true, version: true },
+          },
+        },
+      });
+    }
+
+    // External form - validate required fields and check duplicates
+    if (!dto.externalFormName) {
+      throw new BadRequestException('externalFormName is required for external forms');
+    }
+
+    const existingExternal = await this.prisma.stageFormAttachRule.findFirst({
       where: {
         stageId,
-        formDefinitionId: dto.formDefinitionId,
+        externalFormId: dto.externalFormId,
       },
     });
 
-    if (existing) {
-      throw new ConflictException('Form is already attached to this stage');
+    if (existingExternal) {
+      throw new ConflictException('External form is already attached to this stage');
     }
 
     return this.prisma.stageFormAttachRule.create({
       data: {
         stageId,
-        formDefinitionId: dto.formDefinitionId,
+        externalFormId: dto.externalFormId,
+        externalFormName: dto.externalFormName,
+        externalFormVersion: dto.externalFormVersion,
         defaultFormStatus: dto.defaultFormStatus,
         lockOnLeaveStage: dto.lockOnLeaveStage || false,
-      },
-      include: {
-        formDefinition: {
-          select: { id: true, name: true, version: true },
-        },
       },
     });
   }

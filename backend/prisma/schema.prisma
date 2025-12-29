@@ -87,6 +87,24 @@ enum EventType {
   PLM_CARD_CLOSED
 }
 
+enum TriggerEventType {
+  CARD_MOVEMENT
+  FORM_FIELD_CHANGE
+}
+
+enum TriggerOperator {
+  EQUALS
+  NOT_EQUALS
+  GREATER_THAN
+  LESS_THAN
+  GREATER_OR_EQUAL
+  LESS_OR_EQUAL
+  CONTAINS
+  NOT_CONTAINS
+  IS_EMPTY
+  IS_NOT_EMPTY
+}
+
 // =========================================================
 // TENANCY
 // =========================================================
@@ -103,6 +121,7 @@ model Tenant {
   automationBindings AutomationBinding[]
   cards              Card[]
   outboxEvents       OutboxEvent[]
+  integrations       Integration[]
 
   @@index([status])
   @@map("tenants")
@@ -126,6 +145,7 @@ model FormDefinition {
   tenant      Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   attachRules StageFormAttachRule[]
   cardForms   CardForm[]
+  triggers    StageTrigger[]
 
   @@unique([tenantId, orgId, name, version], name: "uq_form_definition_version")
   @@index([tenantId])
@@ -215,6 +235,8 @@ model Stage {
   moveHistoryTo          CardMoveHistory[]     @relation("ToStageHistory")
   automationBindingsFrom AutomationBinding[]   @relation("FilterFromStage")
   automationBindingsTo   AutomationBinding[]   @relation("FilterToStage")
+  triggers               StageTrigger[]
+  triggersFromStage      StageTrigger[]        @relation("TriggerFromStage")
 
   @@index([pipelineVersionId])
   @@index([pipelineVersionId, stageOrder])
@@ -240,17 +262,21 @@ model StageTransition {
 }
 
 model StageFormAttachRule {
-  id                String         @id @default(uuid()) @db.Uuid
-  stageId           String         @map("stage_id") @db.Uuid
-  formDefinitionId  String         @map("form_definition_id") @db.Uuid
-  defaultFormStatus CardFormStatus @default(TO_FILL) @map("default_form_status")
-  lockOnLeaveStage  Boolean        @default(false) @map("lock_on_leave_stage")
-  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  id                  String          @id @default(uuid()) @db.Uuid
+  stageId             String          @map("stage_id") @db.Uuid
+  formDefinitionId    String?         @map("form_definition_id") @db.Uuid
+  externalFormId      String?         @map("external_form_id") @db.VarChar(255)
+  externalFormName    String?         @map("external_form_name") @db.VarChar(255)
+  externalFormVersion Int?            @map("external_form_version")
+  defaultFormStatus   CardFormStatus  @default(TO_FILL) @map("default_form_status")
+  lockOnLeaveStage    Boolean         @default(false) @map("lock_on_leave_stage")
+  createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz
 
-  stage          Stage          @relation(fields: [stageId], references: [id], onDelete: Cascade)
-  formDefinition FormDefinition @relation(fields: [formDefinitionId], references: [id], onDelete: Cascade)
+  stage          Stage           @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  formDefinition FormDefinition? @relation(fields: [formDefinitionId], references: [id], onDelete: SetNull)
 
   @@unique([stageId, formDefinitionId], name: "uq_stage_form_attach")
+  @@unique([stageId, externalFormId], name: "uq_stage_external_form_attach")
   @@index([stageId])
   @@index([formDefinitionId])
   @@map("stage_form_attach_rules")
@@ -388,4 +414,76 @@ model OutboxEvent {
   @@index([entityType, entityId])
   @@index([orgId])
   @@map("outbox_events")
+}
+
+// =========================================================
+// INTEGRATIONS
+// =========================================================
+
+model Integration {
+  id                 String   @id @default(uuid()) @db.Uuid
+  tenantId           String   @map("tenant_id") @db.Uuid
+  orgId              String   @map("org_id") @db.VarChar(100)
+  key                String   @db.VarChar(100)
+  name               String   @db.VarChar(255)
+  description        String?  @db.Text
+  externalApiKeyId   String   @map("external_api_key_id") @db.VarChar(255)
+  externalApiKeyName String?  @map("external_api_key_name") @db.VarChar(255)
+  httpMethod         String   @default("POST") @map("http_method") @db.VarChar(10)
+  endpoint           String?  @db.Text
+  defaultPayload     Json?    @map("default_payload")
+  enabled            Boolean  @default(true)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  triggers StageTrigger[]
+
+  @@unique([tenantId, orgId, key], name: "uq_integration_key_org")
+  @@index([tenantId])
+  @@index([orgId])
+  @@map("integrations")
+}
+
+// =========================================================
+// STAGE TRIGGERS
+// =========================================================
+
+model StageTrigger {
+  id               String           @id @default(uuid()) @db.Uuid
+  stageId          String           @map("stage_id") @db.Uuid
+  integrationId    String           @map("integration_id") @db.Uuid
+  eventType        TriggerEventType @map("event_type")
+  fromStageId      String?          @map("from_stage_id") @db.Uuid
+  formDefinitionId String?          @map("form_definition_id") @db.Uuid
+  fieldId          String?          @map("field_id") @db.VarChar(100)
+  executionOrder   Int              @default(0) @map("execution_order")
+  enabled          Boolean          @default(true)
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  stage          Stage                   @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  integration    Integration             @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  fromStage      Stage?                  @relation("TriggerFromStage", fields: [fromStageId], references: [id], onDelete: SetNull)
+  formDefinition FormDefinition?         @relation(fields: [formDefinitionId], references: [id], onDelete: SetNull)
+  conditions     StageTriggerCondition[]
+
+  @@index([stageId])
+  @@index([integrationId])
+  @@index([eventType])
+  @@map("stage_triggers")
+}
+
+model StageTriggerCondition {
+  id        String          @id @default(uuid()) @db.Uuid
+  triggerId String          @map("trigger_id") @db.Uuid
+  fieldPath String          @map("field_path") @db.VarChar(255)
+  operator  TriggerOperator
+  value     String          @db.VarChar(500)
+  createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz
+
+  trigger StageTrigger @relation(fields: [triggerId], references: [id], onDelete: Cascade)
+
+  @@index([triggerId])
+  @@map("stage_trigger_conditions")
 }

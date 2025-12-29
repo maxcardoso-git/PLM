@@ -20,10 +20,18 @@ export interface TenantConfig {
   orgId: string;
 }
 
+export interface ApiKeysServiceConfig {
+  baseUrl: string;
+  listEndpoint: string;
+  apiKey: string;
+  enabled: boolean;
+}
+
 export interface PLMSettings {
   externalForms: ExternalFormsConfig;
   externalProjects: ExternalProjectsConfig;
   tenant: TenantConfig;
+  apiKeysService: ApiKeysServiceConfig;
 }
 
 interface SettingsContextType {
@@ -31,9 +39,11 @@ interface SettingsContextType {
   updateExternalFormsConfig: (config: Partial<ExternalFormsConfig>) => void;
   updateExternalProjectsConfig: (config: Partial<ExternalProjectsConfig>) => void;
   updateTenantConfig: (config: Partial<TenantConfig>) => void;
+  updateApiKeysServiceConfig: (config: Partial<ApiKeysServiceConfig>) => void;
   isConfigured: boolean;
   isProjectsConfigured: boolean;
   isTenantConfigured: boolean;
+  isApiKeysConfigured: boolean;
 }
 
 const defaultSettings: PLMSettings = {
@@ -52,6 +62,12 @@ const defaultSettings: PLMSettings = {
   tenant: {
     tenantId: '',
     orgId: '',
+  },
+  apiKeysService: {
+    baseUrl: '',
+    listEndpoint: '/api-keys',
+    apiKey: '',
+    enabled: false,
   },
 };
 
@@ -80,6 +96,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           tenant: {
             ...defaultSettings.tenant,
             ...parsed.tenant,
+          },
+          apiKeysService: {
+            ...defaultSettings.apiKeysService,
+            ...parsed.apiKeysService,
           },
         };
       } catch {
@@ -123,6 +143,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const updateApiKeysServiceConfig = (config: Partial<ApiKeysServiceConfig>) => {
+    setSettings((prev) => ({
+      ...prev,
+      apiKeysService: {
+        ...prev.apiKeysService,
+        ...config,
+      },
+    }));
+  };
+
   const isConfigured = Boolean(
     settings.externalForms.baseUrl &&
     settings.externalForms.apiKey &&
@@ -140,6 +170,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     settings.tenant.orgId
   );
 
+  const isApiKeysConfigured = Boolean(
+    settings.apiKeysService.baseUrl &&
+    settings.apiKeysService.apiKey &&
+    settings.apiKeysService.enabled
+  );
+
   return (
     <SettingsContext.Provider
       value={{
@@ -147,9 +183,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         updateExternalFormsConfig,
         updateExternalProjectsConfig,
         updateTenantConfig,
+        updateApiKeysServiceConfig,
         isConfigured,
         isProjectsConfigured,
         isTenantConfigured,
+        isApiKeysConfigured,
       }}
     >
       {children}

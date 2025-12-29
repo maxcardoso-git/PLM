@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Workflow, FileText, Settings, ArrowRight, LayoutGrid, CheckCircle2, Clock, Users } from 'lucide-react';
 import { useTenant } from '../context/TenantContext';
 import { api } from '../services/api';
@@ -13,6 +14,7 @@ interface DashboardStats {
 
 export function DashboardPage() {
   const { tenant, organization } = useTenant();
+  const { t } = useTranslation();
   const [stats, setStats] = useState<DashboardStats>({
     totalPipelines: 0,
     publishedPipelines: 0,
@@ -52,22 +54,22 @@ export function DashboardPage() {
 
   const quickLinks = [
     {
-      title: 'Pipelines',
-      description: 'Gerencie seus workflows e quadros Kanban',
+      titleKey: 'sidebar.pipelines',
+      descKey: 'dashboard.pipelinesDesc',
       icon: Workflow,
       href: '/pipelines',
       color: 'bg-blue-500',
     },
     {
-      title: 'Formulários',
-      description: 'Crie e gerencie definições de formulários',
+      titleKey: 'dashboard.formsTitle',
+      descKey: 'dashboard.formsDesc',
       icon: FileText,
       href: '/forms',
       color: 'bg-purple-500',
     },
     {
-      title: 'Configurações',
-      description: 'Configure automações e integrações',
+      titleKey: 'dashboard.settingsTitle',
+      descKey: 'dashboard.settingsDesc',
       icon: Settings,
       href: '/settings',
       color: 'bg-gray-500',
@@ -76,28 +78,28 @@ export function DashboardPage() {
 
   const statCards = [
     {
-      label: 'Total Pipelines',
+      labelKey: 'dashboard.totalPipelines',
       value: stats.totalPipelines,
       icon: LayoutGrid,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50',
     },
     {
-      label: 'Publicados',
+      labelKey: 'dashboard.published',
       value: stats.publishedPipelines,
       icon: CheckCircle2,
       color: 'text-green-600',
       bgColor: 'bg-green-50',
     },
     {
-      label: 'Rascunhos',
+      labelKey: 'dashboard.drafts',
       value: stats.draftPipelines,
       icon: Clock,
       color: 'text-amber-600',
       bgColor: 'bg-amber-50',
     },
     {
-      label: 'Formulários',
+      labelKey: 'dashboard.formsTitle',
       value: stats.totalForms,
       icon: FileText,
       color: 'text-purple-600',
@@ -108,9 +110,9 @@ export function DashboardPage() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+        <h1 className="text-3xl font-bold text-gray-900">{t('dashboard.title')}</h1>
         <p className="text-gray-500 mt-2">
-          Visão geral do seu ambiente PLM
+          {t('dashboard.overview')}
         </p>
       </div>
 
@@ -122,7 +124,7 @@ export function DashboardPage() {
               <Users size={24} />
             </div>
             <div className="flex-1">
-              <p className="text-blue-100 text-sm">Contexto Atual</p>
+              <p className="text-blue-100 text-sm">{t('dashboard.currentContext')}</p>
               <h3 className="font-semibold text-lg">
                 {tenant.name} / {organization.name}
               </h3>
@@ -135,7 +137,7 @@ export function DashboardPage() {
       {organization && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {statCards.map((stat) => (
-            <div key={stat.label} className="bg-white rounded-lg border border-gray-200 p-4">
+            <div key={stat.labelKey} className="bg-white rounded-lg border border-gray-200 p-4">
               <div className="flex items-center gap-3">
                 <div className={`p-2 rounded-lg ${stat.bgColor}`}>
                   <stat.icon size={20} className={stat.color} />
@@ -144,7 +146,7 @@ export function DashboardPage() {
                   <p className="text-2xl font-bold text-gray-900">
                     {loadingStats ? '-' : stat.value}
                   </p>
-                  <p className="text-xs text-gray-500">{stat.label}</p>
+                  <p className="text-xs text-gray-500">{t(stat.labelKey)}</p>
                 </div>
               </div>
             </div>
@@ -153,7 +155,7 @@ export function DashboardPage() {
       )}
 
       {/* Quick Links */}
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Links</h2>
+      <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('dashboard.quickLinks')}</h2>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {quickLinks.map((link) => (
           <Link
@@ -165,11 +167,10 @@ export function DashboardPage() {
               <link.icon size={24} className="text-white" />
             </div>
             <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-              {link.title}
+              {t(link.titleKey)}
             </h3>
-            <p className="text-sm text-gray-500 mt-1">{link.description}</p>
+            <p className="text-sm text-gray-500 mt-1">{t(link.descKey)}</p>
             <div className="flex items-center gap-1 text-blue-600 text-sm mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
-              Go to {link.title}
               <ArrowRight size={16} />
             </div>
           </Link>
@@ -179,9 +180,9 @@ export function DashboardPage() {
       {/* Getting Started */}
       {(!tenant || !organization) && (
         <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-          <h3 className="font-semibold text-blue-900">Getting Started</h3>
+          <h3 className="font-semibold text-blue-900">{t('dashboard.gettingStarted')}</h3>
           <p className="text-blue-700 text-sm mt-2">
-            Select a tenant and organization from the sidebar to start managing your pipelines.
+            {t('dashboard.selectTenantMsg')}
           </p>
         </div>
       )}

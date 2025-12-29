@@ -7,6 +7,10 @@ import type {
   CardFull,
   ListResponse,
   FormDefinition,
+  Integration,
+  StageTrigger,
+  CreateStageTriggerPayload,
+  UpdateStageTriggerPayload,
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
@@ -74,6 +78,11 @@ class ApiClient {
     projectName?: string;
   }): Promise<Pipeline> {
     const { data } = await this.client.post('/pipelines', payload);
+    return data;
+  }
+
+  async deletePipeline(id: string): Promise<{ deleted: boolean; id: string }> {
+    const { data } = await this.client.delete(`/pipelines/${id}`);
     return data;
   }
 
@@ -148,6 +157,77 @@ class ApiClient {
       `/pipelines/${pipelineId}/versions/${version}/transitions`,
       payload
     );
+    return data;
+  }
+
+  // Integrations
+  async getIntegrations(): Promise<ListResponse<Integration>> {
+    const { data } = await this.client.get('/integrations');
+    return data;
+  }
+
+  async getIntegration(id: string): Promise<Integration> {
+    const { data } = await this.client.get(`/integrations/${id}`);
+    return data;
+  }
+
+  async createIntegration(payload: {
+    key: string;
+    name: string;
+    description?: string;
+    externalApiKeyId: string;
+    externalApiKeyName?: string;
+    httpMethod?: string;
+    endpoint?: string;
+    defaultPayload?: Record<string, any>;
+  }): Promise<Integration> {
+    const { data } = await this.client.post('/integrations', payload);
+    return data;
+  }
+
+  async updateIntegration(id: string, payload: {
+    name?: string;
+    description?: string;
+    httpMethod?: string;
+    endpoint?: string;
+    defaultPayload?: Record<string, any>;
+    enabled?: boolean;
+  }): Promise<Integration> {
+    const { data } = await this.client.patch(`/integrations/${id}`, payload);
+    return data;
+  }
+
+  async deleteIntegration(id: string): Promise<{ deleted: boolean; id: string }> {
+    const { data } = await this.client.delete(`/integrations/${id}`);
+    return data;
+  }
+
+  async testIntegration(id: string, payload?: Record<string, any>): Promise<{
+    integration: { id: string; name: string; httpMethod: string; endpoint?: string; externalApiKeyId: string };
+    testPayload: Record<string, any>;
+  }> {
+    const { data } = await this.client.post(`/integrations/${id}/test`, { payload });
+    return data;
+  }
+
+  // Stage Triggers
+  async getStageTriggers(stageId: string): Promise<ListResponse<StageTrigger>> {
+    const { data } = await this.client.get(`/stages/${stageId}/triggers`);
+    return data;
+  }
+
+  async createStageTrigger(stageId: string, payload: CreateStageTriggerPayload): Promise<StageTrigger> {
+    const { data } = await this.client.post(`/stages/${stageId}/triggers`, payload);
+    return data;
+  }
+
+  async updateStageTrigger(triggerId: string, payload: UpdateStageTriggerPayload): Promise<StageTrigger> {
+    const { data } = await this.client.patch(`/stage-triggers/${triggerId}`, payload);
+    return data;
+  }
+
+  async deleteStageTrigger(triggerId: string): Promise<{ deleted: boolean; id: string }> {
+    const { data } = await this.client.delete(`/stage-triggers/${triggerId}`);
     return data;
   }
 }

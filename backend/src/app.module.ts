@@ -13,6 +13,8 @@ import { CardsModule } from './modules/cards';
 import { AutomationsModule } from './modules/automations';
 import { AppFeaturesModule } from './modules/app-features';
 import { ExternalFormsModule } from './modules/external-forms';
+import { IntegrationsModule } from './modules/integrations/integrations.module';
+import { StageTriggersModule } from './modules/stage-triggers/stage-triggers.module';
 
 @Module({
   imports: [
@@ -29,6 +31,8 @@ import { ExternalFormsModule } from './modules/external-forms';
     AutomationsModule,
     AppFeaturesModule,
     ExternalFormsModule,
+    IntegrationsModule,
+    StageTriggersModule,
   ],
   providers: [
     {

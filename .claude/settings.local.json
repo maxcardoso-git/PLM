@@ -27,7 +27,10 @@
       "Bash(python3:*)",
       "Bash(VITE_API_URL=/api/v1 npm run build:*)",
       "Bash(grep:*)",
-      "Bash(xargs:*)"
+      "Bash(xargs:*)",
+      "Bash(mkdir:*)",
+      "Bash(pkill:*)",
+      "Bash(PGPASSWORD=postgres psql:*)"
     ]
   }
 }

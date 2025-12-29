@@ -21,19 +21,25 @@ import {
   XCircle,
   GitBranch,
   List,
+  Zap,
 } from 'lucide-react';
 import { useTenant } from '../context/TenantContext';
 import { useSettings } from '../context/SettingsContext';
 import { Modal } from '../components/ui';
+import { api } from '../services/api';
+import type { Integration, StageTrigger, TriggerEventType, TriggerOperator } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 interface FormAttachRule {
   id: string;
-  formDefinitionId: string;
+  formDefinitionId?: string;
+  externalFormId?: string;
+  externalFormName?: string;
+  externalFormVersion?: number;
   defaultFormStatus: string;
   lockOnLeaveStage: boolean;
-  formDefinition: {
+  formDefinition?: {
     id: string;
     name: string;
     version: number;
@@ -58,6 +64,7 @@ interface Stage {
   active: boolean;
   transitionsFrom?: Transition[];
   formAttachRules?: FormAttachRule[];
+  triggers?: StageTrigger[];
 }
 
 type EditorTab = 'stages' | 'flow';
@@ -161,6 +168,27 @@ export function PipelineEditorPage() {
     lockOnLeaveStage: false,
   });
   const [savingForm, setSavingForm] = useState(false);
+
+  // Trigger modal
+  const [showTriggerModal, setShowTriggerModal] = useState(false);
+  const [triggerStage, setTriggerStage] = useState<Stage | null>(null);
+  const [integrations, setIntegrations] = useState<Integration[]>([]);
+  const [triggerForm, setTriggerForm] = useState<{
+    integrationId: string;
+    eventType: TriggerEventType;
+    fromStageId: string;
+    formDefinitionId: string;
+    fieldId: string;
+    conditions: { fieldPath: string; operator: TriggerOperator; value: string }[];
+  }>({
+    integrationId: '',
+    eventType: 'CARD_MOVEMENT',
+    fromStageId: '',
+    formDefinitionId: '',
+    fieldId: '',
+    conditions: [],
+  });
+  const [savingTrigger, setSavingTrigger] = useState(false);
 
   const headers = {
     'Content-Type': 'application/json',
@@ -446,14 +474,40 @@ export function PipelineEditorPage() {
 
     setSavingForm(true);
     try {
+      // Find selected form to get name/version
+      const selectedForm = availableForms.find(f => f.id === selectedFormId);
+
+      // Determine payload based on whether using external forms
+      const isUsingExternalForms = isFormsConfigured && settings.externalForms.baseUrl;
+
+      console.log('[DEBUG] handleAttachForm:', {
+        isFormsConfigured,
+        baseUrl: settings.externalForms.baseUrl,
+        isUsingExternalForms,
+        selectedFormId,
+        selectedForm: selectedForm?.name,
+      });
+
+      const payload = isUsingExternalForms
+        ? {
+            externalFormId: selectedFormId,
+            externalFormName: selectedForm?.name || 'Unknown Form',
+            externalFormVersion: selectedForm?.version,
+            defaultFormStatus: formSettings.defaultFormStatus,
+            lockOnLeaveStage: formSettings.lockOnLeaveStage,
+          }
+        : {
+            formDefinitionId: selectedFormId,
+            defaultFormStatus: formSettings.defaultFormStatus,
+            lockOnLeaveStage: formSettings.lockOnLeaveStage,
+          };
+
+      console.log('[DEBUG] Sending payload:', JSON.stringify(payload, null, 2));
+
       const res = await fetch(`${API_BASE_URL}/stages/${formStage.id}/attach-forms`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({
-          formDefinitionId: selectedFormId,
-          defaultFormStatus: formSettings.defaultFormStatus,
-          lockOnLeaveStage: formSettings.lockOnLeaveStage,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -488,6 +542,84 @@ export function PipelineEditorPage() {
     } catch (err) {
       showToast('error', 'Falha ao desvincular formulário');
     }
+  };
+
+  // Trigger functions
+  const fetchIntegrations = async () => {
+    try {
+      const result = await api.getIntegrations();
+      setIntegrations(result.items || []);
+    } catch (err) {
+      console.error('Failed to fetch integrations:', err);
+    }
+  };
+
+  const handleOpenTriggerModal = async (stage: Stage) => {
+    setTriggerStage(stage);
+    setTriggerForm({
+      integrationId: '',
+      eventType: 'CARD_MOVEMENT',
+      fromStageId: '',
+      formDefinitionId: '',
+      fieldId: '',
+      conditions: [],
+    });
+    await Promise.all([fetchIntegrations(), fetchForms()]);
+    setShowTriggerModal(true);
+  };
+
+  const handleSaveTrigger = async () => {
+    if (!triggerStage || !triggerForm.integrationId) return;
+
+    setSavingTrigger(true);
+    try {
+      await api.createStageTrigger(triggerStage.id, {
+        integrationId: triggerForm.integrationId,
+        eventType: triggerForm.eventType,
+        fromStageId: triggerForm.fromStageId || undefined,
+        formDefinitionId: triggerForm.formDefinitionId || undefined,
+        fieldId: triggerForm.fieldId || undefined,
+        conditions: triggerForm.conditions.filter(c => c.fieldPath && c.value),
+      });
+
+      setShowTriggerModal(false);
+      fetchVersionStages(selectedVersion);
+      showToast('success', 'Gatilho criado com sucesso!');
+    } catch (err) {
+      showToast('error', err instanceof Error ? err.message : 'Falha ao criar gatilho');
+    } finally {
+      setSavingTrigger(false);
+    }
+  };
+
+  const handleDeleteTrigger = async (triggerId: string) => {
+    try {
+      await api.deleteStageTrigger(triggerId);
+      fetchVersionStages(selectedVersion);
+      showToast('success', 'Gatilho removido!');
+    } catch (err) {
+      showToast('error', 'Falha ao remover gatilho');
+    }
+  };
+
+  const addCondition = () => {
+    setTriggerForm({
+      ...triggerForm,
+      conditions: [...triggerForm.conditions, { fieldPath: '', operator: 'EQUALS', value: '' }],
+    });
+  };
+
+  const removeCondition = (index: number) => {
+    setTriggerForm({
+      ...triggerForm,
+      conditions: triggerForm.conditions.filter((_, i) => i !== index),
+    });
+  };
+
+  const updateCondition = (index: number, field: string, value: string) => {
+    const newConditions = [...triggerForm.conditions];
+    newConditions[index] = { ...newConditions[index], [field]: value };
+    setTriggerForm({ ...triggerForm, conditions: newConditions });
   };
 
   const showToast = (type: 'success' | 'error', message: string) => {
@@ -791,6 +923,13 @@ export function PipelineEditorPage() {
                         <FileText size={16} />
                       </button>
                       <button
+                        onClick={() => handleOpenTriggerModal(stage)}
+                        className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded"
+                        title="Configurar gatilhos"
+                      >
+                        <Zap size={16} />
+                      </button>
+                      <button
                         onClick={() => handleEditStage(stage)}
                         className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
                         title="Editar etapa"
@@ -815,20 +954,69 @@ export function PipelineEditorPage() {
                         <span>Formulários vinculados:</span>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        {stage.formAttachRules.map((rule) => (
+                        {stage.formAttachRules.map((rule) => {
+                          const formName = rule.formDefinition?.name || rule.externalFormName || 'Unknown';
+                          const formVersion = rule.formDefinition?.version ?? rule.externalFormVersion;
+                          return (
+                            <div
+                              key={rule.id}
+                              className="flex items-center gap-2 px-2 py-1 bg-purple-50 text-purple-700 rounded-md text-xs"
+                            >
+                              <Link2 size={12} />
+                              <span>{formName}{formVersion ? ` v${formVersion}` : ''}</span>
+                              {rule.lockOnLeaveStage && (
+                                <span className="text-purple-400" title="Bloqueia ao sair da etapa">🔒</span>
+                              )}
+                              <button
+                                onClick={() => handleDetachForm(rule.id)}
+                                className="ml-1 text-purple-400 hover:text-red-500"
+                                title="Remover formulário"
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Triggers */}
+                  {stage.triggers && stage.triggers.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+                        <Zap size={12} />
+                        <span>Gatilhos configurados:</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {stage.triggers.map((trigger) => (
                           <div
-                            key={rule.id}
-                            className="flex items-center gap-2 px-2 py-1 bg-purple-50 text-purple-700 rounded-md text-xs"
+                            key={trigger.id}
+                            className="flex items-center gap-2 px-2 py-1 bg-amber-50 text-amber-700 rounded-md text-xs group"
                           >
-                            <Link2 size={12} />
-                            <span>{rule.formDefinition.name} v{rule.formDefinition.version}</span>
-                            {rule.lockOnLeaveStage && (
-                              <span className="text-purple-400" title="Bloqueia ao sair da etapa">🔒</span>
+                            {trigger.eventType === 'CARD_MOVEMENT' ? (
+                              <ArrowRight size={12} />
+                            ) : (
+                              <FileText size={12} />
+                            )}
+                            <span>{trigger.integration.name}</span>
+                            {trigger.fromStage && (
+                              <span className="text-amber-500" title={`De: ${trigger.fromStage.name}`}>
+                                ← {trigger.fromStage.name}
+                              </span>
+                            )}
+                            {trigger.conditions.length > 0 && (
+                              <span className="bg-amber-200 text-amber-800 px-1 rounded" title="Condições">
+                                {trigger.conditions.length}
+                              </span>
+                            )}
+                            {!trigger.enabled && (
+                              <span className="text-amber-400" title="Desabilitado">⏸</span>
                             )}
                             <button
-                              onClick={() => handleDetachForm(rule.id)}
-                              className="ml-1 text-purple-400 hover:text-red-500"
-                              title="Remover formulário"
+                              onClick={() => handleDeleteTrigger(trigger.id)}
+                              className="ml-1 text-amber-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="Remover gatilho"
                             >
                               <X size={12} />
                             </button>
@@ -1262,6 +1450,187 @@ export function PipelineEditorPage() {
               className="btn-primary"
             >
               {savingForm ? 'Vinculando...' : 'Vincular Formulário'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Trigger Configuration Modal */}
+      <Modal
+        isOpen={showTriggerModal}
+        onClose={() => setShowTriggerModal(false)}
+        title="Configurar Gatilho"
+      >
+        <div className="space-y-4">
+          <div className="text-sm text-gray-600">
+            <p>Etapa: <span className="font-semibold">{triggerStage?.name}</span></p>
+          </div>
+
+          <div>
+            <label className="label">Integração</label>
+            <select
+              value={triggerForm.integrationId}
+              onChange={(e) => setTriggerForm({ ...triggerForm, integrationId: e.target.value })}
+              className="input mt-1"
+            >
+              <option value="">Selecione uma integração...</option>
+              {integrations
+                .filter((i) => i.enabled)
+                .map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.name}
+                  </option>
+                ))}
+            </select>
+            {integrations.length === 0 && (
+              <p className="text-xs text-amber-600 mt-1">
+                Nenhuma integração disponível. Crie uma integração primeiro.
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="label">Tipo de Evento</label>
+            <select
+              value={triggerForm.eventType}
+              onChange={(e) => setTriggerForm({ ...triggerForm, eventType: e.target.value as TriggerEventType })}
+              className="input mt-1"
+            >
+              <option value="CARD_MOVEMENT">Movimentação de Card</option>
+              <option value="FORM_FIELD_CHANGE">Alteração de Campo</option>
+            </select>
+          </div>
+
+          {triggerForm.eventType === 'CARD_MOVEMENT' && (
+            <div>
+              <label className="label">Da Etapa (opcional)</label>
+              <select
+                value={triggerForm.fromStageId}
+                onChange={(e) => setTriggerForm({ ...triggerForm, fromStageId: e.target.value })}
+                className="input mt-1"
+              >
+                <option value="">Qualquer etapa</option>
+                {stages
+                  .filter((s) => s.id !== triggerStage?.id)
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Filtrar por etapa de origem da movimentação.
+              </p>
+            </div>
+          )}
+
+          {triggerForm.eventType === 'FORM_FIELD_CHANGE' && (
+            <>
+              <div>
+                <label className="label">Formulário (opcional)</label>
+                <select
+                  value={triggerForm.formDefinitionId}
+                  onChange={(e) => setTriggerForm({ ...triggerForm, formDefinitionId: e.target.value, fieldId: '' })}
+                  className="input mt-1"
+                >
+                  <option value="">Qualquer formulário</option>
+                  {availableForms.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name} {f.version ? `(v${f.version})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="label">Campo (opcional)</label>
+                <input
+                  type="text"
+                  value={triggerForm.fieldId}
+                  onChange={(e) => setTriggerForm({ ...triggerForm, fieldId: e.target.value })}
+                  className="input mt-1"
+                  placeholder="Ex: status, amount, approved"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  ID do campo que dispara o gatilho. Deixe vazio para qualquer campo.
+                </p>
+              </div>
+            </>
+          )}
+
+          {/* Conditions */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="label mb-0">Condições (opcional)</label>
+              <button
+                type="button"
+                onClick={addCondition}
+                className="text-xs text-blue-600 hover:text-blue-800"
+              >
+                + Adicionar Condição
+              </button>
+            </div>
+
+            {triggerForm.conditions.length > 0 ? (
+              <div className="space-y-2">
+                {triggerForm.conditions.map((condition, index) => (
+                  <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                    <input
+                      type="text"
+                      value={condition.fieldPath}
+                      onChange={(e) => updateCondition(index, 'fieldPath', e.target.value)}
+                      className="input text-xs flex-1"
+                      placeholder="Campo (ex: status)"
+                    />
+                    <select
+                      value={condition.operator}
+                      onChange={(e) => updateCondition(index, 'operator', e.target.value)}
+                      className="input text-xs w-32"
+                    >
+                      <option value="EQUALS">=</option>
+                      <option value="NOT_EQUALS">≠</option>
+                      <option value="GREATER_THAN">&gt;</option>
+                      <option value="LESS_THAN">&lt;</option>
+                      <option value="GREATER_OR_EQUAL">≥</option>
+                      <option value="LESS_OR_EQUAL">≤</option>
+                      <option value="CONTAINS">contém</option>
+                      <option value="NOT_CONTAINS">não contém</option>
+                      <option value="IS_EMPTY">vazio</option>
+                      <option value="IS_NOT_EMPTY">não vazio</option>
+                    </select>
+                    <input
+                      type="text"
+                      value={condition.value}
+                      onChange={(e) => updateCondition(index, 'value', e.target.value)}
+                      className="input text-xs flex-1"
+                      placeholder="Valor"
+                      disabled={condition.operator === 'IS_EMPTY' || condition.operator === 'IS_NOT_EMPTY'}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeCondition(index)}
+                      className="p-1 text-gray-400 hover:text-red-500"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-500 p-2 bg-gray-50 rounded-lg">
+                Sem condições. O gatilho será executado sempre que o evento ocorrer.
+              </p>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <button onClick={() => setShowTriggerModal(false)} className="btn-secondary">
+              Cancelar
+            </button>
+            <button
+              onClick={handleSaveTrigger}
+              disabled={savingTrigger || !triggerForm.integrationId}
+              className="btn-primary"
+            >
+              {savingTrigger ? 'Salvando...' : 'Adicionar Gatilho'}
             </button>
           </div>
         </div>
