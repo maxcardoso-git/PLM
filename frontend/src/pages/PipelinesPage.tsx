@@ -57,7 +57,16 @@ export function PipelinesPage() {
 
       if (response.ok) {
         const data = await response.json();
-        setProjects(data.items || data || []);
+        // Handle different API response formats
+        let projectsList: Project[] = [];
+        if (Array.isArray(data)) {
+          projectsList = data;
+        } else if (data && Array.isArray(data.items)) {
+          projectsList = data.items;
+        } else if (data && Array.isArray(data.data)) {
+          projectsList = data.data;
+        }
+        setProjects(projectsList);
       }
     } catch (err) {
       console.error('Failed to fetch projects:', err);
