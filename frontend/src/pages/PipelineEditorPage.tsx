@@ -1632,25 +1632,6 @@ export function PipelineEditorPage() {
                     { id: 'card.status', name: 'Status', group: 'Card' },
                   ];
 
-                  // Form fields from attached forms
-                  const attachedFormFields: { id: string; name: string; group: string }[] = [];
-                  if (triggerStage?.formAttachRules) {
-                    triggerStage.formAttachRules.forEach((rule) => {
-                      const formName = rule.formDefinition?.name || rule.externalFormName || 'Formulário';
-                      const form = availableForms.find(f => f.id === (rule.formDefinitionId || rule.externalFormId));
-                      const fields = form?.schemaJson?.fields || form?.fields || [];
-                      fields.forEach((field) => {
-                        attachedFormFields.push({
-                          id: `form.${rule.formDefinitionId || rule.externalFormId}.${field.id}`,
-                          name: field.label || field.name || field.id,
-                          group: formName,
-                        });
-                      });
-                    });
-                  }
-
-                  const allFields = [...cardFields, ...attachedFormFields];
-
                   return (
                     <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
                       <select
