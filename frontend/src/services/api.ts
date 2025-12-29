@@ -122,6 +122,33 @@ class ApiClient {
     const { data } = await this.client.get('/forms', { params });
     return data;
   }
+
+  // Stages
+  async createStage(pipelineId: string, version: number, payload: {
+    name: string;
+    color: string;
+    stageOrder: number;
+    isInitial?: boolean;
+    isFinal?: boolean;
+  }): Promise<{ id: string; name: string; color: string }> {
+    const { data } = await this.client.post(
+      `/pipelines/${pipelineId}/versions/${version}/stages`,
+      payload
+    );
+    return data;
+  }
+
+  // Transitions
+  async createTransition(pipelineId: string, version: number, payload: {
+    fromStageId: string;
+    toStageId: string;
+  }): Promise<{ id: string }> {
+    const { data } = await this.client.post(
+      `/pipelines/${pipelineId}/versions/${version}/transitions`,
+      payload
+    );
+    return data;
+  }
 }
 
 export const api = new ApiClient();

@@ -5,3 +5,4 @@ export * from './PipelineEditorPage';
 export * from './FormsPage';
 export * from './FormViewPage';
 export * from './SettingsPage';
+export * from './TemplatesPage';

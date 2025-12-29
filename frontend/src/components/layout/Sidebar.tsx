@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Workflow, FileText, Settings, Building2, User } from 'lucide-react';
+import { LayoutDashboard, Workflow, FileText, LayoutTemplate, Settings, Building2, User } from 'lucide-react';
 import { useTenant } from '../../context/TenantContext';
 import { clsx } from 'clsx';
 
@@ -7,6 +7,7 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Pipelines', href: '/pipelines', icon: Workflow },
   { name: 'Forms', href: '/forms', icon: FileText },
+  { name: 'Templates', href: '/templates', icon: LayoutTemplate },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
