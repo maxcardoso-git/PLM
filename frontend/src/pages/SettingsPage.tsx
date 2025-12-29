@@ -21,7 +21,7 @@ export function SettingsPage() {
   // Projects API configuration
   const [projectsBaseUrl, setProjectsBaseUrl] = useState(settings.externalProjects.baseUrl);
   const [projectsListEndpoint, setProjectsListEndpoint] = useState(
-    settings.externalProjects.listEndpoint || '/projects/external/list'
+    settings.externalProjects.listEndpoint || '/projects'
   );
   const [projectsApiKey, setProjectsApiKey] = useState(settings.externalProjects.apiKey);
   const [projectsEnabled, setProjectsEnabled] = useState(settings.externalProjects.enabled);
@@ -367,13 +367,13 @@ export function SettingsPage() {
                 type="text"
                 value={projectsListEndpoint}
                 onChange={(e) => setProjectsListEndpoint(e.target.value)}
-                placeholder="/projects/external/list"
+                placeholder="/projects"
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
               />
               <Route className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             </div>
             <p className="mt-1 text-xs text-gray-500">
-              The endpoint path to list projects (e.g., /projects/external/list)
+              The endpoint path to list projects (e.g., /projects)
             </p>
           </div>
 

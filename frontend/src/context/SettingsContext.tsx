@@ -45,7 +45,7 @@ const defaultSettings: PLMSettings = {
   },
   externalProjects: {
     baseUrl: '',
-    listEndpoint: '/projects/external/list',
+    listEndpoint: '/projects',
     apiKey: '',
     enabled: false,
   },
