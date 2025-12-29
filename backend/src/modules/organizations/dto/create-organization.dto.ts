@@ -7,6 +7,11 @@ export enum OrganizationStatus {
 }
 
 export class CreateOrganizationDto {
+  @ApiProperty({ description: 'Organization code (unique identifier)', example: 'Org-1' })
+  @IsString()
+  @IsNotEmpty()
+  code: string;
+
   @ApiProperty({ description: 'Organization name', example: 'Sales Department' })
   @IsString()
   @IsNotEmpty()

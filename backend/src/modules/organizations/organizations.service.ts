@@ -10,6 +10,7 @@ export class OrganizationsService {
     return this.prisma.organization.create({
       data: {
         tenantId,
+        code: dto.code,
         name: dto.name,
         status: dto.status || 'active',
       },
