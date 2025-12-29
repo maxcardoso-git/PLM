@@ -1542,24 +1542,37 @@ export function PipelineEditorPage() {
           {triggerForm.eventType === 'FORM_FIELD_CHANGE' && (
             <>
               <div>
-                <label className="label">Formulário (opcional)</label>
-                <select
-                  value={triggerForm.formDefinitionId}
-                  onChange={(e) => setTriggerForm({ ...triggerForm, formDefinitionId: e.target.value, fieldId: '' })}
-                  className="input mt-1"
-                >
-                  <option value="">Qualquer formulário</option>
-                  {availableForms.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.name} {f.version ? `(v${f.version})` : ''}
-                    </option>
-                  ))}
-                </select>
+                <label className="label">Formulário</label>
+                {/* Only show forms attached to this stage */}
+                {triggerStage?.formAttachRules && triggerStage.formAttachRules.length > 0 ? (
+                  <select
+                    value={triggerForm.formDefinitionId}
+                    onChange={(e) => setTriggerForm({ ...triggerForm, formDefinitionId: e.target.value, fieldId: '' })}
+                    className="input mt-1"
+                  >
+                    <option value="">Selecione um formulário...</option>
+                    {triggerStage.formAttachRules.map((rule) => {
+                      const formId = rule.formDefinitionId || rule.externalFormId || '';
+                      const formName = rule.formDefinition?.name || rule.externalFormName || 'Formulário';
+                      const formVersion = rule.formDefinition?.version ?? rule.externalFormVersion;
+                      return (
+                        <option key={rule.id} value={formId}>
+                          {formName} {formVersion ? `(v${formVersion})` : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
+                ) : (
+                  <p className="text-xs text-amber-600 mt-1 p-2 bg-amber-50 rounded">
+                    Nenhum formulário vinculado a esta etapa. Vincule um formulário primeiro.
+                  </p>
+                )}
               </div>
 
               <div>
                 <label className="label">Campo (opcional)</label>
                 {(() => {
+                  // Find the form in availableForms to get schema/fields
                   const selectedForm = availableForms.find(f => f.id === triggerForm.formDefinitionId);
                   const formFields = selectedForm?.schemaJson?.fields || selectedForm?.fields || [];
 
