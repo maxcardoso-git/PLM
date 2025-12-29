@@ -53,6 +53,8 @@ export interface Pipeline {
   id: string;
   tenantId: string;
   orgId: string;
+  projectId?: string;
+  projectName?: string;
   key: string;
   name: string;
   description?: string;

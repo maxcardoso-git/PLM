@@ -18,6 +18,18 @@ export class CreatePipelineDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiPropertyOptional({ description: 'External project ID', example: 'proj-123' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  projectId?: string;
+
+  @ApiPropertyOptional({ description: 'External project name', example: 'My Project' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  projectName?: string;
 }
 
 export class UpdatePipelineDto {
@@ -31,6 +43,18 @@ export class UpdatePipelineDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiPropertyOptional({ description: 'External project ID', example: 'proj-123' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  projectId?: string;
+
+  @ApiPropertyOptional({ description: 'External project name', example: 'My Project' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  projectName?: string;
 }
 
 export class ClonePipelineVersionDto {

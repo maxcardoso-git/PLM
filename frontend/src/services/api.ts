@@ -66,7 +66,13 @@ class ApiClient {
     return data;
   }
 
-  async createPipeline(payload: { key: string; name: string; description?: string }): Promise<Pipeline> {
+  async createPipeline(payload: {
+    key: string;
+    name: string;
+    description?: string;
+    projectId?: string;
+    projectName?: string;
+  }): Promise<Pipeline> {
     const { data } = await this.client.post('/pipelines', payload);
     return data;
   }

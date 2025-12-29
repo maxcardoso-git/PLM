@@ -16,7 +16,13 @@
       "Bash(git remote set-url:*)",
       "Bash(ssh:*)",
       "Bash(curl:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(gh run list:*)",
+      "Bash(docker build:*)",
+      "Bash(docker compose build:*)",
+      "Bash(docker compose:*)",
+      "Bash(ls:*)",
+      "Bash(lsof:*)"
     ]
   }
 }

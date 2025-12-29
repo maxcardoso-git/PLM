@@ -32,6 +32,8 @@ export class PipelinesService {
           key: dto.key,
           name: dto.name,
           description: dto.description,
+          projectId: dto.projectId,
+          projectName: dto.projectName,
           lifecycleStatus: 'draft',
         },
       });
