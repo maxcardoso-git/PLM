@@ -23,9 +23,10 @@ import {
   List,
 } from 'lucide-react';
 import { useTenant } from '../context/TenantContext';
+import { useSettings } from '../context/SettingsContext';
 import { Modal } from '../components/ui';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 interface FormAttachRule {
   id: string;
@@ -66,6 +67,13 @@ interface FormDefinition {
   name: string;
   version: number;
   status: string;
+  biaStatus?: string;
+  projectId?: string;
+  projectName?: string;
+  project?: {
+    id: string;
+    name: string;
+  };
 }
 
 interface PipelineVersion {
@@ -83,6 +91,8 @@ interface Pipeline {
   description?: string;
   lifecycleStatus: string;
   publishedVersion?: number;
+  projectId?: string;
+  projectName?: string;
   versions: PipelineVersion[];
 }
 
@@ -102,6 +112,7 @@ const STAGE_COLORS = [
 export function PipelineEditorPage() {
   const { pipelineId } = useParams<{ pipelineId: string }>();
   const { organization, tenant } = useTenant();
+  const { settings, isConfigured: isFormsConfigured } = useSettings();
   const navigate = useNavigate();
 
   const [pipeline, setPipeline] = useState<Pipeline | null>(null);
@@ -339,13 +350,69 @@ export function PipelineEditorPage() {
 
   // Form attachment functions
   const fetchForms = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/forms?status=published`, { headers });
-      if (!res.ok) return;
-      const data = await res.json();
-      setAvailableForms(data.items || []);
-    } catch (err) {
-      console.error('Failed to fetch forms:', err);
+    // If external forms API is configured, use it
+    if (isFormsConfigured && settings.externalForms.baseUrl) {
+      try {
+        const { baseUrl, listEndpoint, apiKey } = settings.externalForms;
+        const response = await fetch(`${API_BASE_URL}/external-forms/proxy`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            baseUrl,
+            endpoint: listEndpoint,
+            apiKey,
+            method: 'GET',
+          }),
+        });
+
+        if (!response.ok) {
+          console.error('Failed to fetch external forms:', response.status);
+          return;
+        }
+
+        const data = await response.json();
+        let allForms: FormDefinition[] = [];
+        if (Array.isArray(data)) {
+          allForms = data;
+        } else if (data && Array.isArray(data.items)) {
+          allForms = data.items;
+        } else if (data && Array.isArray(data.data)) {
+          allForms = data.data;
+        }
+
+        // Filter by pipeline's project and status (Published AND Approved)
+        const filteredForms = allForms.filter(form => {
+          const formAny = form as any;
+
+          // Check if form belongs to same project as pipeline
+          const formProjectId = form.project?.id || form.projectId || formAny.project_id;
+          const matchesProject = !pipeline?.projectId || formProjectId === pipeline.projectId;
+
+          // Check status: Published AND Approved (BIA)
+          const isPublished = form.status?.toLowerCase() === 'published';
+          const biaValue = formAny.biaStatus || formAny.BIAStatus || formAny.bia_status || formAny.biastatus;
+          const isApproved = biaValue?.toLowerCase() === 'approved';
+
+          return matchesProject && isPublished && isApproved;
+        });
+
+        console.log('External forms for project', pipeline?.projectId, ':', filteredForms.length);
+        setAvailableForms(filteredForms);
+      } catch (err) {
+        console.error('Failed to fetch external forms:', err);
+      }
+    } else {
+      // Fallback to internal forms API
+      try {
+        const res = await fetch(`${API_BASE_URL}/forms?status=published`, { headers });
+        if (!res.ok) return;
+        const data = await res.json();
+        setAvailableForms(data.items || []);
+      } catch (err) {
+        console.error('Failed to fetch forms:', err);
+      }
     }
   };
 
@@ -1108,9 +1175,12 @@ export function PipelineEditorPage() {
         title="Vincular Formulário"
       >
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">
-            Etapa: <span className="font-semibold">{formStage?.name}</span>
-          </p>
+          <div className="text-sm text-gray-600 space-y-1">
+            <p>Etapa: <span className="font-semibold">{formStage?.name}</span></p>
+            {pipeline?.projectName && (
+              <p>Projeto: <span className="font-semibold text-purple-600">{pipeline.projectName}</span></p>
+            )}
+          </div>
 
           <div>
             <label className="label">Formulário</label>
@@ -1124,13 +1194,15 @@ export function PipelineEditorPage() {
                 .filter((f) => !formStage?.formAttachRules?.some((r) => r.formDefinitionId === f.id))
                 .map((f) => (
                   <option key={f.id} value={f.id}>
-                    {f.name} (v{f.version})
+                    {f.name} {f.version ? `(v${f.version})` : ''}
                   </option>
                 ))}
             </select>
             {availableForms.length === 0 && (
               <p className="text-xs text-amber-600 mt-1">
-                Nenhum formulário publicado disponível. Publique um formulário primeiro.
+                {pipeline?.projectId
+                  ? `Nenhum formulário publicado/aprovado encontrado para o projeto "${pipeline.projectName || pipeline.projectId}".`
+                  : 'Nenhum formulário publicado disponível. Publique um formulário primeiro.'}
               </p>
             )}
           </div>

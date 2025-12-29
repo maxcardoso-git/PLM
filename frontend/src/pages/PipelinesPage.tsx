@@ -22,7 +22,7 @@ interface PipelinesByProject {
   pipelines: Pipeline[];
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 export function PipelinesPage() {
   const { organization } = useTenant();
@@ -39,6 +39,7 @@ export function PipelinesPage() {
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
 
   const fetchProjects = async () => {
+    console.log('fetchProjects - isProjectsConfigured:', isProjectsConfigured, 'settings:', settings.externalProjects);
     if (!isProjectsConfigured) return;
 
     setLoadingProjects(true);
@@ -57,6 +58,7 @@ export function PipelinesPage() {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('Projects API response:', data);
         // Handle different API response formats
         let projectsList: Project[] = [];
         if (Array.isArray(data)) {
@@ -66,7 +68,10 @@ export function PipelinesPage() {
         } else if (data && Array.isArray(data.data)) {
           projectsList = data.data;
         }
+        console.log('Parsed projects:', projectsList);
         setProjects(projectsList);
+      } else {
+        console.error('Projects API error:', response.status, await response.text());
       }
     } catch (err) {
       console.error('Failed to fetch projects:', err);

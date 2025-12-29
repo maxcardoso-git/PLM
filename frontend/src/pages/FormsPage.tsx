@@ -9,9 +9,14 @@ interface FormDefinition {
   name: string;
   description?: string;
   status: string;
-  version?: number;
+  biaStatus?: string;
+  version?: string;
   projectId?: string;
   projectName?: string;
+  project?: {
+    id: string;
+    name: string;
+  };
   createdAt?: string;
   updatedAt?: string;
 }
@@ -45,7 +50,7 @@ interface FormsByProject {
   forms: FormDefinition[];
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 export function FormsPage() {
   const { settings, isConfigured } = useSettings();
@@ -87,18 +92,47 @@ export function FormsPage() {
       }
 
       const data = await response.json();
-      let forms: FormDefinition[] = [];
+      console.log('Forms API raw response:', data);
+
+      let allForms: FormDefinition[] = [];
       if (Array.isArray(data)) {
-        forms = data;
+        allForms = data;
       } else if (data && Array.isArray(data.items)) {
-        forms = data.items;
+        allForms = data.items;
       } else if (data && Array.isArray(data.data)) {
-        forms = data.data;
+        allForms = data.data;
+      } else if (data && data.success && Array.isArray(data.data)) {
+        allForms = data.data;
+      }
+
+      console.log('All forms before filter:', allForms.length, allForms.map(f => ({
+        name: f.name,
+        status: f.status,
+        biaStatus: (f as any).biaStatus || (f as any).BIAStatus || (f as any).bia_status,
+        keys: Object.keys(f)
+      })));
+
+      // Filter only Published AND Approved (BIA) forms
+      // Check multiple possible field names for biaStatus
+      const forms = allForms.filter(form => {
+        const formAny = form as any;
+        const isPublished = form.status?.toLowerCase() === 'published';
+        const biaValue = formAny.biaStatus || formAny.BIAStatus || formAny.bia_status || formAny.biastatus;
+        const isApproved = biaValue?.toLowerCase() === 'approved';
+        console.log(`Form "${form.name}": status=${form.status}, biaStatus=${biaValue}, passes=${isPublished && isApproved}`);
+        return isPublished && isApproved;
+      });
+
+      // Debug: log first form to see structure
+      if (forms.length > 0) {
+        console.log('Form structure:', JSON.stringify(forms[0], null, 2));
       }
 
       const grouped = forms.reduce((acc: Record<string, FormsByProject>, form) => {
-        const projectId = form.projectId || 'no-project';
-        const projectName = form.projectName || 'Sem Projeto';
+        // Get project info from various possible field names
+        const formAny = form as any;
+        const projectId = form.project?.id || form.projectId || formAny.project_id || 'no-project';
+        const projectName = form.project?.name || form.projectName || formAny.project_name || formAny.Project || 'Sem Projeto';
 
         if (!acc[projectId]) {
           acc[projectId] = {
@@ -510,22 +544,22 @@ export function FormsPage() {
                             <p className="text-sm text-gray-500 mt-0.5">{form.description}</p>
                           )}
                           <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
-                            {form.version && <span>v{form.version}</span>}
+                            {form.version && <span>{form.version.startsWith('v') ? form.version : `v${form.version}`}</span>}
                             <span className="font-mono">{form.id}</span>
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <span
-                          className={`px-2 py-1 rounded text-xs font-medium ${
-                            form.status === 'published' || form.status === 'active'
+                          className={`px-2 py-1 rounded text-xs font-medium uppercase ${
+                            form.status?.toLowerCase() === 'published' || form.status?.toLowerCase() === 'active'
                               ? 'bg-green-100 text-green-700'
-                              : form.status === 'draft'
+                              : form.status?.toLowerCase() === 'draft'
                               ? 'bg-gray-100 text-gray-700'
                               : 'bg-amber-100 text-amber-700'
                           }`}
                         >
-                          {form.status}
+                          {form.status?.toUpperCase()}
                         </span>
                         <button
                           onClick={() => fetchFormSchema(form)}

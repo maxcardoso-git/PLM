@@ -3,7 +3,7 @@ import type { FormEvent } from 'react';
 import { Settings, Key, Link2, CheckCircle2, XCircle, TestTube2, Route, Building2, Hash, FolderKanban } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 export function SettingsPage() {
   const { settings, updateExternalFormsConfig, updateExternalProjectsConfig, updateTenantConfig, isConfigured, isProjectsConfigured, isTenantConfigured } = useSettings();

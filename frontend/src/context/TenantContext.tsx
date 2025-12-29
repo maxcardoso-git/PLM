@@ -19,7 +19,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const [organization, setOrganizationState] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Initialize from localStorage (reads from plm_settings or tah_* keys)
+  // Initialize from localStorage (reads from plm_settings or tah_* keys) or auto-select first tenant
   useEffect(() => {
     const init = async () => {
       setLoading(true);
@@ -82,6 +82,39 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         setOrganizationState(o);
         api.setTenant(tahTenantId);
         api.setOrganization(tahOrgId);
+        setLoading(false);
+        return;
+      }
+
+      // Auto-select first tenant if none configured
+      try {
+        const { items: tenants } = await api.getTenants();
+        if (tenants && tenants.length > 0) {
+          const firstTenant = tenants[0];
+          const defaultOrgId = 'default-org';
+
+          const t: Tenant = firstTenant;
+          const o: Organization = {
+            id: defaultOrgId,
+            tenantId: firstTenant.id,
+            name: 'Default Organization',
+            status: 'active',
+            createdAt: new Date().toISOString(),
+          };
+
+          setTenantState(t);
+          setOrganizationState(o);
+          api.setTenant(firstTenant.id);
+          api.setOrganization(defaultOrgId);
+
+          // Save to localStorage for persistence
+          localStorage.setItem('tah_tenant_id', firstTenant.id);
+          localStorage.setItem('tah_organization_id', defaultOrgId);
+          localStorage.setItem('tah_tenant_name', firstTenant.name);
+          localStorage.setItem('tah_organization_name', 'Default Organization');
+        }
+      } catch (e) {
+        console.warn('Failed to auto-select tenant:', e);
       }
 
       setLoading(false);
