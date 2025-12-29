@@ -237,7 +237,10 @@ export function TemplatesPage() {
   };
 
   const handleUseTemplate = async (template: PipelineTemplate) => {
-    if (!organization) return;
+    if (!organization) {
+      alert('Selecione uma organização na barra lateral antes de criar um pipeline.');
+      return;
+    }
 
     setCreating(true);
     try {
@@ -287,18 +290,6 @@ export function TemplatesPage() {
     }
   };
 
-  if (!organization) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <LayoutTemplate size={48} className="mx-auto text-gray-400 mb-4" />
-          <h2 className="text-xl font-semibold text-gray-600">Selecione uma Organização</h2>
-          <p className="text-gray-500 mt-2">Escolha um tenant e organização na barra lateral para usar templates.</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="p-6">
       <div className="mb-8">
@@ -307,6 +298,18 @@ export function TemplatesPage() {
           Comece rapidamente com templates pré-configurados para diferentes áreas de negócio
         </p>
       </div>
+
+      {!organization && (
+        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3">
+          <div className="flex-shrink-0 w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
+            <LayoutTemplate className="text-amber-600" size={20} />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-amber-800">Organização não selecionada</p>
+            <p className="text-sm text-amber-600">Selecione um tenant e organização na barra lateral para criar pipelines a partir dos templates.</p>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {templates.map((template) => (
