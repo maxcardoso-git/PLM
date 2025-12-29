@@ -57,7 +57,15 @@ export function FormsPage() {
       }
 
       const data = await response.json();
-      const forms: FormDefinition[] = data.items || data || [];
+      // Ensure forms is always an array
+      let forms: FormDefinition[] = [];
+      if (Array.isArray(data)) {
+        forms = data;
+      } else if (data && Array.isArray(data.items)) {
+        forms = data.items;
+      } else if (data && Array.isArray(data.data)) {
+        forms = data.data;
+      }
 
       // Group forms by project
       const grouped = forms.reduce((acc: Record<string, FormsByProject>, form) => {
