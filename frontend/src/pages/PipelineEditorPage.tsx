@@ -69,6 +69,13 @@ interface Stage {
 
 type EditorTab = 'stages' | 'flow';
 
+interface FormField {
+  id: string;
+  name: string;
+  type?: string;
+  label?: string;
+}
+
 interface FormDefinition {
   id: string;
   name: string;
@@ -81,6 +88,11 @@ interface FormDefinition {
     id: string;
     name: string;
   };
+  schemaJson?: {
+    fields?: FormField[];
+    [key: string]: unknown;
+  };
+  fields?: FormField[];
 }
 
 interface PipelineVersion {
@@ -1547,15 +1559,37 @@ export function PipelineEditorPage() {
 
               <div>
                 <label className="label">Campo (opcional)</label>
-                <input
-                  type="text"
-                  value={triggerForm.fieldId}
-                  onChange={(e) => setTriggerForm({ ...triggerForm, fieldId: e.target.value })}
-                  className="input mt-1"
-                  placeholder="Ex: status, amount, approved"
-                />
+                {(() => {
+                  const selectedForm = availableForms.find(f => f.id === triggerForm.formDefinitionId);
+                  const formFields = selectedForm?.schemaJson?.fields || selectedForm?.fields || [];
+
+                  return formFields.length > 0 ? (
+                    <select
+                      value={triggerForm.fieldId}
+                      onChange={(e) => setTriggerForm({ ...triggerForm, fieldId: e.target.value })}
+                      className="input mt-1"
+                    >
+                      <option value="">Qualquer campo</option>
+                      {formFields.map((field) => (
+                        <option key={field.id} value={field.id}>
+                          {field.label || field.name || field.id}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={triggerForm.fieldId}
+                      onChange={(e) => setTriggerForm({ ...triggerForm, fieldId: e.target.value })}
+                      className="input mt-1"
+                      placeholder="Ex: status, amount, approved"
+                    />
+                  );
+                })()}
                 <p className="text-xs text-gray-500 mt-1">
-                  ID do campo que dispara o gatilho. Deixe vazio para qualquer campo.
+                  {triggerForm.formDefinitionId
+                    ? 'Selecione o campo que dispara o gatilho.'
+                    : 'Selecione um formulário para ver os campos disponíveis.'}
                 </p>
               </div>
             </>
@@ -1576,48 +1610,68 @@ export function PipelineEditorPage() {
 
             {triggerForm.conditions.length > 0 ? (
               <div className="space-y-2">
-                {triggerForm.conditions.map((condition, index) => (
-                  <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
-                    <input
-                      type="text"
-                      value={condition.fieldPath}
-                      onChange={(e) => updateCondition(index, 'fieldPath', e.target.value)}
-                      className="input text-xs flex-1"
-                      placeholder="Campo (ex: status)"
-                    />
-                    <select
-                      value={condition.operator}
-                      onChange={(e) => updateCondition(index, 'operator', e.target.value)}
-                      className="input text-xs w-32"
-                    >
-                      <option value="EQUALS">=</option>
-                      <option value="NOT_EQUALS">≠</option>
-                      <option value="GREATER_THAN">&gt;</option>
-                      <option value="LESS_THAN">&lt;</option>
-                      <option value="GREATER_OR_EQUAL">≥</option>
-                      <option value="LESS_OR_EQUAL">≤</option>
-                      <option value="CONTAINS">contém</option>
-                      <option value="NOT_CONTAINS">não contém</option>
-                      <option value="IS_EMPTY">vazio</option>
-                      <option value="IS_NOT_EMPTY">não vazio</option>
-                    </select>
-                    <input
-                      type="text"
-                      value={condition.value}
-                      onChange={(e) => updateCondition(index, 'value', e.target.value)}
-                      className="input text-xs flex-1"
-                      placeholder="Valor"
-                      disabled={condition.operator === 'IS_EMPTY' || condition.operator === 'IS_NOT_EMPTY'}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeCondition(index)}
-                      className="p-1 text-gray-400 hover:text-red-500"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
+                {triggerForm.conditions.map((condition, index) => {
+                  const selectedForm = availableForms.find(f => f.id === triggerForm.formDefinitionId);
+                  const formFields = selectedForm?.schemaJson?.fields || selectedForm?.fields || [];
+
+                  return (
+                    <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                      {formFields.length > 0 ? (
+                        <select
+                          value={condition.fieldPath}
+                          onChange={(e) => updateCondition(index, 'fieldPath', e.target.value)}
+                          className="input text-xs flex-1"
+                        >
+                          <option value="">Selecione um campo...</option>
+                          {formFields.map((field) => (
+                            <option key={field.id} value={field.id}>
+                              {field.label || field.name || field.id}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          value={condition.fieldPath}
+                          onChange={(e) => updateCondition(index, 'fieldPath', e.target.value)}
+                          className="input text-xs flex-1"
+                          placeholder="Campo (ex: status)"
+                        />
+                      )}
+                      <select
+                        value={condition.operator}
+                        onChange={(e) => updateCondition(index, 'operator', e.target.value)}
+                        className="input text-xs w-32"
+                      >
+                        <option value="EQUALS">=</option>
+                        <option value="NOT_EQUALS">≠</option>
+                        <option value="GREATER_THAN">&gt;</option>
+                        <option value="LESS_THAN">&lt;</option>
+                        <option value="GREATER_OR_EQUAL">≥</option>
+                        <option value="LESS_OR_EQUAL">≤</option>
+                        <option value="CONTAINS">contém</option>
+                        <option value="NOT_CONTAINS">não contém</option>
+                        <option value="IS_EMPTY">vazio</option>
+                        <option value="IS_NOT_EMPTY">não vazio</option>
+                      </select>
+                      <input
+                        type="text"
+                        value={condition.value}
+                        onChange={(e) => updateCondition(index, 'value', e.target.value)}
+                        className="input text-xs flex-1"
+                        placeholder="Valor"
+                        disabled={condition.operator === 'IS_EMPTY' || condition.operator === 'IS_NOT_EMPTY'}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeCondition(index)}
+                        className="p-1 text-gray-400 hover:text-red-500"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <p className="text-xs text-gray-500 p-2 bg-gray-50 rounded-lg">
