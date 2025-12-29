@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { FileText, ArrowLeft, AlertCircle, RefreshCw } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 interface FormField {
   id: string;

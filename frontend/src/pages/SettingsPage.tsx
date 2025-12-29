@@ -75,8 +75,11 @@ export function SettingsPage() {
 
       if (response.ok) {
         const data = await response.json();
+        // OrchestratorAI returns { success: true, data: [...], pagination: {...} }
+        const forms = data.data || data.items || data;
+        const count = Array.isArray(forms) ? forms.length : 0;
         setTestStatus('success');
-        setTestMessage(`Connection successful! Found ${data.items?.length || data.length || 0} forms.`);
+        setTestMessage(`Connection successful! Found ${count} forms.`);
       } else {
         const errorData = await response.json().catch(() => ({}));
         if (response.status === 401 || response.status === 403) {
@@ -133,8 +136,11 @@ export function SettingsPage() {
 
       if (response.ok) {
         const data = await response.json();
+        // OrchestratorAI returns { success: true, data: [...], pagination: {...} }
+        const projects = data.data || data.items || data;
+        const count = Array.isArray(projects) ? projects.length : 0;
         setProjectsTestStatus('success');
-        setProjectsTestMessage(`Connection successful! Found ${data.items?.length || data.length || 0} projects.`);
+        setProjectsTestMessage(`Connection successful! Found ${count} projects.`);
       } else {
         const errorData = await response.json().catch(() => ({}));
         if (response.status === 401 || response.status === 403) {

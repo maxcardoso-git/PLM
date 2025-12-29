@@ -22,7 +22,12 @@
       "Bash(docker compose build:*)",
       "Bash(docker compose:*)",
       "Bash(ls:*)",
-      "Bash(lsof:*)"
+      "Bash(lsof:*)",
+      "Bash(scp:*)",
+      "Bash(python3:*)",
+      "Bash(VITE_API_URL=/api/v1 npm run build:*)",
+      "Bash(grep:*)",
+      "Bash(xargs:*)"
     ]
   }
 }
