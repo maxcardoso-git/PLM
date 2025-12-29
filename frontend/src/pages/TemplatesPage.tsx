@@ -18,9 +18,12 @@ import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
 import { Modal } from '../components/ui';
 
+type StageClassification = 'NOT_STARTED' | 'ON_GOING' | 'WAITING' | 'FINISHED' | 'CANCELED';
+
 interface Stage {
   name: string;
   color: string;
+  classification: StageClassification;
   isInitial?: boolean;
   isFinal?: boolean;
 }
@@ -52,13 +55,13 @@ const templates: PipelineTemplate[] = [
     iconColor: 'text-blue-600',
     category: 'RH',
     stages: [
-      { name: 'Triagem', color: '#94a3b8', isInitial: true },
-      { name: 'Análise de Currículo', color: '#60a5fa' },
-      { name: 'Entrevista RH', color: '#a78bfa' },
-      { name: 'Entrevista Técnica', color: '#f472b6' },
-      { name: 'Proposta', color: '#fbbf24' },
-      { name: 'Contratado', color: '#22c55e', isFinal: true },
-      { name: 'Reprovado', color: '#ef4444', isFinal: true },
+      { name: 'Triagem', color: '#94a3b8', classification: 'NOT_STARTED', isInitial: true },
+      { name: 'Análise de Currículo', color: '#60a5fa', classification: 'ON_GOING' },
+      { name: 'Entrevista RH', color: '#a78bfa', classification: 'ON_GOING' },
+      { name: 'Entrevista Técnica', color: '#f472b6', classification: 'ON_GOING' },
+      { name: 'Proposta', color: '#fbbf24', classification: 'WAITING' },
+      { name: 'Contratado', color: '#22c55e', classification: 'FINISHED', isFinal: true },
+      { name: 'Reprovado', color: '#ef4444', classification: 'CANCELED', isFinal: true },
     ],
     transitions: [
       { from: 'Triagem', to: 'Análise de Currículo' },
@@ -82,13 +85,13 @@ const templates: PipelineTemplate[] = [
     iconColor: 'text-green-600',
     category: 'Vendas',
     stages: [
-      { name: 'Lead Captado', color: '#94a3b8', isInitial: true },
-      { name: 'Qualificação', color: '#60a5fa' },
-      { name: 'Apresentação', color: '#a78bfa' },
-      { name: 'Proposta Enviada', color: '#fbbf24' },
-      { name: 'Negociação', color: '#f97316' },
-      { name: 'Fechado Ganho', color: '#22c55e', isFinal: true },
-      { name: 'Fechado Perdido', color: '#ef4444', isFinal: true },
+      { name: 'Lead Captado', color: '#94a3b8', classification: 'NOT_STARTED', isInitial: true },
+      { name: 'Qualificação', color: '#60a5fa', classification: 'ON_GOING' },
+      { name: 'Apresentação', color: '#a78bfa', classification: 'ON_GOING' },
+      { name: 'Proposta Enviada', color: '#fbbf24', classification: 'WAITING' },
+      { name: 'Negociação', color: '#f97316', classification: 'ON_GOING' },
+      { name: 'Fechado Ganho', color: '#22c55e', classification: 'FINISHED', isFinal: true },
+      { name: 'Fechado Perdido', color: '#ef4444', classification: 'CANCELED', isFinal: true },
     ],
     transitions: [
       { from: 'Lead Captado', to: 'Qualificação' },
@@ -112,13 +115,13 @@ const templates: PipelineTemplate[] = [
     iconColor: 'text-orange-600',
     category: 'Suporte',
     stages: [
-      { name: 'Aberto', color: '#94a3b8', isInitial: true },
-      { name: 'Em Análise', color: '#60a5fa' },
-      { name: 'Aguardando Cliente', color: '#fbbf24' },
-      { name: 'Em Desenvolvimento', color: '#a78bfa' },
-      { name: 'Teste QA', color: '#f472b6' },
-      { name: 'Resolvido', color: '#22c55e', isFinal: true },
-      { name: 'Cancelado', color: '#ef4444', isFinal: true },
+      { name: 'Aberto', color: '#94a3b8', classification: 'NOT_STARTED', isInitial: true },
+      { name: 'Em Análise', color: '#60a5fa', classification: 'ON_GOING' },
+      { name: 'Aguardando Cliente', color: '#fbbf24', classification: 'WAITING' },
+      { name: 'Em Desenvolvimento', color: '#a78bfa', classification: 'ON_GOING' },
+      { name: 'Teste QA', color: '#f472b6', classification: 'ON_GOING' },
+      { name: 'Resolvido', color: '#22c55e', classification: 'FINISHED', isFinal: true },
+      { name: 'Cancelado', color: '#ef4444', classification: 'CANCELED', isFinal: true },
     ],
     transitions: [
       { from: 'Aberto', to: 'Em Análise' },
@@ -142,13 +145,13 @@ const templates: PipelineTemplate[] = [
     iconColor: 'text-purple-600',
     category: 'Projetos',
     stages: [
-      { name: 'Backlog', color: '#94a3b8', isInitial: true },
-      { name: 'Planejamento', color: '#60a5fa' },
-      { name: 'Em Execução', color: '#a78bfa' },
-      { name: 'Em Revisão', color: '#fbbf24' },
-      { name: 'Homologação', color: '#f472b6' },
-      { name: 'Concluído', color: '#22c55e', isFinal: true },
-      { name: 'Cancelado', color: '#ef4444', isFinal: true },
+      { name: 'Backlog', color: '#94a3b8', classification: 'NOT_STARTED', isInitial: true },
+      { name: 'Planejamento', color: '#60a5fa', classification: 'ON_GOING' },
+      { name: 'Em Execução', color: '#a78bfa', classification: 'ON_GOING' },
+      { name: 'Em Revisão', color: '#fbbf24', classification: 'WAITING' },
+      { name: 'Homologação', color: '#f472b6', classification: 'WAITING' },
+      { name: 'Concluído', color: '#22c55e', classification: 'FINISHED', isFinal: true },
+      { name: 'Cancelado', color: '#ef4444', classification: 'CANCELED', isFinal: true },
     ],
     transitions: [
       { from: 'Backlog', to: 'Planejamento' },
@@ -171,13 +174,13 @@ const templates: PipelineTemplate[] = [
     iconColor: 'text-pink-600',
     category: 'Marketing',
     stages: [
-      { name: 'Briefing', color: '#94a3b8', isInitial: true },
-      { name: 'Criação', color: '#60a5fa' },
-      { name: 'Aprovação', color: '#fbbf24' },
-      { name: 'Produção', color: '#a78bfa' },
-      { name: 'Ativa', color: '#22c55e' },
-      { name: 'Análise', color: '#f472b6' },
-      { name: 'Finalizada', color: '#6b7280', isFinal: true },
+      { name: 'Briefing', color: '#94a3b8', classification: 'NOT_STARTED', isInitial: true },
+      { name: 'Criação', color: '#60a5fa', classification: 'ON_GOING' },
+      { name: 'Aprovação', color: '#fbbf24', classification: 'WAITING' },
+      { name: 'Produção', color: '#a78bfa', classification: 'ON_GOING' },
+      { name: 'Ativa', color: '#22c55e', classification: 'ON_GOING' },
+      { name: 'Análise', color: '#f472b6', classification: 'WAITING' },
+      { name: 'Finalizada', color: '#6b7280', classification: 'FINISHED', isFinal: true },
     ],
     transitions: [
       { from: 'Briefing', to: 'Criação' },
@@ -198,13 +201,13 @@ const templates: PipelineTemplate[] = [
     iconColor: 'text-teal-600',
     category: 'Compliance',
     stages: [
-      { name: 'Rascunho', color: '#94a3b8', isInitial: true },
-      { name: 'Em Revisão', color: '#60a5fa' },
-      { name: 'Aprovação N1', color: '#fbbf24' },
-      { name: 'Aprovação N2', color: '#f97316' },
-      { name: 'Aprovação Final', color: '#a78bfa' },
-      { name: 'Aprovado', color: '#22c55e', isFinal: true },
-      { name: 'Rejeitado', color: '#ef4444', isFinal: true },
+      { name: 'Rascunho', color: '#94a3b8', classification: 'NOT_STARTED', isInitial: true },
+      { name: 'Em Revisão', color: '#60a5fa', classification: 'ON_GOING' },
+      { name: 'Aprovação N1', color: '#fbbf24', classification: 'WAITING' },
+      { name: 'Aprovação N2', color: '#f97316', classification: 'WAITING' },
+      { name: 'Aprovação Final', color: '#a78bfa', classification: 'WAITING' },
+      { name: 'Aprovado', color: '#22c55e', classification: 'FINISHED', isFinal: true },
+      { name: 'Rejeitado', color: '#ef4444', classification: 'CANCELED', isFinal: true },
     ],
     transitions: [
       { from: 'Rascunho', to: 'Em Revisão' },
@@ -262,6 +265,7 @@ export function TemplatesPage() {
         const createdStage = await api.createStage(pipeline.id, 1, {
           name: stage.name,
           color: stage.color,
+          classification: stage.classification,
           stageOrder: i,
           isInitial: stage.isInitial || false,
           isFinal: stage.isFinal || false,

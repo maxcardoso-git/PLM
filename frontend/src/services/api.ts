@@ -127,9 +127,10 @@ class ApiClient {
   async createStage(pipelineId: string, version: number, payload: {
     name: string;
     color: string;
+    classification: 'NOT_STARTED' | 'ON_GOING' | 'WAITING' | 'FINISHED' | 'CANCELED';
     stageOrder: number;
-    isInitial?: boolean;
-    isFinal?: boolean;
+    isInitial: boolean;
+    isFinal: boolean;
   }): Promise<{ id: string; name: string; color: string }> {
     const { data } = await this.client.post(
       `/pipelines/${pipelineId}/versions/${version}/stages`,
