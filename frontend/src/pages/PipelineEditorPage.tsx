@@ -16,11 +16,25 @@ import {
   X,
   CheckCircle,
   AlertCircle,
+  FileText,
+  Link2,
 } from 'lucide-react';
 import { useTenant } from '../context/TenantContext';
 import { Modal } from '../components/ui';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+
+interface FormAttachRule {
+  id: string;
+  formDefinitionId: string;
+  defaultFormStatus: string;
+  lockOnLeaveStage: boolean;
+  formDefinition: {
+    id: string;
+    name: string;
+    version: number;
+  };
+}
 
 interface Stage {
   id: string;
@@ -34,6 +48,14 @@ interface Stage {
   slaHours?: number;
   active: boolean;
   transitionsFrom?: { toStage: { id: string; name: string; color: string } }[];
+  formAttachRules?: FormAttachRule[];
+}
+
+interface FormDefinition {
+  id: string;
+  name: string;
+  version: number;
+  status: string;
 }
 
 interface PipelineVersion {
@@ -105,6 +127,17 @@ export function PipelineEditorPage() {
 
   // Toast notification
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Form attachment modal
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [formStage, setFormStage] = useState<Stage | null>(null);
+  const [availableForms, setAvailableForms] = useState<FormDefinition[]>([]);
+  const [selectedFormId, setSelectedFormId] = useState<string>('');
+  const [formSettings, setFormSettings] = useState({
+    defaultFormStatus: 'TO_FILL',
+    lockOnLeaveStage: false,
+  });
+  const [savingForm, setSavingForm] = useState(false);
 
   const headers = {
     'Content-Type': 'application/json',
@@ -274,6 +307,75 @@ export function PipelineEditorPage() {
       console.error('Failed to create transition:', err);
     } finally {
       setSavingTransition(false);
+    }
+  };
+
+  // Form attachment functions
+  const fetchForms = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/forms?status=published`, { headers });
+      if (!res.ok) return;
+      const data = await res.json();
+      setAvailableForms(data.items || []);
+    } catch (err) {
+      console.error('Failed to fetch forms:', err);
+    }
+  };
+
+  const handleOpenFormModal = async (stage: Stage) => {
+    setFormStage(stage);
+    setSelectedFormId('');
+    setFormSettings({ defaultFormStatus: 'TO_FILL', lockOnLeaveStage: false });
+    await fetchForms();
+    setShowFormModal(true);
+  };
+
+  const handleAttachForm = async () => {
+    if (!formStage || !selectedFormId) return;
+
+    setSavingForm(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/stages/${formStage.id}/attach-forms`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          formDefinitionId: selectedFormId,
+          defaultFormStatus: formSettings.defaultFormStatus,
+          lockOnLeaveStage: formSettings.lockOnLeaveStage,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || 'Falha ao vincular formulário');
+      }
+
+      setShowFormModal(false);
+      fetchVersionStages(selectedVersion);
+      showToast('success', 'Formulário vinculado com sucesso!');
+    } catch (err) {
+      showToast('error', err instanceof Error ? err.message : 'Falha ao vincular formulário');
+    } finally {
+      setSavingForm(false);
+    }
+  };
+
+  const handleDetachForm = async (ruleId: string) => {
+    setConfirmAction({ type: 'detachForm', data: { ruleId } });
+    setShowConfirmModal(true);
+  };
+
+  const executeDetachForm = async (ruleId: string) => {
+    try {
+      await fetch(`${API_BASE_URL}/stage-form-rules/${ruleId}`, {
+        method: 'DELETE',
+        headers,
+      });
+      setShowConfirmModal(false);
+      fetchVersionStages(selectedVersion);
+      showToast('success', 'Formulário desvinculado!');
+    } catch (err) {
+      showToast('error', 'Falha ao desvincular formulário');
     }
   };
 
@@ -492,19 +594,59 @@ export function PipelineEditorPage() {
                     {/* Actions */}
                     <div className="flex items-center gap-1">
                       <button
+                        onClick={() => handleOpenFormModal(stage)}
+                        className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded"
+                        title="Vincular formulário"
+                      >
+                        <FileText size={16} />
+                      </button>
+                      <button
                         onClick={() => handleEditStage(stage)}
                         className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+                        title="Editar etapa"
                       >
                         <Settings size={16} />
                       </button>
                       <button
                         onClick={() => handleDeleteStageClick(stage)}
                         className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded"
+                        title="Excluir etapa"
                       >
                         <Trash2 size={16} />
                       </button>
                     </div>
                   </div>
+
+                  {/* Attached Forms */}
+                  {stage.formAttachRules && stage.formAttachRules.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+                        <FileText size={12} />
+                        <span>Formulários vinculados:</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {stage.formAttachRules.map((rule) => (
+                          <div
+                            key={rule.id}
+                            className="flex items-center gap-2 px-2 py-1 bg-purple-50 text-purple-700 rounded-md text-xs"
+                          >
+                            <Link2 size={12} />
+                            <span>{rule.formDefinition.name} v{rule.formDefinition.version}</span>
+                            {rule.lockOnLeaveStage && (
+                              <span className="text-purple-400" title="Bloqueia ao sair da etapa">🔒</span>
+                            )}
+                            <button
+                              onClick={() => handleDetachForm(rule.id)}
+                              className="ml-1 text-purple-400 hover:text-red-500"
+                              title="Remover formulário"
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
           </div>
@@ -663,6 +805,83 @@ export function PipelineEditorPage() {
         </div>
       </Modal>
 
+      {/* Form Attachment Modal */}
+      <Modal
+        isOpen={showFormModal}
+        onClose={() => setShowFormModal(false)}
+        title="Vincular Formulário"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Etapa: <span className="font-semibold">{formStage?.name}</span>
+          </p>
+
+          <div>
+            <label className="label">Formulário</label>
+            <select
+              value={selectedFormId}
+              onChange={(e) => setSelectedFormId(e.target.value)}
+              className="input mt-1"
+            >
+              <option value="">Selecione um formulário...</option>
+              {availableForms
+                .filter((f) => !formStage?.formAttachRules?.some((r) => r.formDefinitionId === f.id))
+                .map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name} (v{f.version})
+                  </option>
+                ))}
+            </select>
+            {availableForms.length === 0 && (
+              <p className="text-xs text-amber-600 mt-1">
+                Nenhum formulário publicado disponível. Publique um formulário primeiro.
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="label">Status inicial do formulário</label>
+            <select
+              value={formSettings.defaultFormStatus}
+              onChange={(e) => setFormSettings({ ...formSettings, defaultFormStatus: e.target.value })}
+              className="input mt-1"
+            >
+              <option value="TO_FILL">A preencher</option>
+              <option value="FILLED">Preenchido</option>
+              <option value="APPROVED">Aprovado</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={formSettings.lockOnLeaveStage}
+                onChange={(e) => setFormSettings({ ...formSettings, lockOnLeaveStage: e.target.checked })}
+                className="rounded border-gray-300"
+              />
+              <span className="text-sm">Bloquear formulário ao sair da etapa</span>
+            </label>
+            <p className="text-xs text-gray-500 mt-1 ml-6">
+              O formulário ficará somente leitura quando o card sair desta etapa.
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <button onClick={() => setShowFormModal(false)} className="btn-secondary">
+              Cancelar
+            </button>
+            <button
+              onClick={handleAttachForm}
+              disabled={savingForm || !selectedFormId}
+              className="btn-primary"
+            >
+              {savingForm ? 'Vinculando...' : 'Vincular Formulário'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Confirmation Modal */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -688,11 +907,15 @@ export function PipelineEditorPage() {
                   <h3 className="text-lg font-semibold text-gray-900">
                     {confirmAction?.type === 'publish'
                       ? 'Publicar Pipeline'
+                      : confirmAction?.type === 'detachForm'
+                      ? 'Desvincular Formulário'
                       : 'Excluir Etapa'}
                   </h3>
                   <p className="text-sm text-gray-500 mt-1">
                     {confirmAction?.type === 'publish'
                       ? 'Esta versão ficará disponível para novos cards.'
+                      : confirmAction?.type === 'detachForm'
+                      ? 'Tem certeza que deseja remover este formulário da etapa?'
                       : `Tem certeza que deseja excluir "${confirmAction?.data?.name}"?`}
                   </p>
                 </div>
@@ -713,6 +936,8 @@ export function PipelineEditorPage() {
                     handlePublish();
                   } else if (confirmAction?.type === 'deleteStage') {
                     handleDeleteStage(confirmAction.data.id);
+                  } else if (confirmAction?.type === 'detachForm') {
+                    executeDetachForm(confirmAction.data.ruleId);
                   }
                 }}
                 disabled={publishing}
@@ -727,6 +952,8 @@ export function PipelineEditorPage() {
                 )}
                 {confirmAction?.type === 'publish'
                   ? publishing ? 'Publicando...' : 'Publicar'
+                  : confirmAction?.type === 'detachForm'
+                  ? 'Desvincular'
                   : 'Excluir'}
               </button>
             </div>

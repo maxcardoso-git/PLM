@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Workflow, ArrowRight, Users, AlertCircle } from 'lucide-react';
+import { Plus, Workflow, Users, AlertCircle, Settings, Play } from 'lucide-react';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
 import { Modal } from '../components/ui';
@@ -109,14 +109,13 @@ export function PipelinesPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {pipelines.map((pipeline) => (
-            <Link
+            <div
               key={pipeline.id}
-              to={pipeline.publishedVersion ? `/pipelines/${pipeline.id}` : `/pipelines/${pipeline.id}/edit`}
-              className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow group"
+              className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow"
             >
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                  <h3 className="font-semibold text-gray-900">
                     {pipeline.name}
                   </h3>
                   <p className="text-sm text-gray-500 mt-1">{pipeline.key}</p>
@@ -132,11 +131,30 @@ export function PipelinesPage() {
 
               <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
                 <span className="text-xs text-gray-500">
-                  {pipeline.publishedVersion ? `v${pipeline.publishedVersion}` : 'Not published'}
+                  {pipeline.publishedVersion ? `v${pipeline.publishedVersion}` : 'Não publicado'}
                 </span>
-                <ArrowRight size={16} className="text-gray-400 group-hover:text-blue-600 transition-colors" />
+                <div className="flex items-center gap-2">
+                  <Link
+                    to={`/pipelines/${pipeline.id}/edit`}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                    title="Editar pipeline"
+                  >
+                    <Settings size={14} />
+                    Editar
+                  </Link>
+                  {pipeline.publishedVersion && (
+                    <Link
+                      to={`/pipelines/${pipeline.id}`}
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
+                      title="Ver Kanban"
+                    >
+                      <Play size={14} />
+                      Kanban
+                    </Link>
+                  )}
+                </div>
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       )}
