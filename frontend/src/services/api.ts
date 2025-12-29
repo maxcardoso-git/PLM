@@ -2,7 +2,6 @@ import axios from 'axios';
 import type { AxiosInstance } from 'axios';
 import type {
   Tenant,
-  Organization,
   Pipeline,
   KanbanBoard,
   CardFull,
@@ -52,17 +51,6 @@ class ApiClient {
 
   async createTenant(name: string): Promise<Tenant> {
     const { data } = await this.client.post('/tenants', { name });
-    return data;
-  }
-
-  // Organizations
-  async getOrganizations(): Promise<ListResponse<Organization>> {
-    const { data } = await this.client.get('/organizations');
-    return data;
-  }
-
-  async createOrganization(name: string): Promise<Organization> {
-    const { data } = await this.client.post('/organizations', { name });
     return data;
   }
 

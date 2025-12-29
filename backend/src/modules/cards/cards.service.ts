@@ -23,7 +23,7 @@ export class CardsService {
       where: {
         id: dto.pipelineId,
         tenantId: ctx.tenantId,
-        organizationId: ctx.organizationId!,
+        orgId: ctx.orgId!,
         lifecycleStatus: 'published',
       },
       include: {
@@ -59,7 +59,7 @@ export class CardsService {
       const card = await tx.card.create({
         data: {
           tenantId: ctx.tenantId,
-          organizationId: ctx.organizationId!,
+          orgId: ctx.orgId!,
           pipelineId: dto.pipelineId,
           pipelineVersion: publishedVersion.version,
           currentStageId: initialStage.id,
@@ -122,7 +122,7 @@ export class CardsService {
       await tx.outboxEvent.create({
         data: {
           tenantId: ctx.tenantId,
-          organizationId: ctx.organizationId!,
+          orgId: ctx.orgId!,
           eventType: 'PLM.CARD.CREATED',
           entityType: 'Card',
           entityId: card.id,
@@ -147,7 +147,7 @@ export class CardsService {
     return this.prisma.card.findMany({
       where: {
         tenantId: ctx.tenantId,
-        organizationId: ctx.organizationId!,
+        orgId: ctx.orgId!,
         ...(filters.pipelineId && { pipelineId: filters.pipelineId }),
         ...(filters.stageId && { currentStageId: filters.stageId }),
         ...(filters.status && { status: filters.status as any }),
@@ -183,7 +183,7 @@ export class CardsService {
       where: {
         id,
         tenantId: ctx.tenantId,
-        organizationId: ctx.organizationId!,
+        orgId: ctx.orgId!,
       },
       include: {
         currentStage: {
@@ -227,7 +227,7 @@ export class CardsService {
       card: {
         id: card.id,
         tenantId: card.tenantId,
-        organizationId: card.organizationId,
+        orgId: card.orgId,
         pipelineId: card.pipelineId,
         pipelineVersion: card.pipelineVersion,
         currentStageId: card.currentStageId,
@@ -377,7 +377,7 @@ export class CardsService {
       await tx.outboxEvent.create({
         data: {
           tenantId: ctx.tenantId,
-          organizationId: ctx.organizationId!,
+          orgId: ctx.orgId!,
           eventType: 'PLM.CARD.MOVED',
           entityType: 'Card',
           entityId: cardId,
@@ -476,7 +476,7 @@ export class CardsService {
       where: {
         id: pipelineId,
         tenantId: ctx.tenantId,
-        organizationId: ctx.organizationId!,
+        orgId: ctx.orgId!,
       },
     });
 

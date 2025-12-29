@@ -46,8 +46,8 @@ async function bootstrap() {
         name: 'X-Organization-Id',
         in: 'header',
         required: false,
-        description: 'Organization UUID',
-        schema: { type: 'string', format: 'uuid' },
+        description: 'Organization ID (e.g., "Org-1")',
+        schema: { type: 'string' },
       },
     )
     .build();

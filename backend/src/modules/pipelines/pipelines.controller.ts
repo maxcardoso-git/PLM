@@ -22,7 +22,7 @@ import type { TenantContext } from '../../common/decorators';
 @UseGuards(TenantGuard)
 @RequireOrganization()
 @ApiHeader({ name: 'X-Tenant-Id', required: true, description: 'Tenant UUID' })
-@ApiHeader({ name: 'X-Organization-Id', required: true, description: 'Organization UUID' })
+@ApiHeader({ name: 'X-Organization-Id', required: true, description: 'Organization ID' })
 export class PipelinesController {
   constructor(private readonly pipelinesService: PipelinesService) {}
 

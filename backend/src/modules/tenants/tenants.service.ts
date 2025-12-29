@@ -24,9 +24,6 @@ export class TenantsService {
   async findOne(id: string) {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id },
-      include: {
-        organizations: true,
-      },
     });
 
     if (!tenant) {

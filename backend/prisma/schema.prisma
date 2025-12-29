@@ -18,11 +18,6 @@ enum TenantStatus {
   inactive
 }
 
-enum OrganizationStatus {
-  active
-  inactive
-}
-
 enum FormStatus {
   draft
   published
@@ -103,7 +98,6 @@ model Tenant {
   createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz
 
-  organizations      Organization[]
   formDefinitions    FormDefinition[]
   pipelines          Pipeline[]
   automationBindings AutomationBinding[]
@@ -114,51 +108,28 @@ model Tenant {
   @@map("tenants")
 }
 
-model Organization {
-  id        String             @id @default(uuid()) @db.Uuid
-  tenantId  String             @map("tenant_id") @db.Uuid
-  code      String             @db.VarChar(100)
-  name      String             @db.VarChar(255)
-  status    OrganizationStatus @default(active)
-  createdAt DateTime           @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime           @updatedAt @map("updated_at") @db.Timestamptz
-
-  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  formDefinitions    FormDefinition[]
-  pipelines          Pipeline[]
-  automationBindings AutomationBinding[]
-  cards              Card[]
-  outboxEvents       OutboxEvent[]
-
-  @@unique([tenantId, code], name: "uq_organization_code")
-  @@index([tenantId])
-  @@index([status])
-  @@map("organizations")
-}
-
 // =========================================================
 // FORM DEFINITIONS
 // =========================================================
 
 model FormDefinition {
-  id             String     @id @default(uuid()) @db.Uuid
-  tenantId       String     @map("tenant_id") @db.Uuid
-  organizationId String?    @map("organization_id") @db.Uuid
-  name           String     @db.VarChar(255)
-  version        Int        @default(1)
-  schemaJson     Json       @map("schema_json")
-  status         FormStatus @default(draft)
-  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+  id         String     @id @default(uuid()) @db.Uuid
+  tenantId   String     @map("tenant_id") @db.Uuid
+  orgId      String?    @map("org_id") @db.VarChar(100)
+  name       String     @db.VarChar(255)
+  version    Int        @default(1)
+  schemaJson Json       @map("schema_json")
+  status     FormStatus @default(draft)
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime   @updatedAt @map("updated_at") @db.Timestamptz
 
-  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  organization Organization?          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  attachRules  StageFormAttachRule[]
-  cardForms    CardForm[]
+  tenant      Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  attachRules StageFormAttachRule[]
+  cardForms   CardForm[]
 
-  @@unique([tenantId, organizationId, name, version], name: "uq_form_definition_version")
+  @@unique([tenantId, orgId, name, version], name: "uq_form_definition_version")
   @@index([tenantId])
-  @@index([organizationId])
+  @@index([orgId])
   @@index([status])
   @@map("form_definitions")
 }
@@ -170,7 +141,7 @@ model FormDefinition {
 model Pipeline {
   id               String                  @id @default(uuid()) @db.Uuid
   tenantId         String                  @map("tenant_id") @db.Uuid
-  organizationId   String                  @map("organization_id") @db.Uuid
+  orgId            String                  @map("org_id") @db.VarChar(100)
   key              String                  @db.VarChar(100)
   name             String                  @db.VarChar(255)
   description      String?                 @db.Text
@@ -181,14 +152,13 @@ model Pipeline {
   updatedAt        DateTime                @updatedAt @map("updated_at") @db.Timestamptz
 
   tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   versions           PipelineVersion[]
   automationBindings AutomationBinding[]
   cards              Card[]
 
-  @@unique([organizationId, key], name: "uq_pipeline_key_org")
+  @@unique([tenantId, orgId, key], name: "uq_pipeline_key_org")
   @@index([tenantId])
-  @@index([organizationId])
+  @@index([orgId])
   @@index([lifecycleStatus])
   @@index([key])
   @@map("pipelines")
@@ -290,7 +260,7 @@ model StageFormAttachRule {
 model AutomationBinding {
   id                String    @id @default(uuid()) @db.Uuid
   tenantId          String    @map("tenant_id") @db.Uuid
-  organizationId    String    @map("organization_id") @db.Uuid
+  orgId             String    @map("org_id") @db.VarChar(100)
   pipelineId        String    @map("pipeline_id") @db.Uuid
   eventType         EventType @map("event_type")
   filterFromStageId String?   @map("filter_from_stage_id") @db.Uuid
@@ -300,14 +270,14 @@ model AutomationBinding {
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
-  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  pipeline        Pipeline     @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
-  filterFromStage Stage?       @relation("FilterFromStage", fields: [filterFromStageId], references: [id], onDelete: SetNull)
-  filterToStage   Stage?       @relation("FilterToStage", fields: [filterToStageId], references: [id], onDelete: SetNull)
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  pipeline        Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  filterFromStage Stage?   @relation("FilterFromStage", fields: [filterFromStageId], references: [id], onDelete: SetNull)
+  filterToStage   Stage?   @relation("FilterToStage", fields: [filterToStageId], references: [id], onDelete: SetNull)
 
   @@index([pipelineId])
   @@index([eventType])
+  @@index([orgId])
   @@map("automation_bindings")
 }
 
@@ -318,7 +288,7 @@ model AutomationBinding {
 model Card {
   id              String       @id @default(uuid()) @db.Uuid
   tenantId        String       @map("tenant_id") @db.Uuid
-  organizationId  String       @map("organization_id") @db.Uuid
+  orgId           String       @map("org_id") @db.VarChar(100)
   pipelineId      String       @map("pipeline_id") @db.Uuid
   pipelineVersion Int          @map("pipeline_version")
   currentStageId  String       @map("current_stage_id") @db.Uuid
@@ -332,14 +302,13 @@ model Card {
   closedAt        DateTime?    @map("closed_at") @db.Timestamptz
 
   tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   pipeline     Pipeline          @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
   currentStage Stage             @relation(fields: [currentStageId], references: [id])
   forms        CardForm[]
   moveHistory  CardMoveHistory[]
 
   @@index([tenantId])
-  @@index([organizationId])
+  @@index([orgId])
   @@index([pipelineId])
   @@index([currentStageId])
   @@index([status])
@@ -396,24 +365,24 @@ model CardMoveHistory {
 // =========================================================
 
 model OutboxEvent {
-  id             String       @id @default(uuid()) @db.Uuid
-  tenantId       String       @map("tenant_id") @db.Uuid
-  organizationId String       @map("organization_id") @db.Uuid
-  eventType      String       @map("event_type") @db.VarChar(50)
-  entityType     String       @map("entity_type") @db.VarChar(50)
-  entityId       String       @map("entity_id") @db.Uuid
-  payload        Json
-  status         OutboxStatus @default(pending)
-  attempts       Int          @default(0)
-  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
-  sentAt         DateTime?    @map("sent_at") @db.Timestamptz
-  lastError      String?      @map("last_error") @db.Text
+  id         String       @id @default(uuid()) @db.Uuid
+  tenantId   String       @map("tenant_id") @db.Uuid
+  orgId      String       @map("org_id") @db.VarChar(100)
+  eventType  String       @map("event_type") @db.VarChar(50)
+  entityType String       @map("entity_type") @db.VarChar(50)
+  entityId   String       @map("entity_id") @db.Uuid
+  payload    Json
+  status     OutboxStatus @default(pending)
+  attempts   Int          @default(0)
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  sentAt     DateTime?    @map("sent_at") @db.Timestamptz
+  lastError  String?      @map("last_error") @db.Text
 
-  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([status])
   @@index([createdAt])
   @@index([entityType, entityId])
+  @@index([orgId])
   @@map("outbox_events")
 }

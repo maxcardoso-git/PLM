@@ -12,7 +12,7 @@ export class AutomationsService {
       where: {
         id: dto.pipelineId,
         tenantId: ctx.tenantId,
-        organizationId: ctx.organizationId!,
+        orgId: ctx.orgId!,
       },
     });
 
@@ -23,7 +23,7 @@ export class AutomationsService {
     return this.prisma.automationBinding.create({
       data: {
         tenantId: ctx.tenantId,
-        organizationId: ctx.organizationId!,
+        orgId: ctx.orgId!,
         pipelineId: dto.pipelineId,
         eventType: dto.eventType,
         filterFromStageId: dto.filterFromStageId,
@@ -43,7 +43,7 @@ export class AutomationsService {
     return this.prisma.automationBinding.findMany({
       where: {
         tenantId: ctx.tenantId,
-        organizationId: ctx.organizationId!,
+        orgId: ctx.orgId!,
         ...(pipelineId && { pipelineId }),
         ...(eventType && { eventType: eventType as any }),
       },
@@ -61,7 +61,7 @@ export class AutomationsService {
       where: {
         id,
         tenantId: ctx.tenantId,
-        organizationId: ctx.organizationId!,
+        orgId: ctx.orgId!,
       },
       include: {
         pipeline: { select: { id: true, name: true } },

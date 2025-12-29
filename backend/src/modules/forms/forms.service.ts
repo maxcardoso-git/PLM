@@ -11,7 +11,7 @@ export class FormsService {
     return this.prisma.formDefinition.create({
       data: {
         tenantId: ctx.tenantId,
-        organizationId: ctx.organizationId!,
+        orgId: ctx.orgId!,
         name: dto.name,
         version: dto.version || 1,
         schemaJson: dto.schemaJson,
@@ -25,8 +25,8 @@ export class FormsService {
       where: {
         tenantId: ctx.tenantId,
         OR: [
-          { organizationId: ctx.organizationId },
-          { organizationId: null },
+          { orgId: ctx.orgId },
+          { orgId: null },
         ],
         ...(status && { status: status as any }),
       },
@@ -90,7 +90,7 @@ export class FormsService {
     const latestVersion = await this.prisma.formDefinition.findFirst({
       where: {
         tenantId: ctx.tenantId,
-        organizationId: form.organizationId,
+        orgId: form.orgId,
         name: form.name,
       },
       orderBy: { version: 'desc' },
@@ -99,7 +99,7 @@ export class FormsService {
     return this.prisma.formDefinition.create({
       data: {
         tenantId: ctx.tenantId,
-        organizationId: form.organizationId,
+        orgId: form.orgId,
         name: form.name,
         version: (latestVersion?.version || 0) + 1,
         schemaJson: dto.schemaJson || form.schemaJson || {},

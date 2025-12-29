@@ -2,7 +2,7 @@ import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
 export interface TenantContext {
   tenantId: string;
-  organizationId?: string;
+  orgId?: string;
 }
 
 export const Tenant = createParamDecorator(
@@ -10,7 +10,7 @@ export const Tenant = createParamDecorator(
     const request = ctx.switchToHttp().getRequest();
     const tenantContext: TenantContext = {
       tenantId: request.headers['x-tenant-id'],
-      organizationId: request.headers['x-organization-id'],
+      orgId: request.headers['x-organization-id'],
     };
 
     return data ? tenantContext[data] : tenantContext;
@@ -24,7 +24,7 @@ export const TenantId = createParamDecorator(
   },
 );
 
-export const OrganizationId = createParamDecorator(
+export const OrgId = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext): string | undefined => {
     const request = ctx.switchToHttp().getRequest();
     return request.headers['x-organization-id'];

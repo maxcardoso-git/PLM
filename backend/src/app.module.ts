@@ -6,7 +6,6 @@ import { PrismaModule } from './prisma';
 import { GlobalExceptionFilter } from './common/filters';
 
 import { TenantsModule } from './modules/tenants';
-import { OrganizationsModule } from './modules/organizations';
 import { FormsModule } from './modules/forms';
 import { PipelinesModule } from './modules/pipelines';
 import { StagesModule } from './modules/stages';
@@ -23,7 +22,6 @@ import { ExternalFormsModule } from './modules/external-forms';
     }),
     PrismaModule,
     TenantsModule,
-    OrganizationsModule,
     FormsModule,
     PipelinesModule,
     StagesModule,

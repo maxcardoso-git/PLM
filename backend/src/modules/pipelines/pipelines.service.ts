@@ -15,7 +15,7 @@ export class PipelinesService {
   async create(ctx: TenantContext, dto: CreatePipelineDto) {
     const existing = await this.prisma.pipeline.findFirst({
       where: {
-        organizationId: ctx.organizationId!,
+        orgId: ctx.orgId!,
         key: dto.key,
       },
     });
@@ -28,7 +28,7 @@ export class PipelinesService {
       const pipeline = await tx.pipeline.create({
         data: {
           tenantId: ctx.tenantId,
-          organizationId: ctx.organizationId!,
+          orgId: ctx.orgId!,
           key: dto.key,
           name: dto.name,
           description: dto.description,
@@ -55,7 +55,7 @@ export class PipelinesService {
     return this.prisma.pipeline.findMany({
       where: {
         tenantId: ctx.tenantId,
-        organizationId: ctx.organizationId!,
+        orgId: ctx.orgId!,
         ...(lifecycleStatus && { lifecycleStatus: lifecycleStatus as any }),
       },
       include: {
@@ -80,7 +80,7 @@ export class PipelinesService {
       where: {
         id,
         tenantId: ctx.tenantId,
-        organizationId: ctx.organizationId!,
+        orgId: ctx.orgId!,
       },
       include: {
         versions: {
@@ -130,7 +130,7 @@ export class PipelinesService {
       await tx.outboxEvent.create({
         data: {
           tenantId: ctx.tenantId,
-          organizationId: ctx.organizationId!,
+          orgId: ctx.orgId!,
           eventType: 'PLM.PIPE.CLOSED',
           entityType: 'Pipeline',
           entityId: id,
@@ -315,7 +315,7 @@ export class PipelinesService {
       await tx.outboxEvent.create({
         data: {
           tenantId: ctx.tenantId,
-          organizationId: ctx.organizationId!,
+          orgId: ctx.orgId!,
           eventType: 'PLM.PIPE.PUBLISHED',
           entityType: 'Pipeline',
           entityId: pipelineId,

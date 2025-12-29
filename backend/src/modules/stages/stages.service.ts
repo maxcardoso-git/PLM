@@ -19,7 +19,7 @@ export class StagesService {
         version,
         pipeline: {
           tenantId: ctx.tenantId,
-          organizationId: ctx.organizationId,
+          orgId: ctx.orgId,
         },
       },
     });
@@ -62,7 +62,7 @@ export class StagesService {
         version,
         pipeline: {
           tenantId: ctx.tenantId,
-          organizationId: ctx.organizationId,
+          orgId: ctx.orgId,
         },
       },
     });
@@ -220,7 +220,7 @@ export class StagesService {
         version,
         pipeline: {
           tenantId: ctx.tenantId,
-          organizationId: ctx.organizationId,
+          orgId: ctx.orgId,
         },
       },
     });

@@ -1,7 +1,6 @@
 // PLM Types
 
 export type TenantStatus = 'active' | 'inactive';
-export type OrganizationStatus = 'active' | 'inactive';
 export type FormStatus = 'draft' | 'published' | 'archived';
 export type PipelineLifecycleStatus = 'draft' | 'test' | 'published' | 'closed' | 'archived';
 export type StageClassification = 'NOT_STARTED' | 'ON_GOING' | 'WAITING' | 'FINISHED' | 'CANCELED';
@@ -21,14 +20,14 @@ export interface Organization {
   id: string;
   tenantId: string;
   name: string;
-  status: OrganizationStatus;
+  status: 'active' | 'inactive';
   createdAt: string;
 }
 
 export interface FormDefinition {
   id: string;
   tenantId: string;
-  organizationId?: string;
+  orgId?: string;
   name: string;
   version: number;
   schemaJson: FormSchema;
@@ -53,7 +52,7 @@ export interface FormSchema {
 export interface Pipeline {
   id: string;
   tenantId: string;
-  organizationId: string;
+  orgId: string;
   key: string;
   name: string;
   description?: string;
@@ -85,7 +84,7 @@ export interface StageTransition {
 export interface Card {
   id: string;
   tenantId: string;
-  organizationId: string;
+  orgId: string;
   pipelineId: string;
   pipelineVersion: number;
   currentStageId: string;
