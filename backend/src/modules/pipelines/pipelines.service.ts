@@ -272,12 +272,172 @@ export class PipelinesService {
     });
   }
 
+  async startTest(ctx: TenantContext, pipelineId: string, version: number) {
+    const pipeline = await this.findOne(ctx, pipelineId);
+    const pipelineVersion = await this.getVersion(ctx, pipelineId, version);
+
+    if (pipelineVersion.status === 'published') {
+      throw new BadRequestException('Cannot test a published version. Clone it first.');
+    }
+
+    if (pipelineVersion.status === 'testing') {
+      throw new BadRequestException('Version is already in test mode');
+    }
+
+    const initialStages = pipelineVersion.stages.filter((s) => s.isInitial);
+    if (initialStages.length !== 1) {
+      throw new BadRequestException('Pipeline version must have exactly one initial stage');
+    }
+
+    const finalStages = pipelineVersion.stages.filter((s) => s.isFinal);
+    if (finalStages.length === 0) {
+      throw new BadRequestException('Pipeline version must have at least one final stage');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updatedVersion = await tx.pipelineVersion.update({
+        where: { id: pipelineVersion.id },
+        data: {
+          status: 'testing',
+        },
+      });
+
+      await tx.pipeline.update({
+        where: { id: pipelineId },
+        data: {
+          lifecycleStatus: 'test',
+          publishedVersion: version, // Set as published version temporarily for testing
+        },
+      });
+
+      await tx.outboxEvent.create({
+        data: {
+          tenantId: ctx.tenantId,
+          orgId: ctx.orgId!,
+          eventType: 'PLM.PIPE.TEST_STARTED',
+          entityType: 'Pipeline',
+          entityId: pipelineId,
+          payload: {
+            pipelineId,
+            version,
+          },
+          status: 'pending',
+        },
+      });
+
+      return updatedVersion;
+    });
+  }
+
+  async endTest(ctx: TenantContext, pipelineId: string, version: number, action: 'discard' | 'publish') {
+    const pipeline = await this.findOne(ctx, pipelineId);
+    const pipelineVersion = await this.getVersion(ctx, pipelineId, version);
+
+    if (pipelineVersion.status !== 'testing') {
+      throw new BadRequestException('Version is not in test mode');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // Delete all test cards created during testing
+      const testCards = await tx.card.findMany({
+        where: {
+          pipelineId,
+          pipelineVersion: version,
+        },
+        select: { id: true },
+      });
+
+      for (const card of testCards) {
+        await tx.cardComment.deleteMany({ where: { cardId: card.id } });
+        await tx.triggerExecution.deleteMany({ where: { cardId: card.id } });
+        await tx.cardForm.deleteMany({ where: { cardId: card.id } });
+        await tx.cardMoveHistory.deleteMany({ where: { cardId: card.id } });
+        await tx.card.delete({ where: { id: card.id } });
+      }
+
+      if (action === 'publish') {
+        // Publish the version
+        const updatedVersion = await tx.pipelineVersion.update({
+          where: { id: pipelineVersion.id },
+          data: {
+            status: 'published',
+            publishedAt: new Date(),
+          },
+        });
+
+        await tx.pipeline.update({
+          where: { id: pipelineId },
+          data: {
+            lifecycleStatus: 'published',
+            publishedVersion: version,
+          },
+        });
+
+        await tx.outboxEvent.create({
+          data: {
+            tenantId: ctx.tenantId,
+            orgId: ctx.orgId!,
+            eventType: 'PLM.PIPE.PUBLISHED',
+            entityType: 'Pipeline',
+            entityId: pipelineId,
+            payload: {
+              pipelineId,
+              version,
+              fromTest: true,
+            },
+            status: 'pending',
+          },
+        });
+
+        return { version: updatedVersion, cardsDeleted: testCards.length, action: 'published' };
+      } else {
+        // Discard - revert to draft
+        const updatedVersion = await tx.pipelineVersion.update({
+          where: { id: pipelineVersion.id },
+          data: {
+            status: 'draft',
+          },
+        });
+
+        await tx.pipeline.update({
+          where: { id: pipelineId },
+          data: {
+            lifecycleStatus: 'draft',
+            publishedVersion: null,
+          },
+        });
+
+        await tx.outboxEvent.create({
+          data: {
+            tenantId: ctx.tenantId,
+            orgId: ctx.orgId!,
+            eventType: 'PLM.PIPE.TEST_ENDED',
+            entityType: 'Pipeline',
+            entityId: pipelineId,
+            payload: {
+              pipelineId,
+              version,
+              action: 'discarded',
+            },
+            status: 'pending',
+          },
+        });
+
+        return { version: updatedVersion, cardsDeleted: testCards.length, action: 'discarded' };
+      }
+    });
+  }
+
   async publishVersion(ctx: TenantContext, pipelineId: string, version: number) {
     const pipeline = await this.findOne(ctx, pipelineId);
     const pipelineVersion = await this.getVersion(ctx, pipelineId, version);
 
     if (pipelineVersion.status === 'published') {
       throw new BadRequestException('Version is already published');
+    }
+
+    if (pipelineVersion.status === 'testing') {
+      throw new BadRequestException('Cannot publish a version that is in test mode. End the test first.');
     }
 
     const initialStages = pipelineVersion.stages.filter((s) => s.isInitial);

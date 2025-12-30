@@ -31,11 +31,11 @@ export class CardsService {
         id: dto.pipelineId,
         tenantId: ctx.tenantId,
         orgId: ctx.orgId!,
-        lifecycleStatus: 'published',
+        lifecycleStatus: { in: ['published', 'test'] }, // Allow test mode
       },
       include: {
         versions: {
-          where: { status: 'published' },
+          where: { status: { in: ['published', 'testing'] } }, // Include testing versions
           include: {
             stages: {
               include: {
@@ -833,6 +833,8 @@ export class CardsService {
         key: pipeline.key,
         name: pipeline.name,
         publishedVersion: pipeline.publishedVersion,
+        lifecycleStatus: pipeline.lifecycleStatus,
+        versionStatus: pipelineVersion.status,
       },
       stages: pipelineVersion.stages.map((stage) => ({
         id: stage.id,

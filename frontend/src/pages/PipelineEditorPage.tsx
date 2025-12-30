@@ -25,6 +25,8 @@ import {
   Lock,
   MessageSquare,
   User,
+  FlaskConical,
+  StopCircle,
 } from 'lucide-react';
 import { useTenant } from '../context/TenantContext';
 import { useSettings } from '../context/SettingsContext';
@@ -171,6 +173,8 @@ export function PipelineEditorPage() {
   const [confirmAction, setConfirmAction] = useState<{ type: string; data?: any } | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [unpublishing, setUnpublishing] = useState(false);
+  const [startingTest, setStartingTest] = useState(false);
+  const [endingTest, setEndingTest] = useState(false);
 
   // Toast notification
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -971,6 +975,78 @@ export function PipelineEditorPage() {
     }
   };
 
+  const handleStartTestClick = () => {
+    setConfirmAction({ type: 'startTest' });
+    setShowConfirmModal(true);
+  };
+
+  const handleStartTest = async () => {
+    if (!pipelineId) return;
+
+    setStartingTest(true);
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/pipelines/${pipelineId}/versions/${selectedVersion}/test`,
+        {
+          method: 'POST',
+          headers,
+        }
+      );
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || 'Failed to start test');
+      }
+
+      setShowConfirmModal(false);
+      fetchPipeline();
+      showToast('success', 'Modo de teste iniciado! Você pode criar cards de teste.');
+    } catch (err) {
+      showToast('error', err instanceof Error ? err.message : 'Falha ao iniciar teste');
+    } finally {
+      setStartingTest(false);
+    }
+  };
+
+  const handleEndTestClick = (action: 'discard' | 'publish') => {
+    setConfirmAction({ type: 'endTest', data: { action } });
+    setShowConfirmModal(true);
+  };
+
+  const handleEndTest = async (action: 'discard' | 'publish') => {
+    if (!pipelineId) return;
+
+    setEndingTest(true);
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/pipelines/${pipelineId}/versions/${selectedVersion}/end-test?action=${action}`,
+        {
+          method: 'POST',
+          headers,
+        }
+      );
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || 'Failed to end test');
+      }
+
+      const result = await res.json();
+      setShowConfirmModal(false);
+      fetchPipeline();
+
+      if (action === 'publish') {
+        showToast('success', `Pipeline publicado! ${result.cardsDeleted} cards de teste foram removidos.`);
+      } else {
+        showToast('success', `Teste encerrado. ${result.cardsDeleted} cards de teste foram removidos.`);
+      }
+    } catch (err) {
+      showToast('error', err instanceof Error ? err.message : 'Falha ao encerrar teste');
+    } finally {
+      setEndingTest(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -991,6 +1067,11 @@ export function PipelineEditorPage() {
   }
 
   const currentVersion = pipeline.versions?.find((v) => v.version === selectedVersion);
+  const isTesting = currentVersion?.status === 'testing';
+  const canTest = stages.length > 0 &&
+    stages.some((s) => s.isInitial) &&
+    stages.some((s) => s.isFinal) &&
+    currentVersion?.status === 'draft';
   const canPublish = stages.length > 0 &&
     stages.some((s) => s.isInitial) &&
     stages.some((s) => s.isFinal) &&
@@ -1017,13 +1098,13 @@ export function PipelineEditorPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          {pipeline.publishedVersion && (
+          {(pipeline.publishedVersion || isTesting) && (
             <button
               onClick={() => navigate(`/pipelines/${pipelineId}`)}
               className="btn-secondary"
             >
               <Play size={18} className="mr-2" />
-              View Kanban
+              {isTesting ? 'Testar Kanban' : 'Ver Kanban'}
             </button>
           )}
 
@@ -1037,17 +1118,64 @@ export function PipelineEditorPage() {
             </button>
           )}
 
-          <button
-            onClick={handlePublishClick}
-            disabled={!canPublish}
-            className="btn-primary"
-            title={!canPublish ? 'Need at least one initial and one final stage' : ''}
-          >
-            <CheckCircle2 size={18} className="mr-2" />
-            Publicar
-          </button>
+          {/* Test Mode Buttons */}
+          {isTesting && (
+            <>
+              <button
+                onClick={() => handleEndTestClick('discard')}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <StopCircle size={18} />
+                Descartar Teste
+              </button>
+              <button
+                onClick={() => handleEndTestClick('publish')}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors"
+              >
+                <CheckCircle2 size={18} />
+                Aprovar e Publicar
+              </button>
+            </>
+          )}
+
+          {/* Test Button - only show when draft */}
+          {canTest && (
+            <button
+              onClick={handleStartTestClick}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors"
+              title="Testar o pipeline antes de publicar"
+            >
+              <FlaskConical size={18} />
+              Testar
+            </button>
+          )}
+
+          {/* Publish Button - only show when draft */}
+          {canPublish && (
+            <button
+              onClick={handlePublishClick}
+              className="btn-primary"
+              title="Publicar diretamente sem testar"
+            >
+              <CheckCircle2 size={18} className="mr-2" />
+              Publicar
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Test Mode Banner */}
+      {isTesting && (
+        <div className="mb-4 p-3 bg-purple-100 border border-purple-300 rounded-lg flex items-center gap-3">
+          <FlaskConical size={20} className="text-purple-600" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-purple-900">Modo de Teste Ativo</p>
+            <p className="text-xs text-purple-700">
+              Você pode criar cards de teste e verificar o fluxo. Ao finalizar, escolha &quot;Aprovar e Publicar&quot; ou &quot;Descartar Teste&quot;.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Version Selector */}
       <div className="flex items-center gap-4 mb-4 p-3 bg-gray-50 rounded-lg">
@@ -2147,7 +2275,7 @@ export function PipelineEditorPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div
             className="absolute inset-0 bg-black/50"
-            onClick={() => !publishing && !unpublishing && setShowConfirmModal(false)}
+            onClick={() => !publishing && !unpublishing && !startingTest && !endingTest && setShowConfirmModal(false)}
           />
           <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
             <div className="p-6">
@@ -2157,12 +2285,24 @@ export function PipelineEditorPage() {
                     ? 'bg-blue-100'
                     : confirmAction?.type === 'unpublish'
                     ? 'bg-amber-100'
+                    : confirmAction?.type === 'startTest'
+                    ? 'bg-purple-100'
+                    : confirmAction?.type === 'endTest' && confirmAction?.data?.action === 'publish'
+                    ? 'bg-green-100'
+                    : confirmAction?.type === 'endTest'
+                    ? 'bg-gray-100'
                     : 'bg-red-100'
                 }`}>
                   {confirmAction?.type === 'publish' ? (
                     <CheckCircle2 size={24} className="text-blue-600" />
                   ) : confirmAction?.type === 'unpublish' ? (
                     <XCircle size={24} className="text-amber-600" />
+                  ) : confirmAction?.type === 'startTest' ? (
+                    <FlaskConical size={24} className="text-purple-600" />
+                  ) : confirmAction?.type === 'endTest' && confirmAction?.data?.action === 'publish' ? (
+                    <CheckCircle2 size={24} className="text-green-600" />
+                  ) : confirmAction?.type === 'endTest' ? (
+                    <StopCircle size={24} className="text-gray-600" />
                   ) : (
                     <AlertTriangle size={24} className="text-red-600" />
                   )}
@@ -2173,6 +2313,12 @@ export function PipelineEditorPage() {
                       ? 'Publicar Pipeline'
                       : confirmAction?.type === 'unpublish'
                       ? 'Despublicar Pipeline'
+                      : confirmAction?.type === 'startTest'
+                      ? 'Iniciar Teste'
+                      : confirmAction?.type === 'endTest' && confirmAction?.data?.action === 'publish'
+                      ? 'Aprovar e Publicar'
+                      : confirmAction?.type === 'endTest'
+                      ? 'Descartar Teste'
                       : confirmAction?.type === 'detachForm'
                       ? 'Desvincular Formulário'
                       : 'Excluir Etapa'}
@@ -2182,6 +2328,12 @@ export function PipelineEditorPage() {
                       ? 'Esta versão ficará disponível para novos cards.'
                       : confirmAction?.type === 'unpublish'
                       ? 'Esta versão voltará para rascunho e não poderá receber novos cards até ser republicada.'
+                      : confirmAction?.type === 'startTest'
+                      ? 'O pipeline entrará em modo de teste. Você poderá criar cards para testar o fluxo antes de publicar.'
+                      : confirmAction?.type === 'endTest' && confirmAction?.data?.action === 'publish'
+                      ? 'Todos os cards de teste serão removidos e o pipeline será publicado oficialmente.'
+                      : confirmAction?.type === 'endTest'
+                      ? 'Todos os cards de teste serão removidos e o pipeline voltará para rascunho.'
                       : confirmAction?.type === 'detachForm'
                       ? 'Tem certeza que deseja remover este formulário da etapa?'
                       : `Tem certeza que deseja excluir "${confirmAction?.data?.name}"?`}
@@ -2193,7 +2345,7 @@ export function PipelineEditorPage() {
             <div className="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-100">
               <button
                 onClick={() => setShowConfirmModal(false)}
-                disabled={publishing || unpublishing}
+                disabled={publishing || unpublishing || startingTest || endingTest}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
                 Cancelar
@@ -2204,28 +2356,44 @@ export function PipelineEditorPage() {
                     handlePublish();
                   } else if (confirmAction?.type === 'unpublish') {
                     handleUnpublish();
+                  } else if (confirmAction?.type === 'startTest') {
+                    handleStartTest();
+                  } else if (confirmAction?.type === 'endTest') {
+                    handleEndTest(confirmAction.data.action);
                   } else if (confirmAction?.type === 'deleteStage') {
                     handleDeleteStage(confirmAction.data.id);
                   } else if (confirmAction?.type === 'detachForm') {
                     executeDetachForm(confirmAction.data.ruleId);
                   }
                 }}
-                disabled={publishing || unpublishing}
+                disabled={publishing || unpublishing || startingTest || endingTest}
                 className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2 ${
                   confirmAction?.type === 'publish'
                     ? 'bg-blue-600 hover:bg-blue-700'
                     : confirmAction?.type === 'unpublish'
                     ? 'bg-amber-600 hover:bg-amber-700'
+                    : confirmAction?.type === 'startTest'
+                    ? 'bg-purple-600 hover:bg-purple-700'
+                    : confirmAction?.type === 'endTest' && confirmAction?.data?.action === 'publish'
+                    ? 'bg-green-600 hover:bg-green-700'
+                    : confirmAction?.type === 'endTest'
+                    ? 'bg-gray-600 hover:bg-gray-700'
                     : 'bg-red-600 hover:bg-red-700'
                 }`}
               >
-                {(publishing || unpublishing) && (
+                {(publishing || unpublishing || startingTest || endingTest) && (
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 )}
                 {confirmAction?.type === 'publish'
                   ? publishing ? 'Publicando...' : 'Publicar'
                   : confirmAction?.type === 'unpublish'
                   ? unpublishing ? 'Despublicando...' : 'Despublicar'
+                  : confirmAction?.type === 'startTest'
+                  ? startingTest ? 'Iniciando...' : 'Iniciar Teste'
+                  : confirmAction?.type === 'endTest' && confirmAction?.data?.action === 'publish'
+                  ? endingTest ? 'Publicando...' : 'Aprovar e Publicar'
+                  : confirmAction?.type === 'endTest'
+                  ? endingTest ? 'Descartando...' : 'Descartar Teste'
                   : confirmAction?.type === 'detachForm'
                   ? 'Desvincular'
                   : 'Excluir'}

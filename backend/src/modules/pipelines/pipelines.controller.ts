@@ -110,6 +110,31 @@ export class PipelinesController {
     return this.pipelinesService.getVersion(ctx, pipelineId, version);
   }
 
+  @Post(':pipelineId/versions/:version/test')
+  @ApiOperation({ summary: 'Start testing pipeline version' })
+  @ApiResponse({ status: 200, description: 'Test mode started' })
+  @ApiResponse({ status: 400, description: 'Cannot test published version' })
+  startTest(
+    @Tenant() ctx: TenantContext,
+    @Param('pipelineId', ParseUUIDPipe) pipelineId: string,
+    @Param('version', ParseIntPipe) version: number,
+  ) {
+    return this.pipelinesService.startTest(ctx, pipelineId, version);
+  }
+
+  @Post(':pipelineId/versions/:version/end-test')
+  @ApiOperation({ summary: 'End testing and optionally publish' })
+  @ApiQuery({ name: 'action', required: true, enum: ['discard', 'publish'] })
+  @ApiResponse({ status: 200, description: 'Test ended' })
+  endTest(
+    @Tenant() ctx: TenantContext,
+    @Param('pipelineId', ParseUUIDPipe) pipelineId: string,
+    @Param('version', ParseIntPipe) version: number,
+    @Query('action') action: 'discard' | 'publish',
+  ) {
+    return this.pipelinesService.endTest(ctx, pipelineId, version, action);
+  }
+
   @Post(':pipelineId/versions/:version/publish')
   @ApiOperation({ summary: 'Publish pipeline version' })
   @ApiResponse({ status: 200, description: 'Version published' })

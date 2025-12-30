@@ -178,6 +178,8 @@ export interface KanbanBoard {
     key: string;
     name: string;
     publishedVersion: number;
+    lifecycleStatus: string;
+    versionStatus: string;
   };
   stages: KanbanStage[];
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { FormEvent } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, RefreshCw, FileText, Trash2, AlertTriangle, Calendar, Zap, ChevronDown, ChevronUp, Save, Loader2, CheckCircle, XCircle, Eye, MessageSquare, Send, Key, Edit3 } from 'lucide-react';
+import { ArrowLeft, RefreshCw, FileText, Trash2, AlertTriangle, Calendar, Zap, ChevronDown, ChevronUp, Save, Loader2, CheckCircle, XCircle, Eye, MessageSquare, Send, Key, Edit3, FlaskConical } from 'lucide-react';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
 import { useSettings } from '../context/SettingsContext';
@@ -317,6 +317,25 @@ export function PipelineKanbanPage() {
           Refresh
         </button>
       </div>
+
+      {/* Test Mode Banner */}
+      {board.pipeline.versionStatus === 'testing' && (
+        <div className="mb-4 p-3 bg-purple-100 border border-purple-300 rounded-lg flex items-center gap-3">
+          <FlaskConical size={20} className="text-purple-600" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-purple-900">Modo de Teste</p>
+            <p className="text-xs text-purple-700">
+              Este é um ambiente de teste. Os cards criados aqui serão removidos quando o teste for finalizado.
+            </p>
+          </div>
+          <Link
+            to={`/pipelines/${pipelineId}/edit`}
+            className="px-3 py-1.5 text-sm font-medium text-purple-700 bg-purple-200 rounded-lg hover:bg-purple-300 transition-colors"
+          >
+            Gerenciar Teste
+          </Link>
+        </div>
+      )}
 
       {/* Kanban Board */}
       <div className="flex-1 overflow-hidden">
