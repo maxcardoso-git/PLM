@@ -1136,7 +1136,7 @@ export function PipelineEditorPage() {
                           {t.toStage.name}
                           <button
                             onClick={() => handleOpenRulesModal(t.id, stage.name, t.toStage.name)}
-                            className="ml-1 text-blue-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="ml-1 text-blue-500 hover:text-blue-700"
                             title="Configurar regras de transição"
                           >
                             <Lock size={12} />
