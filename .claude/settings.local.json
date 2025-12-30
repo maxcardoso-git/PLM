@@ -30,7 +30,11 @@
       "Bash(xargs:*)",
       "Bash(mkdir:*)",
       "Bash(pkill:*)",
-      "Bash(PGPASSWORD=postgres psql:*)"
+      "Bash(PGPASSWORD=postgres psql:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vite build)",
+      "Bash(./node_modules/.bin/tsc:*)",
+      "Bash(./node_modules/.bin/vite build:*)"
     ]
   }
 }

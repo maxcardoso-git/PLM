@@ -52,6 +52,7 @@ interface FormAttachRule {
 interface Transition {
   id: string;
   toStage: { id: string; name: string; color: string };
+  _count?: { rules: number };
 }
 
 interface Stage {
@@ -783,6 +784,7 @@ export function PipelineEditorPage() {
       const result = await api.getTransitionRules(selectedTransition.id);
       setTransitionRules(result.items || []);
       setNewRuleType('');
+      fetchVersionStages(selectedVersion); // Refresh stages to update rule count badge
       showToast('success', 'Regra adicionada!');
     } catch (err) {
       showToast('error', err instanceof Error ? err.message : 'Falha ao adicionar regra');
@@ -798,6 +800,7 @@ export function PipelineEditorPage() {
         const result = await api.getTransitionRules(selectedTransition.id);
         setTransitionRules(result.items || []);
       }
+      fetchVersionStages(selectedVersion); // Refresh stages to update rule count badge
     } catch (err) {
       showToast('error', 'Falha ao atualizar regra');
     }
@@ -810,6 +813,7 @@ export function PipelineEditorPage() {
         const result = await api.getTransitionRules(selectedTransition.id);
         setTransitionRules(result.items || []);
       }
+      fetchVersionStages(selectedVersion); // Refresh stages to update rule count badge
       showToast('success', 'Regra removida!');
     } catch (err) {
       showToast('error', 'Falha ao remover regra');
@@ -1127,29 +1131,42 @@ export function PipelineEditorPage() {
 
                     {/* Transitions */}
                     <div className="flex items-center gap-2 flex-wrap">
-                      {stage.transitionsFrom?.map((t) => (
-                        <span
-                          key={t.id}
-                          className="text-xs px-2 py-1 rounded-full bg-blue-50 text-blue-700 flex items-center gap-1 group"
-                        >
-                          <ArrowRight size={12} />
-                          {t.toStage.name}
-                          <button
-                            onClick={() => handleOpenRulesModal(t.id, stage.name, t.toStage.name)}
-                            className="ml-1 text-blue-500 hover:text-blue-700"
-                            title="Configurar regras de transição"
+                      {stage.transitionsFrom?.map((t) => {
+                        const hasRules = (t._count?.rules || 0) > 0;
+                        return (
+                          <span
+                            key={t.id}
+                            className={`text-xs px-2 py-1 rounded-full flex items-center gap-1 group ${
+                              hasRules
+                                ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                : 'bg-blue-50 text-blue-700'
+                            }`}
                           >
-                            <Lock size={12} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteTransition(t.id)}
-                            className="ml-1 text-blue-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Remover transição"
-                          >
-                            <X size={12} />
-                          </button>
-                        </span>
-                      ))}
+                            <ArrowRight size={12} />
+                            {t.toStage.name}
+                            {hasRules && (
+                              <span className="flex items-center gap-0.5 ml-1 px-1.5 py-0.5 bg-amber-200 rounded-full text-amber-900">
+                                <Lock size={10} className="fill-current" />
+                                <span className="text-[10px] font-medium">{t._count?.rules}</span>
+                              </span>
+                            )}
+                            <button
+                              onClick={() => handleOpenRulesModal(t.id, stage.name, t.toStage.name)}
+                              className={`ml-1 ${hasRules ? 'text-amber-600 hover:text-amber-800' : 'text-blue-500 hover:text-blue-700'}`}
+                              title="Configurar regras de transição"
+                            >
+                              <Lock size={12} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteTransition(t.id)}
+                              className={`ml-1 opacity-0 group-hover:opacity-100 transition-opacity ${hasRules ? 'text-amber-400 hover:text-red-500' : 'text-blue-400 hover:text-red-500'}`}
+                              title="Remover transição"
+                            >
+                              <X size={12} />
+                            </button>
+                          </span>
+                        );
+                      })}
                       <button
                         onClick={() => handleAddTransition(stage)}
                         className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded-full border border-dashed border-blue-300"

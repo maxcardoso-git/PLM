@@ -26,10 +26,22 @@ export class UpdateStageTriggerDto {
   @IsUUID()
   fromStageId?: string;
 
-  @ApiPropertyOptional({ description: 'For FORM_FIELD_CHANGE: form definition ID' })
+  @ApiPropertyOptional({ description: 'For FORM_FIELD_CHANGE: internal form definition ID' })
   @IsOptional()
   @IsUUID()
   formDefinitionId?: string;
+
+  @ApiPropertyOptional({ description: 'For FORM_FIELD_CHANGE: external form ID' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  externalFormId?: string;
+
+  @ApiPropertyOptional({ description: 'For FORM_FIELD_CHANGE: external form name' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  externalFormName?: string;
 
   @ApiPropertyOptional({ description: 'For FORM_FIELD_CHANGE: specific field ID' })
   @IsOptional()

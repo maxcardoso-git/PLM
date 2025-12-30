@@ -41,9 +41,9 @@ export class StageTriggersService {
       throw new NotFoundException(`Integration ${dto.integrationId} not found`);
     }
 
-    // Validate form field change event has formDefinitionId
-    if (dto.eventType === TriggerEventType.FORM_FIELD_CHANGE && !dto.formDefinitionId) {
-      throw new BadRequestException('formDefinitionId is required for FORM_FIELD_CHANGE events');
+    // Validate form field change event has either formDefinitionId or externalFormId
+    if (dto.eventType === TriggerEventType.FORM_FIELD_CHANGE && !dto.formDefinitionId && !dto.externalFormId) {
+      throw new BadRequestException('formDefinitionId or externalFormId is required for FORM_FIELD_CHANGE events');
     }
 
     // Create trigger with conditions
@@ -54,6 +54,8 @@ export class StageTriggersService {
         eventType: dto.eventType,
         fromStageId: dto.fromStageId,
         formDefinitionId: dto.formDefinitionId,
+        externalFormId: dto.externalFormId,
+        externalFormName: dto.externalFormName,
         fieldId: dto.fieldId,
         executionOrder: dto.executionOrder ?? 0,
         enabled: dto.enabled ?? true,
@@ -177,6 +179,8 @@ export class StageTriggersService {
         eventType: dto.eventType,
         fromStageId: dto.fromStageId,
         formDefinitionId: dto.formDefinitionId,
+        externalFormId: dto.externalFormId,
+        externalFormName: dto.externalFormName,
         fieldId: dto.fieldId,
         executionOrder: dto.executionOrder,
         enabled: dto.enabled,

@@ -91,6 +91,9 @@ export class StagesService {
         transitionsFrom: {
           include: {
             toStage: { select: { id: true, name: true, color: true } },
+            _count: {
+              select: { rules: { where: { enabled: true } } },
+            },
           },
         },
         triggers: {
