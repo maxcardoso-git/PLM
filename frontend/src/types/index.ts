@@ -140,6 +140,7 @@ export interface KanbanFormAttachRule {
   externalFormId?: string;
   externalFormName?: string;
   defaultFormStatus: CardFormStatus;
+  uniqueKeyFieldId?: string;
   formDefinition?: {
     id: string;
     name: string;

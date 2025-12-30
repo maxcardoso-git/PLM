@@ -176,7 +176,7 @@ export function PipelineKanbanPage() {
     }
   };
 
-  const fetchExternalFormSchema = async (formId: string) => {
+  const fetchExternalFormSchema = async (formId: string, uniqueKeyFieldId?: string) => {
     if (!settings.externalForms.baseUrl || !settings.externalForms.apiKey) {
       console.error('External forms not configured');
       return;
@@ -187,6 +187,7 @@ export function PipelineKanbanPage() {
     setExternalFormData({});
 
     try {
+      // Fetch schema
       const response = await fetch(`${API_BASE_URL}/external-forms/proxy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -214,6 +215,38 @@ export function PipelineKanbanPage() {
       }
 
       setExternalFormSchema(schema);
+
+      // If card has a unique key value, try to fetch existing form data
+      if (selectedCard?.card.uniqueKeyValue && uniqueKeyFieldId) {
+        try {
+          const dataResponse = await fetch(`${API_BASE_URL}/external-forms/proxy`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              baseUrl: settings.externalForms.baseUrl,
+              endpoint: `/data-entry-forms/external/${formId}/data`,
+              apiKey: settings.externalForms.apiKey,
+              method: 'POST',
+              body: {
+                keyField: uniqueKeyFieldId,
+                keyValue: selectedCard.card.uniqueKeyValue,
+              },
+            }),
+          });
+
+          if (dataResponse.ok) {
+            const formData = await dataResponse.json();
+            // Normalize the form data structure
+            const existingData = formData.data || formData.record || formData;
+            if (existingData && typeof existingData === 'object') {
+              setExternalFormData(existingData);
+            }
+          }
+        } catch (dataError) {
+          console.log('No existing form data found for unique key:', dataError);
+          // It's OK if no data exists - just leave the form empty
+        }
+      }
     } catch (error) {
       console.error('Failed to fetch external form schema:', error);
     } finally {
@@ -221,14 +254,14 @@ export function PipelineKanbanPage() {
     }
   };
 
-  const handleExpandExternalForm = (formId: string) => {
+  const handleExpandExternalForm = (formId: string, uniqueKeyFieldId?: string) => {
     if (expandedExternalForm === formId) {
       setExpandedExternalForm(null);
       setExternalFormSchema(null);
       setExternalFormData({});
     } else {
       setExpandedExternalForm(formId);
-      fetchExternalFormSchema(formId);
+      fetchExternalFormSchema(formId, uniqueKeyFieldId);
     }
   };
 
@@ -780,7 +813,7 @@ export function PipelineKanbanPage() {
                         <div key={rule.id} className="bg-blue-50 rounded-lg border border-blue-200 overflow-hidden">
                           <div
                             className="flex items-center justify-between p-3 cursor-pointer hover:bg-blue-100"
-                            onClick={() => handleExpandExternalForm(rule.externalFormId!)}
+                            onClick={() => handleExpandExternalForm(rule.externalFormId!, rule.uniqueKeyFieldId)}
                           >
                             <div className="flex items-center gap-2">
                               <FileText size={16} className="text-blue-600" />

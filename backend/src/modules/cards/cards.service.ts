@@ -855,6 +855,7 @@ export class CardsService {
           externalFormId: rule.externalFormId,
           externalFormName: rule.externalFormName,
           defaultFormStatus: rule.defaultFormStatus,
+          uniqueKeyFieldId: rule.uniqueKeyFieldId,
           formDefinition: rule.formDefinition,
         })),
         triggers: stage.triggers.map((t) => ({
