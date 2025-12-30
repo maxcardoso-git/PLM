@@ -12,8 +12,9 @@ import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
+import { TahCallbackDto } from './dto/tah-callback.dto';
 import type { Request, Response } from 'express';
-import type { TahCallbackDto, AuthenticatedUser } from './dto/tah-callback.dto';
+import type { AuthenticatedUser } from './dto/tah-callback.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
