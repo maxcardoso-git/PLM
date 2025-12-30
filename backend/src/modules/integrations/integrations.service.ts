@@ -84,7 +84,54 @@ export class IntegrationsService {
   }
 
   async delete(ctx: TenantContext, id: string) {
-    await this.findOne(ctx, id);
+    const integration = await this.findOne(ctx, id);
+
+    // Check if integration is being used by any stage triggers
+    const triggersUsingIntegration = await this.prisma.stageTrigger.findMany({
+      where: { integrationId: id },
+      include: {
+        stage: {
+          select: {
+            name: true,
+            pipelineVersion: {
+              select: {
+                version: true,
+                pipeline: {
+                  select: { name: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (triggersUsingIntegration.length > 0) {
+      // Build a user-friendly message listing where the integration is used
+      const usages = triggersUsingIntegration.map((trigger) => ({
+        pipeline: trigger.stage.pipelineVersion.pipeline.name,
+        version: trigger.stage.pipelineVersion.version,
+        stage: trigger.stage.name,
+      }));
+
+      // Get unique pipeline/stage combinations
+      const uniqueUsages = usages.reduce((acc, usage) => {
+        const key = `${usage.pipeline}-v${usage.version}-${usage.stage}`;
+        if (!acc.some((u) => `${u.pipeline}-v${u.version}-${u.stage}` === key)) {
+          acc.push(usage);
+        }
+        return acc;
+      }, [] as typeof usages);
+
+      throw new ConflictException({
+        code: 'INTEGRATION_IN_USE',
+        message: `Não é possível excluir a integração "${integration.name}" pois ela está sendo utilizada em gatilhos de stage.`,
+        details: {
+          usages: uniqueUsages,
+          count: triggersUsingIntegration.length,
+        },
+      });
+    }
 
     await this.prisma.integration.delete({
       where: { id },

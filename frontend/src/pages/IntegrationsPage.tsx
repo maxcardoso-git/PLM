@@ -61,6 +61,14 @@ export function IntegrationsPage() {
     message: '',
   });
 
+  // Toast state
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string; details?: string } | null>(null);
+
+  const showToast = (type: 'success' | 'error', message: string, details?: string) => {
+    setToast({ type, message, details });
+    setTimeout(() => setToast(null), 6000);
+  };
+
   // Fetch integrations
   useEffect(() => {
     if (organization) {
@@ -194,8 +202,29 @@ export function IntegrationsPage() {
       setShowDeleteModal(false);
       setDeletingIntegration(null);
       fetchIntegrations();
-    } catch (err) {
+      showToast('success', 'Integração excluída com sucesso!');
+    } catch (err: any) {
       console.error('Failed to delete integration:', err);
+      setShowDeleteModal(false);
+
+      // Check if it's the INTEGRATION_IN_USE error
+      const errorData = err.response?.data;
+      if (errorData?.code === 'INTEGRATION_IN_USE') {
+        const usages = errorData.details?.usages || [];
+        const usageList = usages
+          .slice(0, 3) // Show max 3 usages
+          .map((u: any) => `• ${u.pipeline} (v${u.version}) - ${u.stage}`)
+          .join('\n');
+        const moreCount = usages.length > 3 ? `\n... e mais ${usages.length - 3} local(is)` : '';
+
+        showToast(
+          'error',
+          errorData.message || 'Não é possível excluir esta integração',
+          usageList + moreCount
+        );
+      } else {
+        showToast('error', 'Falha ao excluir integração');
+      }
     }
   };
 
@@ -719,6 +748,37 @@ export function IntegrationsPage() {
                 {t('common.delete')}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed bottom-4 right-4 z-50 max-w-md animate-in slide-in-from-bottom-2">
+          <div
+            className={`flex items-start gap-3 p-4 rounded-xl shadow-lg border ${
+              toast.type === 'success'
+                ? 'bg-green-50 border-green-200 text-green-800'
+                : 'bg-red-50 border-red-200 text-red-800'
+            }`}
+          >
+            {toast.type === 'success' ? (
+              <CheckCircle2 size={20} className="shrink-0 mt-0.5" />
+            ) : (
+              <XCircle size={20} className="shrink-0 mt-0.5" />
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="font-medium">{toast.message}</p>
+              {toast.details && (
+                <p className="text-sm mt-1 whitespace-pre-line opacity-80">{toast.details}</p>
+              )}
+            </div>
+            <button
+              onClick={() => setToast(null)}
+              className="shrink-0 p-1 hover:bg-black/5 rounded"
+            >
+              <X size={16} />
+            </button>
           </div>
         </div>
       )}
