@@ -2011,7 +2011,7 @@ export function PipelineEditorPage() {
               {/* Add New Rule */}
               <div className="border-t pt-4">
                 <label className="label">Adicionar regra</label>
-                {versionStatuses[selectedVersion] === 'published' || versionStatuses[selectedVersion] === 'archived' ? (
+                {currentVersion?.status === 'published' || currentVersion?.status === 'archived' ? (
                   <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg flex items-center gap-2">
                     <AlertTriangle size={16} />
                     Não é possível modificar regras em versões publicadas ou arquivadas.
