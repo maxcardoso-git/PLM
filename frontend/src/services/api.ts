@@ -100,9 +100,11 @@ class ApiClient {
 
   async createCard(payload: {
     pipelineId: string;
+    initialStageId?: string;
     title: string;
     description?: string;
     priority?: string;
+    forms?: { formDefinitionId: string; status: 'FILLED' | 'TO_FILL'; data: Record<string, any> }[];
   }): Promise<CardFull> {
     const { data } = await this.client.post('/cards', payload);
     return data;
@@ -122,6 +124,11 @@ class ApiClient {
     payload: { status?: string; data?: Record<string, any> }
   ): Promise<any> {
     const { data } = await this.client.patch(`/cards/${cardId}/forms/${formDefinitionId}`, payload);
+    return data;
+  }
+
+  async deleteCard(cardId: string): Promise<{ deleted: boolean; id: string }> {
+    const { data } = await this.client.delete(`/cards/${cardId}`);
     return data;
   }
 

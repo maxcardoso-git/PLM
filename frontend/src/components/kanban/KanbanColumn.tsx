@@ -1,6 +1,6 @@
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Plus, AlertTriangle } from 'lucide-react';
+import { Plus, AlertTriangle, Zap } from 'lucide-react';
 import type { KanbanStage, KanbanCard as KanbanCardType } from '../../types';
 import { KanbanCard } from './KanbanCard';
 import { clsx } from 'clsx';
@@ -52,6 +52,11 @@ export function KanbanColumn({ stage, onCardClick, onAddCard, isOver }: KanbanCo
             {stage.cardCount}
             {stage.wipLimit && `/${stage.wipLimit}`}
           </span>
+          {stage.hasTriggers && (
+            <span className="flex items-center gap-1 text-xs text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full" title="Integrações configuradas">
+              <Zap size={10} />
+            </span>
+          )}
         </div>
 
         {stage.isInitial && onAddCard && (
