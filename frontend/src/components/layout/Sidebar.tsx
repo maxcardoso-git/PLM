@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { LayoutDashboard, Workflow, FileText, LayoutTemplate, Settings, Building2, User, Zap } from 'lucide-react';
+import { LayoutDashboard, Workflow, FileText, LayoutTemplate, Settings, Building2, User, Zap, LogOut } from 'lucide-react';
 import { useTenant } from '../../context/TenantContext';
 import { LanguageSelector } from './LanguageSelector';
 import { clsx } from 'clsx';
@@ -16,8 +16,14 @@ const navigationKeys = [
 
 export function Sidebar() {
   const location = useLocation();
-  const { tenant, organization } = useTenant();
+  const { tenant, organization, user, logout } = useTenant();
   const { t } = useTranslation();
+
+  const handleLogout = async () => {
+    await logout();
+    // Redirect to TAH after logout
+    window.location.href = 'http://72.61.52.70:3050';
+  };
 
   return (
     <div className="flex flex-col w-64 bg-gray-900 text-white h-screen">
@@ -34,25 +40,55 @@ export function Sidebar() {
 
       {/* TAH Context Info */}
       <div className="p-4 border-b border-gray-800 space-y-2">
-        <div className="flex items-center gap-2 text-xs text-gray-400">
-          <Building2 size={14} />
-          <span className="uppercase tracking-wider">{t('sidebar.context')} (TAH)</span>
-        </div>
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 px-2 py-1.5 bg-gray-800 rounded text-sm">
-            <User size={14} className="text-gray-500" />
-            <span className="text-gray-300 truncate">
-              {tenant?.name || t('sidebar.notAuthenticated')}
-            </span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs text-gray-400">
+            <Building2 size={14} />
+            <span className="uppercase tracking-wider">{t('sidebar.context')} (TAH)</span>
           </div>
-          {organization && (
-            <div className="flex items-center gap-2 px-2 py-1.5 bg-gray-800 rounded text-sm">
-              <Building2 size={14} className="text-gray-500" />
-              <span className="text-gray-300 truncate">{organization.name}</span>
-            </div>
+          {user && (
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-400 transition-colors"
+              title="Sair"
+            >
+              <LogOut size={14} />
+            </button>
           )}
         </div>
-        {!tenant && (
+        <div className="space-y-1">
+          {user ? (
+            <>
+              <div className="flex items-center gap-2 px-2 py-1.5 bg-gray-800 rounded text-sm">
+                <User size={14} className="text-blue-400" />
+                <span className="text-gray-300 truncate" title={user.email}>
+                  {user.name || user.email}
+                </span>
+              </div>
+              {organization && (
+                <div className="flex items-center gap-2 px-2 py-1.5 bg-gray-800 rounded text-sm">
+                  <Building2 size={14} className="text-gray-500" />
+                  <span className="text-gray-300 truncate">{organization.name}</span>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 px-2 py-1.5 bg-gray-800 rounded text-sm">
+                <User size={14} className="text-gray-500" />
+                <span className="text-gray-300 truncate">
+                  {tenant?.name || t('sidebar.notAuthenticated')}
+                </span>
+              </div>
+              {organization && (
+                <div className="flex items-center gap-2 px-2 py-1.5 bg-gray-800 rounded text-sm">
+                  <Building2 size={14} className="text-gray-500" />
+                  <span className="text-gray-300 truncate">{organization.name}</span>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+        {!tenant && !user && (
           <p className="text-xs text-gray-500 italic">
             {t('sidebar.loginVia')}
           </p>
