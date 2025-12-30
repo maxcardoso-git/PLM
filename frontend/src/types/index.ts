@@ -95,6 +95,7 @@ export interface Card {
   priority: CardPriority;
   status: CardStatus;
   createdAt: string;
+  updatedAt: string;
   closedAt?: string;
 }
 
@@ -121,16 +122,43 @@ export interface CardMoveHistory {
   toStage?: { id: string; name: string; color: string };
 }
 
+// Form Attach Rule for Kanban
+export interface KanbanFormAttachRule {
+  id: string;
+  formDefinitionId?: string;
+  externalFormId?: string;
+  externalFormName?: string;
+  defaultFormStatus: CardFormStatus;
+  formDefinition?: {
+    id: string;
+    name: string;
+    version: number;
+    schemaJson?: { fields?: any[] };
+  };
+}
+
+// Stage Trigger for Kanban
+export interface KanbanStageTrigger {
+  id: string;
+  integrationName: string;
+}
+
 // Kanban Board Types
 export interface KanbanStage extends Stage {
   allowedTransitions: { toStageId: string; toStageName: string }[];
+  formAttachRules: KanbanFormAttachRule[];
+  triggers: KanbanStageTrigger[];
+  hasTriggers: boolean;
   cards: KanbanCard[];
   cardCount: number;
 }
 
 export interface KanbanCard extends Card {
   pendingFormsCount: number;
-  forms?: { id: string; status: CardFormStatus; formDefinition: { name: string } }[];
+  filledFormsCount: number;
+  totalFormsCount: number;
+  forms?: { id: string; status: CardFormStatus; formDefinitionId: string; formDefinition: { id: string; name: string } }[];
+  triggerExecutionSummary?: TriggerExecutionSummary;
 }
 
 export interface KanbanBoard {
@@ -150,6 +178,7 @@ export interface CardFull {
   };
   forms: CardForm[];
   history: CardMoveHistory[];
+  triggerExecutions?: TriggerExecution[];
   allowedTransitions: { id: string; name: string; color: string; wipLimit?: number }[];
 }
 
@@ -191,6 +220,31 @@ export interface ExternalApiKey {
 
 // Stage Trigger Types
 export type TriggerEventType = 'CARD_MOVEMENT' | 'FORM_FIELD_CHANGE';
+export type TriggerExecutionStatus = 'PENDING' | 'SUCCESS' | 'FAILURE';
+
+// Trigger Execution Types
+export interface TriggerExecutionSummary {
+  total: number;
+  success: number;
+  failure: number;
+  pending: number;
+  lastStatus: TriggerExecutionStatus | null;
+  lastExecutedAt: string | null;
+  lastIntegrationName: string | null;
+}
+
+export interface TriggerExecution {
+  id: string;
+  status: TriggerExecutionStatus;
+  eventType: TriggerEventType;
+  integrationName: string;
+  integrationKey: string;
+  stageName?: string;
+  executedAt: string;
+  completedAt?: string;
+  errorMessage?: string;
+  responsePayload?: any;
+}
 export type TriggerOperator =
   | 'EQUALS'
   | 'NOT_EQUALS'
@@ -245,6 +299,8 @@ export interface CreateStageTriggerPayload {
   eventType: TriggerEventType;
   fromStageId?: string;
   formDefinitionId?: string;
+  externalFormId?: string;
+  externalFormName?: string;
   fieldId?: string;
   executionOrder?: number;
   enabled?: boolean;
@@ -260,6 +316,8 @@ export interface UpdateStageTriggerPayload {
   eventType?: TriggerEventType;
   fromStageId?: string;
   formDefinitionId?: string;
+  externalFormId?: string;
+  externalFormName?: string;
   fieldId?: string;
   executionOrder?: number;
   enabled?: boolean;

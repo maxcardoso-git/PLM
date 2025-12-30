@@ -55,7 +55,7 @@ export class CardsService {
       throw new BadRequestException('Initial stage not found');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const cardId = await this.prisma.$transaction(async (tx) => {
       const card = await tx.card.create({
         data: {
           tenantId: ctx.tenantId,
@@ -139,8 +139,11 @@ export class CardsService {
         },
       });
 
-      return this.findOne(ctx, card.id);
+      return card.id;
     });
+
+    // Return full card after transaction is committed
+    return this.findOne(ctx, cardId);
   }
 
   async findAll(
@@ -216,6 +219,17 @@ export class CardsService {
           },
           orderBy: { movedAt: 'desc' },
         },
+        triggerExecutions: {
+          include: {
+            trigger: {
+              include: {
+                integration: { select: { id: true, name: true, key: true } },
+              },
+            },
+          },
+          orderBy: { executedAt: 'desc' },
+          take: 10,
+        },
         pipeline: {
           select: { id: true, key: true, name: true },
         },
@@ -239,12 +253,23 @@ export class CardsService {
         priority: card.priority,
         status: card.status,
         createdAt: card.createdAt,
+        updatedAt: card.updatedAt,
         closedAt: card.closedAt,
         currentStage: card.currentStage,
         pipeline: card.pipeline,
       },
       forms: card.forms,
       history: card.moveHistory,
+      triggerExecutions: card.triggerExecutions.map((exec) => ({
+        id: exec.id,
+        status: exec.status,
+        eventType: exec.eventType,
+        integrationName: exec.trigger.integration.name,
+        integrationKey: exec.trigger.integration.key,
+        executedAt: exec.executedAt,
+        completedAt: exec.completedAt,
+        errorMessage: exec.errorMessage,
+      })),
       allowedTransitions: card.currentStage.transitionsFrom.map((t) => t.toStage),
     };
   }
@@ -476,6 +501,87 @@ export class CardsService {
     });
   }
 
+  async delete(ctx: TenantContext, cardId: string) {
+    const card = await this.prisma.card.findFirst({
+      where: {
+        id: cardId,
+        tenantId: ctx.tenantId,
+        orgId: ctx.orgId!,
+      },
+    });
+
+    if (!card) {
+      throw new NotFoundException(`Card ${cardId} not found`);
+    }
+
+    // Delete related records in transaction
+    await this.prisma.$transaction(async (tx) => {
+      // Delete trigger executions
+      await tx.triggerExecution.deleteMany({ where: { cardId } });
+
+      // Delete card forms
+      await tx.cardForm.deleteMany({ where: { cardId } });
+
+      // Delete move history
+      await tx.cardMoveHistory.deleteMany({ where: { cardId } });
+
+      // Delete the card
+      await tx.card.delete({ where: { id: cardId } });
+
+      // Create outbox event for deletion
+      await tx.outboxEvent.create({
+        data: {
+          tenantId: ctx.tenantId,
+          orgId: ctx.orgId!,
+          eventType: 'PLM.CARD.DELETED',
+          entityType: 'Card',
+          entityId: cardId,
+          payload: { card },
+          status: 'pending',
+        },
+      });
+    });
+
+    return { deleted: true, id: cardId };
+  }
+
+  async getTriggerExecutions(ctx: TenantContext, cardId: string) {
+    // Verify card exists and belongs to tenant
+    await this.findOne(ctx, cardId);
+
+    const executions = await this.prisma.triggerExecution.findMany({
+      where: { cardId },
+      include: {
+        trigger: {
+          include: {
+            integration: {
+              select: { id: true, name: true, key: true },
+            },
+            stage: {
+              select: { id: true, name: true },
+            },
+          },
+        },
+      },
+      orderBy: { executedAt: 'desc' },
+    });
+
+    return {
+      items: executions.map((exec) => ({
+        id: exec.id,
+        status: exec.status,
+        eventType: exec.eventType,
+        integrationName: exec.trigger.integration.name,
+        integrationKey: exec.trigger.integration.key,
+        stageName: exec.trigger.stage.name,
+        executedAt: exec.executedAt,
+        completedAt: exec.completedAt,
+        errorMessage: exec.errorMessage,
+        responsePayload: exec.responsePayload,
+      })),
+    };
+  }
+
   async getKanbanBoard(ctx: TenantContext, pipelineId: string) {
     const pipeline = await this.prisma.pipeline.findFirst({
       where: {
@@ -508,6 +614,20 @@ export class CardsService {
                 toStage: { select: { id: true, name: true } },
               },
             },
+            formAttachRules: {
+              include: {
+                formDefinition: {
+                  select: { id: true, name: true, version: true, schemaJson: true },
+                },
+              },
+            },
+            triggers: {
+              where: { enabled: true },
+              select: {
+                id: true,
+                integration: { select: { id: true, name: true } },
+              },
+            },
           },
         },
       },
@@ -528,8 +648,23 @@ export class CardsService {
           select: {
             id: true,
             status: true,
-            formDefinition: { select: { name: true } },
+            formDefinitionId: true,
+            formDefinition: { select: { id: true, name: true } },
           },
+        },
+        triggerExecutions: {
+          select: {
+            id: true,
+            status: true,
+            executedAt: true,
+            trigger: {
+              select: {
+                integration: { select: { name: true } },
+              },
+            },
+          },
+          orderBy: { executedAt: 'desc' },
+          take: 5,
         },
       },
       orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }],
@@ -542,9 +677,26 @@ export class CardsService {
     for (const card of cards) {
       const stageCards = cardsByStage.get(card.currentStageId);
       if (stageCards) {
+        const filledFormsCount = card.forms.filter((f) => f.status === 'FILLED').length;
+        const pendingFormsCount = card.forms.filter((f) => f.status === 'TO_FILL').length;
+        const successExecutions = card.triggerExecutions.filter((e) => e.status === 'SUCCESS').length;
+        const failureExecutions = card.triggerExecutions.filter((e) => e.status === 'FAILURE').length;
+        const pendingExecutions = card.triggerExecutions.filter((e) => e.status === 'PENDING').length;
+        const lastExecution = card.triggerExecutions[0];
         stageCards.push({
           ...card,
-          pendingFormsCount: card.forms.filter((f) => f.status === 'TO_FILL').length,
+          pendingFormsCount,
+          filledFormsCount,
+          totalFormsCount: card.forms.length,
+          triggerExecutionSummary: {
+            total: card.triggerExecutions.length,
+            success: successExecutions,
+            failure: failureExecutions,
+            pending: pendingExecutions,
+            lastStatus: lastExecution?.status || null,
+            lastExecutedAt: lastExecution?.executedAt || null,
+            lastIntegrationName: lastExecution?.trigger?.integration?.name || null,
+          },
         });
       }
     }
@@ -569,6 +721,19 @@ export class CardsService {
           toStageId: t.toStageId,
           toStageName: t.toStage.name,
         })),
+        formAttachRules: stage.formAttachRules.map((rule) => ({
+          id: rule.id,
+          formDefinitionId: rule.formDefinitionId,
+          externalFormId: rule.externalFormId,
+          externalFormName: rule.externalFormName,
+          defaultFormStatus: rule.defaultFormStatus,
+          formDefinition: rule.formDefinition,
+        })),
+        triggers: stage.triggers.map((t) => ({
+          id: t.id,
+          integrationName: t.integration.name,
+        })),
+        hasTriggers: stage.triggers.length > 0,
         cards: cardsByStage.get(stage.id) || [],
         cardCount: (cardsByStage.get(stage.id) || []).length,
       })),

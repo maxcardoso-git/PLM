@@ -4,6 +4,7 @@ import {
   Post,
   Body,
   Patch,
+  Delete,
   Param,
   Query,
   ParseUUIDPipe,
@@ -90,5 +91,26 @@ export class CardsController {
     @Body() dto: UpdateCardFormDto,
   ) {
     return this.cardsService.updateForm(ctx, cardId, formDefinitionId, dto);
+  }
+
+  @Delete(':cardId')
+  @ApiOperation({ summary: 'Delete card' })
+  @ApiResponse({ status: 200, description: 'Card deleted' })
+  @ApiResponse({ status: 404, description: 'Card not found' })
+  delete(
+    @Tenant() ctx: TenantContext,
+    @Param('cardId', ParseUUIDPipe) cardId: string,
+  ) {
+    return this.cardsService.delete(ctx, cardId);
+  }
+
+  @Get(':cardId/trigger-executions')
+  @ApiOperation({ summary: 'Get trigger executions for a card' })
+  @ApiResponse({ status: 200, description: 'List of trigger executions' })
+  getTriggerExecutions(
+    @Tenant() ctx: TenantContext,
+    @Param('cardId', ParseUUIDPipe) cardId: string,
+  ) {
+    return this.cardsService.getTriggerExecutions(ctx, cardId);
   }
 }

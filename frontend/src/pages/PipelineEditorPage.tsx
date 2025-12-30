@@ -201,6 +201,7 @@ export function PipelineEditorPage() {
     conditions: [],
   });
   const [savingTrigger, setSavingTrigger] = useState(false);
+  const [formFieldsMap, setFormFieldsMap] = useState<Record<string, FormField[]>>({});
 
   const headers = {
     'Content-Type': 'application/json',
@@ -473,6 +474,74 @@ export function PipelineEditorPage() {
     }
   };
 
+  // Fetch fields for a specific form (external API)
+  const fetchFormFields = async (formId: string): Promise<FormField[]> => {
+    if (!isFormsConfigured || !settings.externalForms.baseUrl) return [];
+
+    try {
+      const { baseUrl, apiKey } = settings.externalForms;
+      // Try to fetch form details from external API
+      const response = await fetch(`${API_BASE_URL}/external-forms/proxy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          baseUrl,
+          endpoint: `/data-entry-forms/${formId}`,
+          apiKey,
+          method: 'GET',
+        }),
+      });
+
+      if (!response.ok) return [];
+
+      const formData = await response.json();
+      // Try multiple common field locations
+      const fields = formData?.schemaJson?.fields ||
+                     formData?.schema?.fields ||
+                     formData?.fields ||
+                     formData?.formFields ||
+                     [];
+
+      return fields.map((f: any) => ({
+        id: f.id || f.key || f.name,
+        name: f.name || f.label || f.id,
+        type: f.type,
+        label: f.label || f.name,
+      }));
+    } catch (err) {
+      console.error(`Failed to fetch fields for form ${formId}:`, err);
+      return [];
+    }
+  };
+
+  // Fetch fields for all attached forms of a stage
+  const fetchAttachedFormFields = async (stage: Stage) => {
+    if (!stage.formAttachRules || stage.formAttachRules.length === 0) return;
+
+    const newFieldsMap: Record<string, FormField[]> = { ...formFieldsMap };
+
+    for (const rule of stage.formAttachRules) {
+      const formId = rule.formDefinitionId || rule.externalFormId;
+      if (!formId || newFieldsMap[formId]) continue; // Skip if already loaded
+
+      // First check if availableForms already has the fields
+      const existingForm = availableForms.find(f => f.id === formId);
+      const existingFields = existingForm?.schemaJson?.fields || existingForm?.fields || [];
+
+      if (existingFields.length > 0) {
+        newFieldsMap[formId] = existingFields;
+      } else {
+        // Fetch from external API
+        const fields = await fetchFormFields(formId);
+        if (fields.length > 0) {
+          newFieldsMap[formId] = fields;
+        }
+      }
+    }
+
+    setFormFieldsMap(newFieldsMap);
+  };
+
   const handleOpenFormModal = async (stage: Stage) => {
     setFormStage(stage);
     setSelectedFormId('');
@@ -582,6 +651,8 @@ export function PipelineEditorPage() {
       conditions: [],
     });
     await Promise.all([fetchIntegrations(), fetchForms()]);
+    // Fetch fields for attached forms
+    await fetchAttachedFormFields(stage);
     setShowTriggerModal(true);
   };
 
@@ -1650,8 +1721,8 @@ export function PipelineEditorPage() {
                         {triggerStage?.formAttachRules?.map((rule) => {
                           const formName = rule.formDefinition?.name || rule.externalFormName || 'Formulário';
                           const formId = rule.formDefinitionId || rule.externalFormId;
-                          const form = availableForms.find(f => f.id === formId);
-                          const fields = form?.schemaJson?.fields || form?.fields || [];
+                          // Use formFieldsMap which is populated when opening trigger modal
+                          const fields = formId ? (formFieldsMap[formId] || []) : [];
                           if (fields.length === 0) return null;
                           return (
                             <optgroup key={rule.id} label={formName}>

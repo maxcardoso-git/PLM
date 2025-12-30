@@ -87,6 +87,12 @@ enum EventType {
   PLM_CARD_CLOSED
 }
 
+enum TriggerExecutionStatus {
+  PENDING
+  SUCCESS
+  FAILURE
+}
+
 enum TriggerEventType {
   CARD_MOVEMENT
   FORM_FIELD_CHANGE
@@ -330,11 +336,12 @@ model Card {
   updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz
   closedAt        DateTime?    @map("closed_at") @db.Timestamptz
 
-  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  pipeline     Pipeline          @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
-  currentStage Stage             @relation(fields: [currentStageId], references: [id])
-  forms        CardForm[]
-  moveHistory  CardMoveHistory[]
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  pipeline          Pipeline           @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  currentStage      Stage              @relation(fields: [currentStageId], references: [id])
+  forms             CardForm[]
+  moveHistory       CardMoveHistory[]
+  triggerExecutions TriggerExecution[]
 
   @@index([tenantId])
   @@index([orgId])
@@ -450,23 +457,26 @@ model Integration {
 // =========================================================
 
 model StageTrigger {
-  id               String           @id @default(uuid()) @db.Uuid
-  stageId          String           @map("stage_id") @db.Uuid
-  integrationId    String           @map("integration_id") @db.Uuid
-  eventType        TriggerEventType @map("event_type")
-  fromStageId      String?          @map("from_stage_id") @db.Uuid
-  formDefinitionId String?          @map("form_definition_id") @db.Uuid
-  fieldId          String?          @map("field_id") @db.VarChar(100)
-  executionOrder   Int              @default(0) @map("execution_order")
-  enabled          Boolean          @default(true)
-  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  id                  String           @id @default(uuid()) @db.Uuid
+  stageId             String           @map("stage_id") @db.Uuid
+  integrationId       String           @map("integration_id") @db.Uuid
+  eventType           TriggerEventType @map("event_type")
+  fromStageId         String?          @map("from_stage_id") @db.Uuid
+  formDefinitionId    String?          @map("form_definition_id") @db.Uuid
+  externalFormId      String?          @map("external_form_id") @db.VarChar(255)
+  externalFormName    String?          @map("external_form_name") @db.VarChar(255)
+  fieldId             String?          @map("field_id") @db.VarChar(100)
+  executionOrder      Int              @default(0) @map("execution_order")
+  enabled             Boolean          @default(true)
+  createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime         @updatedAt @map("updated_at") @db.Timestamptz
 
   stage          Stage                   @relation(fields: [stageId], references: [id], onDelete: Cascade)
   integration    Integration             @relation(fields: [integrationId], references: [id], onDelete: Cascade)
   fromStage      Stage?                  @relation("TriggerFromStage", fields: [fromStageId], references: [id], onDelete: SetNull)
   formDefinition FormDefinition?         @relation(fields: [formDefinitionId], references: [id], onDelete: SetNull)
   conditions     StageTriggerCondition[]
+  executions     TriggerExecution[]
 
   @@index([stageId])
   @@index([integrationId])
@@ -486,4 +496,25 @@ model StageTriggerCondition {
 
   @@index([triggerId])
   @@map("stage_trigger_conditions")
+}
+
+model TriggerExecution {
+  id              String                 @id @default(uuid()) @db.Uuid
+  triggerId       String                 @map("trigger_id") @db.Uuid
+  cardId          String                 @map("card_id") @db.Uuid
+  status          TriggerExecutionStatus @default(PENDING)
+  eventType       TriggerEventType       @map("event_type")
+  eventPayload    Json?                  @map("event_payload") @db.JsonB
+  responsePayload Json?                  @map("response_payload") @db.JsonB
+  errorMessage    String?                @map("error_message") @db.Text
+  executedAt      DateTime               @default(now()) @map("executed_at") @db.Timestamptz
+  completedAt     DateTime?              @map("completed_at") @db.Timestamptz
+
+  trigger StageTrigger @relation(fields: [triggerId], references: [id], onDelete: Cascade)
+  card    Card         @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@index([triggerId])
+  @@index([cardId])
+  @@index([status])
+  @@map("trigger_executions")
 }

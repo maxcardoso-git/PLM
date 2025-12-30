@@ -1,8 +1,17 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, FileText, AlertCircle } from 'lucide-react';
+import { GripVertical, FileText, AlertCircle, CheckCircle, Clock, Zap, XCircle, Loader2 } from 'lucide-react';
 import type { KanbanCard as KanbanCardType } from '../../types';
 import { clsx } from 'clsx';
+
+function formatDate(date: string) {
+  return new Date(date).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
 interface KanbanCardProps {
   card: KanbanCardType;
@@ -75,7 +84,31 @@ export function KanbanCard({ card, onClick }: KanbanCardProps) {
             </p>
           )}
 
-          <div className="flex items-center gap-2 mt-2">
+          {/* Forms info */}
+          {card.forms && card.forms.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {card.forms.slice(0, 2).map((form) => (
+                <div key={form.id} className="flex items-center gap-1 text-xs">
+                  {form.status === 'FILLED' ? (
+                    <CheckCircle size={12} className="text-green-500" />
+                  ) : (
+                    <AlertCircle size={12} className="text-amber-500" />
+                  )}
+                  <span className={clsx(
+                    'truncate',
+                    form.status === 'FILLED' ? 'text-green-700' : 'text-amber-700'
+                  )}>
+                    {form.formDefinition?.name || 'Formulário'}
+                  </span>
+                </div>
+              ))}
+              {card.forms.length > 2 && (
+                <span className="text-xs text-gray-400">+{card.forms.length - 2} mais</span>
+              )}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
             <span
               className={clsx(
                 'text-xs px-2 py-0.5 rounded-full font-medium',
@@ -85,19 +118,39 @@ export function KanbanCard({ card, onClick }: KanbanCardProps) {
               {priorityLabels[card.priority]}
             </span>
 
-            {card.pendingFormsCount > 0 && (
-              <span className="flex items-center gap-1 text-xs text-amber-600">
-                <AlertCircle size={12} />
-                {card.pendingFormsCount} pending
+            {card.totalFormsCount > 0 && (
+              <span className={clsx(
+                'flex items-center gap-1 text-xs',
+                card.pendingFormsCount > 0 ? 'text-amber-600' : 'text-green-600'
+              )}>
+                <FileText size={12} />
+                {card.filledFormsCount}/{card.totalFormsCount}
               </span>
             )}
 
-            {card.forms && card.forms.length > 0 && (
-              <span className="flex items-center gap-1 text-xs text-gray-400">
-                <FileText size={12} />
-                {card.forms.length}
+            {/* Integration execution status */}
+            {card.triggerExecutionSummary && card.triggerExecutionSummary.total > 0 && (
+              <span
+                className={clsx(
+                  'flex items-center gap-1 text-xs',
+                  card.triggerExecutionSummary.lastStatus === 'SUCCESS' && 'text-green-600',
+                  card.triggerExecutionSummary.lastStatus === 'FAILURE' && 'text-red-600',
+                  card.triggerExecutionSummary.lastStatus === 'PENDING' && 'text-amber-600'
+                )}
+                title={`Integrações: ${card.triggerExecutionSummary.success} sucesso, ${card.triggerExecutionSummary.failure} erro${card.triggerExecutionSummary.lastIntegrationName ? ` - Última: ${card.triggerExecutionSummary.lastIntegrationName}` : ''}`}
+              >
+                {card.triggerExecutionSummary.lastStatus === 'SUCCESS' && <Zap size={12} className="text-green-500" />}
+                {card.triggerExecutionSummary.lastStatus === 'FAILURE' && <XCircle size={12} className="text-red-500" />}
+                {card.triggerExecutionSummary.lastStatus === 'PENDING' && <Loader2 size={12} className="text-amber-500 animate-spin" />}
+                {card.triggerExecutionSummary.success}/{card.triggerExecutionSummary.total}
               </span>
             )}
+          </div>
+
+          {/* Creation date */}
+          <div className="flex items-center gap-1 mt-2 text-xs text-gray-400">
+            <Clock size={10} />
+            <span>{formatDate(card.createdAt)}</span>
           </div>
         </div>
       </div>
