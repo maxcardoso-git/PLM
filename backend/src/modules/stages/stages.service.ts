@@ -452,10 +452,7 @@ export class StagesService {
       throw new BadRequestException('Cannot modify rules on published or archived version');
     }
 
-    // Validate formDefinitionId for FORM_REQUIRED rule
-    if (dto.ruleType === 'FORM_REQUIRED' && !dto.formDefinitionId) {
-      throw new BadRequestException('formDefinitionId is required for FORM_REQUIRED rule');
-    }
+    // formDefinitionId is optional for FORM_REQUIRED - if not provided, validates all forms
 
     // Check for duplicate rules
     const existing = await this.prisma.stageTransitionRule.findFirst({

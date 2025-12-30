@@ -2011,32 +2011,39 @@ export function PipelineEditorPage() {
               {/* Add New Rule */}
               <div className="border-t pt-4">
                 <label className="label">Adicionar regra</label>
-                <div className="flex gap-2">
-                  <select
-                    value={newRuleType}
-                    onChange={(e) => setNewRuleType(e.target.value as TransitionRuleType | '')}
-                    className="input flex-1"
-                    disabled={savingRule}
-                  >
-                    <option value="">Selecione um tipo de regra...</option>
-                    {!transitionRules.some(r => r.ruleType === 'FORM_REQUIRED') && (
-                      <option value="FORM_REQUIRED">Formulário Preenchido</option>
-                    )}
-                    {!transitionRules.some(r => r.ruleType === 'COMMENT_REQUIRED') && (
-                      <option value="COMMENT_REQUIRED">Comentário Obrigatório</option>
-                    )}
-                    {!transitionRules.some(r => r.ruleType === 'OWNER_ONLY') && (
-                      <option value="OWNER_ONLY">Somente Dono</option>
-                    )}
-                  </select>
-                  <button
-                    onClick={handleAddTransitionRule}
-                    disabled={!newRuleType || savingRule}
-                    className="btn-primary"
-                  >
-                    {savingRule ? 'Adicionando...' : 'Adicionar'}
-                  </button>
-                </div>
+                {versionStatuses[selectedVersion] === 'published' || versionStatuses[selectedVersion] === 'archived' ? (
+                  <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg flex items-center gap-2">
+                    <AlertTriangle size={16} />
+                    Não é possível modificar regras em versões publicadas ou arquivadas.
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <select
+                      value={newRuleType}
+                      onChange={(e) => setNewRuleType(e.target.value as TransitionRuleType | '')}
+                      className="input flex-1"
+                      disabled={savingRule}
+                    >
+                      <option value="">Selecione um tipo de regra...</option>
+                      {!transitionRules.some(r => r.ruleType === 'FORM_REQUIRED') && (
+                        <option value="FORM_REQUIRED">Formulário Preenchido</option>
+                      )}
+                      {!transitionRules.some(r => r.ruleType === 'COMMENT_REQUIRED') && (
+                        <option value="COMMENT_REQUIRED">Comentário Obrigatório</option>
+                      )}
+                      {!transitionRules.some(r => r.ruleType === 'OWNER_ONLY') && (
+                        <option value="OWNER_ONLY">Somente Dono</option>
+                      )}
+                    </select>
+                    <button
+                      onClick={handleAddTransitionRule}
+                      disabled={!newRuleType || savingRule}
+                      className="btn-primary"
+                    >
+                      {savingRule ? 'Adicionando...' : 'Adicionar'}
+                    </button>
+                  </div>
+                )}
               </div>
             </>
           )}
