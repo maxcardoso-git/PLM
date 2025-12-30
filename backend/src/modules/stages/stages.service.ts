@@ -5,7 +5,14 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { CreateStageDto, UpdateStageDto, CreateTransitionDto, AttachFormDto } from './dto';
+import {
+  CreateStageDto,
+  UpdateStageDto,
+  CreateTransitionDto,
+  AttachFormDto,
+  CreateTransitionRuleDto,
+  UpdateTransitionRuleDto,
+} from './dto';
 import { TenantContext } from '../../common/decorators';
 
 @Injectable()
@@ -400,5 +407,138 @@ export class StagesService {
     }
 
     return this.prisma.stageFormAttachRule.delete({ where: { id: ruleId } });
+  }
+
+  // ============================================
+  // Transition Rules
+  // ============================================
+
+  private async validateTransitionAccess(ctx: TenantContext, transitionId: string) {
+    const transition = await this.prisma.stageTransition.findFirst({
+      where: { id: transitionId },
+      include: {
+        pipelineVersion: {
+          include: { pipeline: true },
+        },
+        fromStage: { select: { id: true, name: true } },
+        toStage: { select: { id: true, name: true } },
+      },
+    });
+
+    if (!transition) {
+      throw new NotFoundException('Transition not found');
+    }
+
+    if (transition.pipelineVersion.pipeline.tenantId !== ctx.tenantId) {
+      throw new NotFoundException('Transition not found');
+    }
+
+    return transition;
+  }
+
+  async getTransitionRules(ctx: TenantContext, transitionId: string) {
+    await this.validateTransitionAccess(ctx, transitionId);
+
+    return this.prisma.stageTransitionRule.findMany({
+      where: { transitionId },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async createTransitionRule(ctx: TenantContext, transitionId: string, dto: CreateTransitionRuleDto) {
+    const transition = await this.validateTransitionAccess(ctx, transitionId);
+
+    if (transition.pipelineVersion.status === 'published' || transition.pipelineVersion.status === 'archived') {
+      throw new BadRequestException('Cannot modify rules on published or archived version');
+    }
+
+    // Validate formDefinitionId for FORM_REQUIRED rule
+    if (dto.ruleType === 'FORM_REQUIRED' && !dto.formDefinitionId) {
+      throw new BadRequestException('formDefinitionId is required for FORM_REQUIRED rule');
+    }
+
+    // Check for duplicate rules
+    const existing = await this.prisma.stageTransitionRule.findFirst({
+      where: {
+        transitionId,
+        ruleType: dto.ruleType as any,
+        ...(dto.formDefinitionId && { formDefinitionId: dto.formDefinitionId }),
+      },
+    });
+
+    if (existing) {
+      throw new ConflictException('This rule already exists for this transition');
+    }
+
+    return this.prisma.stageTransitionRule.create({
+      data: {
+        transitionId,
+        ruleType: dto.ruleType as any,
+        formDefinitionId: dto.formDefinitionId,
+        enabled: dto.enabled ?? true,
+      },
+    });
+  }
+
+  async updateTransitionRule(ctx: TenantContext, ruleId: string, dto: UpdateTransitionRuleDto) {
+    const rule = await this.prisma.stageTransitionRule.findFirst({
+      where: { id: ruleId },
+      include: {
+        transition: {
+          include: {
+            pipelineVersion: {
+              include: { pipeline: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!rule) {
+      throw new NotFoundException('Transition rule not found');
+    }
+
+    if (rule.transition.pipelineVersion.pipeline.tenantId !== ctx.tenantId) {
+      throw new NotFoundException('Transition rule not found');
+    }
+
+    if (rule.transition.pipelineVersion.status === 'published' || rule.transition.pipelineVersion.status === 'archived') {
+      throw new BadRequestException('Cannot modify rules on published or archived version');
+    }
+
+    return this.prisma.stageTransitionRule.update({
+      where: { id: ruleId },
+      data: dto,
+    });
+  }
+
+  async deleteTransitionRule(ctx: TenantContext, ruleId: string) {
+    const rule = await this.prisma.stageTransitionRule.findFirst({
+      where: { id: ruleId },
+      include: {
+        transition: {
+          include: {
+            pipelineVersion: {
+              include: { pipeline: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!rule) {
+      throw new NotFoundException('Transition rule not found');
+    }
+
+    if (rule.transition.pipelineVersion.pipeline.tenantId !== ctx.tenantId) {
+      throw new NotFoundException('Transition rule not found');
+    }
+
+    if (rule.transition.pipelineVersion.status === 'published' || rule.transition.pipelineVersion.status === 'archived') {
+      throw new BadRequestException('Cannot delete rules from published or archived version');
+    }
+
+    await this.prisma.stageTransitionRule.delete({ where: { id: ruleId } });
+    return { deleted: true, id: ruleId };
   }
 }

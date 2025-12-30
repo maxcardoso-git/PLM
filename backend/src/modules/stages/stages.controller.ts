@@ -12,7 +12,14 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from '@nestjs/swagger';
 import { StagesService } from './stages.service';
-import { CreateStageDto, UpdateStageDto, CreateTransitionDto, AttachFormDto } from './dto';
+import {
+  CreateStageDto,
+  UpdateStageDto,
+  CreateTransitionDto,
+  AttachFormDto,
+  CreateTransitionRuleDto,
+  UpdateTransitionRuleDto,
+} from './dto';
 import { TenantGuard, RequireOrganization } from '../../common/guards';
 import { Tenant } from '../../common/decorators';
 import type { TenantContext } from '../../common/decorators';
@@ -124,5 +131,49 @@ export class StagesController {
     @Param('ruleId', ParseUUIDPipe) ruleId: string,
   ) {
     return this.stagesService.detachForm(ctx, ruleId);
+  }
+
+  // Transition Rules
+  @Get('transitions/:transitionId/rules')
+  @ApiOperation({ summary: 'Get transition rules' })
+  @ApiResponse({ status: 200, description: 'List of transition rules' })
+  async getTransitionRules(
+    @Tenant() ctx: TenantContext,
+    @Param('transitionId', ParseUUIDPipe) transitionId: string,
+  ) {
+    const items = await this.stagesService.getTransitionRules(ctx, transitionId);
+    return { items };
+  }
+
+  @Post('transitions/:transitionId/rules')
+  @ApiOperation({ summary: 'Create transition rule' })
+  @ApiResponse({ status: 201, description: 'Transition rule created' })
+  createTransitionRule(
+    @Tenant() ctx: TenantContext,
+    @Param('transitionId', ParseUUIDPipe) transitionId: string,
+    @Body() dto: CreateTransitionRuleDto,
+  ) {
+    return this.stagesService.createTransitionRule(ctx, transitionId, dto);
+  }
+
+  @Patch('transition-rules/:ruleId')
+  @ApiOperation({ summary: 'Update transition rule' })
+  @ApiResponse({ status: 200, description: 'Transition rule updated' })
+  updateTransitionRule(
+    @Tenant() ctx: TenantContext,
+    @Param('ruleId', ParseUUIDPipe) ruleId: string,
+    @Body() dto: UpdateTransitionRuleDto,
+  ) {
+    return this.stagesService.updateTransitionRule(ctx, ruleId, dto);
+  }
+
+  @Delete('transition-rules/:ruleId')
+  @ApiOperation({ summary: 'Delete transition rule' })
+  @ApiResponse({ status: 200, description: 'Transition rule deleted' })
+  deleteTransitionRule(
+    @Tenant() ctx: TenantContext,
+    @Param('ruleId', ParseUUIDPipe) ruleId: string,
+  ) {
+    return this.stagesService.deleteTransitionRule(ctx, ruleId);
   }
 }

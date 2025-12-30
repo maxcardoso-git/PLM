@@ -149,3 +149,33 @@ export class AttachFormDto {
   @IsBoolean()
   lockOnLeaveStage?: boolean;
 }
+
+// Transition Rule Types
+export enum TransitionRuleType {
+  FORM_REQUIRED = 'FORM_REQUIRED',
+  COMMENT_REQUIRED = 'COMMENT_REQUIRED',
+  OWNER_ONLY = 'OWNER_ONLY',
+}
+
+export class CreateTransitionRuleDto {
+  @ApiProperty({ enum: TransitionRuleType })
+  @IsEnum(TransitionRuleType)
+  ruleType: TransitionRuleType;
+
+  @ApiPropertyOptional({ description: 'Form definition ID (required for FORM_REQUIRED rule)' })
+  @IsOptional()
+  @IsUUID()
+  formDefinitionId?: string;
+
+  @ApiPropertyOptional({ default: true })
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+}
+
+export class UpdateTransitionRuleDto {
+  @ApiPropertyOptional({ default: true })
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+}

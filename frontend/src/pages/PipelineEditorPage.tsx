@@ -22,12 +22,15 @@ import {
   GitBranch,
   List,
   Zap,
+  Lock,
+  MessageSquare,
+  User,
 } from 'lucide-react';
 import { useTenant } from '../context/TenantContext';
 import { useSettings } from '../context/SettingsContext';
 import { Modal } from '../components/ui';
 import { api } from '../services/api';
-import type { Integration, StageTrigger, TriggerEventType, TriggerOperator } from '../types';
+import type { Integration, StageTrigger, TriggerEventType, TriggerOperator, TransitionRule, TransitionRuleType } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
@@ -190,6 +193,8 @@ export function PipelineEditorPage() {
     eventType: TriggerEventType;
     fromStageId: string;
     formDefinitionId: string;
+    externalFormId: string;
+    externalFormName: string;
     fieldId: string;
     conditions: { fieldPath: string; operator: TriggerOperator; value: string }[];
   }>({
@@ -197,11 +202,25 @@ export function PipelineEditorPage() {
     eventType: 'CARD_MOVEMENT',
     fromStageId: '',
     formDefinitionId: '',
+    externalFormId: '',
+    externalFormName: '',
     fieldId: '',
     conditions: [],
   });
   const [savingTrigger, setSavingTrigger] = useState(false);
   const [formFieldsMap, setFormFieldsMap] = useState<Record<string, FormField[]>>({});
+
+  // Transition rules modal
+  const [showRulesModal, setShowRulesModal] = useState(false);
+  const [selectedTransition, setSelectedTransition] = useState<{
+    id: string;
+    fromStageName: string;
+    toStageName: string;
+  } | null>(null);
+  const [transitionRules, setTransitionRules] = useState<TransitionRule[]>([]);
+  const [loadingRules, setLoadingRules] = useState(false);
+  const [savingRule, setSavingRule] = useState(false);
+  const [newRuleType, setNewRuleType] = useState<TransitionRuleType | ''>('');
 
   const headers = {
     'Content-Type': 'application/json',
@@ -354,7 +373,7 @@ export function PipelineEditorPage() {
 
     setSavingTransition(true);
     try {
-      await fetch(
+      const response = await fetch(
         `${API_BASE_URL}/pipelines/${pipelineId}/versions/${selectedVersion}/transitions`,
         {
           method: 'POST',
@@ -365,6 +384,20 @@ export function PipelineEditorPage() {
           }),
         }
       );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.message || 'Falha ao adicionar transição';
+
+        // Show user-friendly message for published pipeline error
+        if (response.status === 400 && errorMessage.includes('published')) {
+          showToast('error', 'Não é possível modificar um pipeline publicado. Crie uma nova versão para fazer alterações.');
+        } else {
+          showToast('error', errorMessage);
+        }
+        return;
+      }
+
       setShowTransitionModal(false);
       fetchVersionStages(selectedVersion);
       showToast('success', 'Transição adicionada!');
@@ -378,10 +411,23 @@ export function PipelineEditorPage() {
 
   const handleDeleteTransition = async (transitionId: string) => {
     try {
-      await fetch(`${API_BASE_URL}/transitions/${transitionId}`, {
+      const response = await fetch(`${API_BASE_URL}/transitions/${transitionId}`, {
         method: 'DELETE',
         headers,
       });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.message || 'Falha ao remover transição';
+
+        if (response.status === 400 && errorMessage.includes('published')) {
+          showToast('error', 'Não é possível modificar um pipeline publicado. Crie uma nova versão para fazer alterações.');
+        } else {
+          showToast('error', errorMessage);
+        }
+        return;
+      }
+
       fetchVersionStages(selectedVersion);
       showToast('success', 'Transição removida!');
     } catch (err) {
@@ -474,33 +520,37 @@ export function PipelineEditorPage() {
     }
   };
 
-  // Fetch fields for a specific form (external API)
+  // Fetch fields for a specific form (external API) - same method as FormsPage
   const fetchFormFields = async (formId: string): Promise<FormField[]> => {
     if (!isFormsConfigured || !settings.externalForms.baseUrl) return [];
 
     try {
       const { baseUrl, apiKey } = settings.externalForms;
-      // Try to fetch form details from external API
+      // Use proxy endpoint same as FormsPage
       const response = await fetch(`${API_BASE_URL}/external-forms/proxy`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           baseUrl,
-          endpoint: `/data-entry-forms/${formId}`,
+          endpoint: `/data-entry-forms/${formId}/schema`,
           apiKey,
           method: 'GET',
         }),
       });
 
-      if (!response.ok) return [];
+      if (!response.ok) {
+        console.log(`[DEBUG] Schema fetch failed for ${formId}: ${response.status}`);
+        return [];
+      }
 
-      const formData = await response.json();
-      // Try multiple common field locations
-      const fields = formData?.schemaJson?.fields ||
-                     formData?.schema?.fields ||
-                     formData?.fields ||
-                     formData?.formFields ||
-                     [];
+      const data = await response.json();
+      // Handle different response formats (same as FormsPage)
+      const schema = data.data || data;
+      console.log(`[DEBUG] Schema response for ${formId}:`, schema);
+
+      const fields = schema?.fields || [];
 
       return fields.map((f: any) => ({
         id: f.id || f.key || f.name,
@@ -647,6 +697,8 @@ export function PipelineEditorPage() {
       eventType: 'CARD_MOVEMENT',
       fromStageId: '',
       formDefinitionId: '',
+      externalFormId: '',
+      externalFormName: '',
       fieldId: '',
       conditions: [],
     });
@@ -661,11 +713,22 @@ export function PipelineEditorPage() {
 
     setSavingTrigger(true);
     try {
+      // Determine if using external forms
+      const isUsingExternalForms = isFormsConfigured && settings.externalForms.baseUrl;
+
       await api.createStageTrigger(triggerStage.id, {
         integrationId: triggerForm.integrationId,
         eventType: triggerForm.eventType,
         fromStageId: triggerForm.fromStageId || undefined,
-        formDefinitionId: triggerForm.formDefinitionId || undefined,
+        // Use externalFormId/Name for external forms, formDefinitionId for internal
+        ...(isUsingExternalForms
+          ? {
+              externalFormId: triggerForm.formDefinitionId || undefined,
+              externalFormName: triggerForm.externalFormName || undefined,
+            }
+          : {
+              formDefinitionId: triggerForm.formDefinitionId || undefined,
+            }),
         fieldId: triggerForm.fieldId || undefined,
         conditions: triggerForm.conditions.filter(c => c.fieldPath && c.value),
       });
@@ -687,6 +750,95 @@ export function PipelineEditorPage() {
       showToast('success', 'Gatilho removido!');
     } catch (err) {
       showToast('error', 'Falha ao remover gatilho');
+    }
+  };
+
+  // Transition Rules functions
+  const handleOpenRulesModal = async (transitionId: string, fromStageName: string, toStageName: string) => {
+    setSelectedTransition({ id: transitionId, fromStageName, toStageName });
+    setNewRuleType('');
+    setLoadingRules(true);
+    setShowRulesModal(true);
+
+    try {
+      const result = await api.getTransitionRules(transitionId);
+      setTransitionRules(result.items || []);
+    } catch (err) {
+      console.error('Failed to fetch transition rules:', err);
+      showToast('error', 'Falha ao carregar regras');
+    } finally {
+      setLoadingRules(false);
+    }
+  };
+
+  const handleAddTransitionRule = async () => {
+    if (!selectedTransition || !newRuleType) return;
+
+    setSavingRule(true);
+    try {
+      await api.createTransitionRule(selectedTransition.id, {
+        ruleType: newRuleType,
+        enabled: true,
+      });
+      const result = await api.getTransitionRules(selectedTransition.id);
+      setTransitionRules(result.items || []);
+      setNewRuleType('');
+      showToast('success', 'Regra adicionada!');
+    } catch (err) {
+      showToast('error', err instanceof Error ? err.message : 'Falha ao adicionar regra');
+    } finally {
+      setSavingRule(false);
+    }
+  };
+
+  const handleToggleRule = async (ruleId: string, enabled: boolean) => {
+    try {
+      await api.updateTransitionRule(ruleId, { enabled: !enabled });
+      if (selectedTransition) {
+        const result = await api.getTransitionRules(selectedTransition.id);
+        setTransitionRules(result.items || []);
+      }
+    } catch (err) {
+      showToast('error', 'Falha ao atualizar regra');
+    }
+  };
+
+  const handleDeleteRule = async (ruleId: string) => {
+    try {
+      await api.deleteTransitionRule(ruleId);
+      if (selectedTransition) {
+        const result = await api.getTransitionRules(selectedTransition.id);
+        setTransitionRules(result.items || []);
+      }
+      showToast('success', 'Regra removida!');
+    } catch (err) {
+      showToast('error', 'Falha ao remover regra');
+    }
+  };
+
+  const getRuleLabel = (ruleType: TransitionRuleType) => {
+    switch (ruleType) {
+      case 'FORM_REQUIRED':
+        return 'Formulário Preenchido';
+      case 'COMMENT_REQUIRED':
+        return 'Comentário Obrigatório';
+      case 'OWNER_ONLY':
+        return 'Somente Dono';
+      default:
+        return ruleType;
+    }
+  };
+
+  const getRuleIcon = (ruleType: TransitionRuleType) => {
+    switch (ruleType) {
+      case 'FORM_REQUIRED':
+        return <FileText size={14} />;
+      case 'COMMENT_REQUIRED':
+        return <MessageSquare size={14} />;
+      case 'OWNER_ONLY':
+        return <User size={14} />;
+      default:
+        return <Lock size={14} />;
     }
   };
 
@@ -982,6 +1134,13 @@ export function PipelineEditorPage() {
                         >
                           <ArrowRight size={12} />
                           {t.toStage.name}
+                          <button
+                            onClick={() => handleOpenRulesModal(t.id, stage.name, t.toStage.name)}
+                            className="ml-1 text-blue-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Configurar regras de transição"
+                          >
+                            <Lock size={12} />
+                          </button>
                           <button
                             onClick={() => handleDeleteTransition(t.id)}
                             className="ml-1 text-blue-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -1618,7 +1777,19 @@ export function PipelineEditorPage() {
                 {triggerStage?.formAttachRules && triggerStage.formAttachRules.length > 0 ? (
                   <select
                     value={triggerForm.formDefinitionId}
-                    onChange={(e) => setTriggerForm({ ...triggerForm, formDefinitionId: e.target.value, fieldId: '' })}
+                    onChange={(e) => {
+                      const selectedId = e.target.value;
+                      const selectedRule = triggerStage?.formAttachRules?.find(
+                        r => (r.formDefinitionId || r.externalFormId) === selectedId
+                      );
+                      const formName = selectedRule?.formDefinition?.name || selectedRule?.externalFormName || '';
+                      setTriggerForm({
+                        ...triggerForm,
+                        formDefinitionId: selectedId,
+                        externalFormName: formName,
+                        fieldId: ''
+                      });
+                    }}
                     className="input mt-1"
                   >
                     <option value="">Selecione um formulário...</option>
@@ -1638,43 +1809,6 @@ export function PipelineEditorPage() {
                     Nenhum formulário vinculado a esta etapa. Vincule um formulário primeiro.
                   </p>
                 )}
-              </div>
-
-              <div>
-                <label className="label">Campo (opcional)</label>
-                {(() => {
-                  // Find the form in availableForms to get schema/fields
-                  const selectedForm = availableForms.find(f => f.id === triggerForm.formDefinitionId);
-                  const formFields = selectedForm?.schemaJson?.fields || selectedForm?.fields || [];
-
-                  return formFields.length > 0 ? (
-                    <select
-                      value={triggerForm.fieldId}
-                      onChange={(e) => setTriggerForm({ ...triggerForm, fieldId: e.target.value })}
-                      className="input mt-1"
-                    >
-                      <option value="">Qualquer campo</option>
-                      {formFields.map((field) => (
-                        <option key={field.id} value={field.id}>
-                          {field.label || field.name || field.id}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      value={triggerForm.fieldId}
-                      onChange={(e) => setTriggerForm({ ...triggerForm, fieldId: e.target.value })}
-                      className="input mt-1"
-                      placeholder="Ex: status, amount, approved"
-                    />
-                  );
-                })()}
-                <p className="text-xs text-gray-500 mt-1">
-                  {triggerForm.formDefinitionId
-                    ? 'Selecione o campo que dispara o gatilho.'
-                    : 'Selecione um formulário para ver os campos disponíveis.'}
-                </p>
               </div>
             </>
           )}
@@ -1703,69 +1837,68 @@ export function PipelineEditorPage() {
                     { id: 'card.status', name: 'Status', group: 'Card' },
                   ];
 
+                  // Get form ID from selected form in trigger
+                  const selectedFormId = triggerForm.formDefinitionId;
+
                   return (
-                    <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
-                      <select
-                        value={condition.fieldPath}
-                        onChange={(e) => updateCondition(index, 'fieldPath', e.target.value)}
-                        className="input text-xs flex-1"
-                      >
-                        <option value="">Selecione um campo...</option>
-                        <optgroup label="Card">
-                          {cardFields.map((field) => (
-                            <option key={field.id} value={field.id}>
-                              {field.name}
-                            </option>
-                          ))}
-                        </optgroup>
-                        {triggerStage?.formAttachRules?.map((rule) => {
-                          const formName = rule.formDefinition?.name || rule.externalFormName || 'Formulário';
-                          const formId = rule.formDefinitionId || rule.externalFormId;
-                          // Use formFieldsMap which is populated when opening trigger modal
-                          const fields = formId ? (formFieldsMap[formId] || []) : [];
-                          if (fields.length === 0) return null;
-                          return (
-                            <optgroup key={rule.id} label={formName}>
-                              {fields.map((field) => (
-                                <option key={`${formId}.${field.id}`} value={`form.${formId}.${field.id}`}>
+                    <div key={index} className="flex flex-col gap-2 p-2 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={condition.fieldPath}
+                          onChange={(e) => updateCondition(index, 'fieldPath', e.target.value)}
+                          className="input text-xs flex-1"
+                        >
+                          <option value="">Selecione um campo...</option>
+                          <optgroup label="Dados do Card">
+                            {cardFields.map((field) => (
+                              <option key={field.id} value={field.id}>
+                                {field.name}
+                              </option>
+                            ))}
+                          </optgroup>
+                          {/* Form fields from formFieldsMap */}
+                          {selectedFormId && formFieldsMap[selectedFormId]?.length > 0 && (
+                            <optgroup label="Dados do Formulário">
+                              {formFieldsMap[selectedFormId].map((field) => (
+                                <option key={`form.${selectedFormId}.${field.id}`} value={`form.${selectedFormId}.${field.id}`}>
                                   {field.label || field.name || field.id}
                                 </option>
                               ))}
                             </optgroup>
-                          );
-                        })}
-                      </select>
-                      <select
-                        value={condition.operator}
-                        onChange={(e) => updateCondition(index, 'operator', e.target.value)}
-                        className="input text-xs w-32"
-                      >
-                        <option value="EQUALS">=</option>
-                        <option value="NOT_EQUALS">≠</option>
-                        <option value="GREATER_THAN">&gt;</option>
-                        <option value="LESS_THAN">&lt;</option>
-                        <option value="GREATER_OR_EQUAL">≥</option>
-                        <option value="LESS_OR_EQUAL">≤</option>
-                        <option value="CONTAINS">contém</option>
-                        <option value="NOT_CONTAINS">não contém</option>
-                        <option value="IS_EMPTY">vazio</option>
-                        <option value="IS_NOT_EMPTY">não vazio</option>
-                      </select>
-                      <input
-                        type="text"
-                        value={condition.value}
-                        onChange={(e) => updateCondition(index, 'value', e.target.value)}
-                        className="input text-xs flex-1"
-                        placeholder="Valor"
-                        disabled={condition.operator === 'IS_EMPTY' || condition.operator === 'IS_NOT_EMPTY'}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeCondition(index)}
-                        className="p-1 text-gray-400 hover:text-red-500"
-                      >
-                        <X size={14} />
-                      </button>
+                          )}
+                        </select>
+                        <select
+                          value={condition.operator}
+                          onChange={(e) => updateCondition(index, 'operator', e.target.value)}
+                          className="input text-xs w-32"
+                        >
+                          <option value="EQUALS">=</option>
+                          <option value="NOT_EQUALS">≠</option>
+                          <option value="GREATER_THAN">&gt;</option>
+                          <option value="LESS_THAN">&lt;</option>
+                          <option value="GREATER_OR_EQUAL">≥</option>
+                          <option value="LESS_OR_EQUAL">≤</option>
+                          <option value="CONTAINS">contém</option>
+                          <option value="NOT_CONTAINS">não contém</option>
+                          <option value="IS_EMPTY">vazio</option>
+                          <option value="IS_NOT_EMPTY">não vazio</option>
+                        </select>
+                        <input
+                          type="text"
+                          value={condition.value}
+                          onChange={(e) => updateCondition(index, 'value', e.target.value)}
+                          className="input text-xs flex-1"
+                          placeholder="Valor"
+                          disabled={condition.operator === 'IS_EMPTY' || condition.operator === 'IS_NOT_EMPTY'}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeCondition(index)}
+                          className="p-1 text-gray-400 hover:text-red-500"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -1787,6 +1920,130 @@ export function PipelineEditorPage() {
               className="btn-primary"
             >
               {savingTrigger ? 'Salvando...' : 'Adicionar Gatilho'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Transition Rules Modal */}
+      <Modal
+        isOpen={showRulesModal}
+        onClose={() => setShowRulesModal(false)}
+        title="Regras de Transição"
+      >
+        <div className="space-y-4">
+          <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+            <p className="font-medium text-gray-900 flex items-center gap-2">
+              <ArrowRight size={14} />
+              {selectedTransition?.fromStageName} → {selectedTransition?.toStageName}
+            </p>
+            <p className="text-xs mt-1">
+              Estas regras serão validadas antes de permitir a movimentação do card.
+            </p>
+          </div>
+
+          {loadingRules ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            </div>
+          ) : (
+            <>
+              {/* Existing Rules */}
+              {transitionRules.length > 0 ? (
+                <div className="space-y-2">
+                  <label className="label">Regras ativas</label>
+                  {transitionRules.map((rule) => (
+                    <div
+                      key={rule.id}
+                      className={`flex items-center justify-between p-3 rounded-lg border ${
+                        rule.enabled
+                          ? 'bg-green-50 border-green-200'
+                          : 'bg-gray-50 border-gray-200 opacity-60'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-full ${rule.enabled ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-500'}`}>
+                          {getRuleIcon(rule.ruleType)}
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-900">{getRuleLabel(rule.ruleType)}</span>
+                          {rule.ruleType === 'FORM_REQUIRED' && (
+                            <p className="text-xs text-gray-500">Formulários obrigatórios devem estar preenchidos</p>
+                          )}
+                          {rule.ruleType === 'COMMENT_REQUIRED' && (
+                            <p className="text-xs text-gray-500">Usuário deve adicionar um comentário</p>
+                          )}
+                          {rule.ruleType === 'OWNER_ONLY' && (
+                            <p className="text-xs text-gray-500">Apenas o criador do card pode movimentar</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleToggleRule(rule.id, rule.enabled)}
+                          className={`px-2 py-1 text-xs rounded ${
+                            rule.enabled
+                              ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                              : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                          }`}
+                        >
+                          {rule.enabled ? 'Ativo' : 'Inativo'}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteRule(rule.id)}
+                          className="p-1 text-gray-400 hover:text-red-500"
+                          title="Remover regra"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                  <Lock size={32} className="mx-auto text-gray-300 mb-2" />
+                  <p className="text-sm text-gray-500">Nenhuma regra configurada</p>
+                  <p className="text-xs text-gray-400">A movimentação será livre</p>
+                </div>
+              )}
+
+              {/* Add New Rule */}
+              <div className="border-t pt-4">
+                <label className="label">Adicionar regra</label>
+                <div className="flex gap-2">
+                  <select
+                    value={newRuleType}
+                    onChange={(e) => setNewRuleType(e.target.value as TransitionRuleType | '')}
+                    className="input flex-1"
+                    disabled={savingRule}
+                  >
+                    <option value="">Selecione um tipo de regra...</option>
+                    {!transitionRules.some(r => r.ruleType === 'FORM_REQUIRED') && (
+                      <option value="FORM_REQUIRED">Formulário Preenchido</option>
+                    )}
+                    {!transitionRules.some(r => r.ruleType === 'COMMENT_REQUIRED') && (
+                      <option value="COMMENT_REQUIRED">Comentário Obrigatório</option>
+                    )}
+                    {!transitionRules.some(r => r.ruleType === 'OWNER_ONLY') && (
+                      <option value="OWNER_ONLY">Somente Dono</option>
+                    )}
+                  </select>
+                  <button
+                    onClick={handleAddTransitionRule}
+                    disabled={!newRuleType || savingRule}
+                    className="btn-primary"
+                  >
+                    {savingRule ? 'Adicionando...' : 'Adicionar'}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          <div className="flex justify-end pt-4">
+            <button onClick={() => setShowRulesModal(false)} className="btn-secondary">
+              Fechar
             </button>
           </div>
         </div>

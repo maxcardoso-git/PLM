@@ -199,7 +199,14 @@ export interface ListResponse<T> {
 }
 
 export interface MoveBlockedError {
-  code: 'TRANSITION_NOT_ALLOWED' | 'WIP_LIMIT_REACHED' | 'FORMS_INCOMPLETE' | 'PERMISSION_DENIED';
+  code:
+    | 'TRANSITION_NOT_ALLOWED'
+    | 'WIP_LIMIT_REACHED'
+    | 'FORMS_INCOMPLETE'
+    | 'PERMISSION_DENIED'
+    | 'FORMS_NOT_FILLED'
+    | 'COMMENT_REQUIRED'
+    | 'OWNER_ONLY';
   message: string;
   details?: any;
 }
@@ -331,5 +338,28 @@ export interface UpdateStageTriggerPayload {
   externalFormName?: string;
   fieldId?: string;
   executionOrder?: number;
+  enabled?: boolean;
+}
+
+// Transition Rule Types
+export type TransitionRuleType = 'FORM_REQUIRED' | 'COMMENT_REQUIRED' | 'OWNER_ONLY';
+
+export interface TransitionRule {
+  id: string;
+  transitionId: string;
+  ruleType: TransitionRuleType;
+  formDefinitionId?: string;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTransitionRulePayload {
+  ruleType: TransitionRuleType;
+  formDefinitionId?: string;
+  enabled?: boolean;
+}
+
+export interface UpdateTransitionRulePayload {
   enabled?: boolean;
 }

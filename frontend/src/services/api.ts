@@ -12,6 +12,9 @@ import type {
   StageTrigger,
   CreateStageTriggerPayload,
   UpdateStageTriggerPayload,
+  TransitionRule,
+  CreateTransitionRulePayload,
+  UpdateTransitionRulePayload,
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
@@ -256,6 +259,27 @@ class ApiClient {
 
   async deleteCardComment(cardId: string, commentId: string): Promise<{ deleted: boolean; id: string }> {
     const { data } = await this.client.delete(`/cards/${cardId}/comments/${commentId}`);
+    return data;
+  }
+
+  // Transition Rules
+  async getTransitionRules(transitionId: string): Promise<ListResponse<TransitionRule>> {
+    const { data } = await this.client.get(`/transitions/${transitionId}/rules`);
+    return data;
+  }
+
+  async createTransitionRule(transitionId: string, payload: CreateTransitionRulePayload): Promise<TransitionRule> {
+    const { data } = await this.client.post(`/transitions/${transitionId}/rules`, payload);
+    return data;
+  }
+
+  async updateTransitionRule(ruleId: string, payload: UpdateTransitionRulePayload): Promise<TransitionRule> {
+    const { data } = await this.client.patch(`/transition-rules/${ruleId}`, payload);
+    return data;
+  }
+
+  async deleteTransitionRule(ruleId: string): Promise<{ deleted: boolean; id: string }> {
+    const { data } = await this.client.delete(`/transition-rules/${ruleId}`);
     return data;
   }
 }

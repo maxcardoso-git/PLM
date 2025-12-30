@@ -111,6 +111,12 @@ enum TriggerOperator {
   IS_NOT_EMPTY
 }
 
+enum TransitionRuleType {
+  FORM_REQUIRED
+  COMMENT_REQUIRED
+  OWNER_ONLY
+}
+
 // =========================================================
 // TENANCY
 // =========================================================
@@ -259,12 +265,29 @@ model StageTransition {
   pipelineVersion PipelineVersion @relation(fields: [pipelineVersionId], references: [id], onDelete: Cascade)
   fromStage       Stage           @relation("FromStage", fields: [fromStageId], references: [id], onDelete: Cascade)
   toStage         Stage           @relation("ToStage", fields: [toStageId], references: [id], onDelete: Cascade)
+  rules           StageTransitionRule[]
 
   @@unique([fromStageId, toStageId], name: "uq_stage_transition")
   @@index([pipelineVersionId])
   @@index([fromStageId])
   @@index([toStageId])
   @@map("stage_transitions")
+}
+
+model StageTransitionRule {
+  id               String             @id @default(uuid()) @db.Uuid
+  transitionId     String             @map("transition_id") @db.Uuid
+  ruleType         TransitionRuleType @map("rule_type")
+  formDefinitionId String?            @map("form_definition_id") @db.Uuid
+  enabled          Boolean            @default(true)
+  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+
+  transition StageTransition @relation(fields: [transitionId], references: [id], onDelete: Cascade)
+
+  @@unique([transitionId, ruleType, formDefinitionId], name: "uq_transition_rule")
+  @@index([transitionId])
+  @@map("stage_transition_rules")
 }
 
 model StageFormAttachRule {

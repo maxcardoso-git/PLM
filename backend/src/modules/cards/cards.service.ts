@@ -9,7 +9,14 @@ import { CreateCardDto, MoveCardDto, UpdateCardFormDto, CreateCommentDto } from 
 import { TenantContext } from '../../common/decorators';
 
 export interface MoveBlockedError {
-  code: 'TRANSITION_NOT_ALLOWED' | 'WIP_LIMIT_REACHED' | 'FORMS_INCOMPLETE' | 'PERMISSION_DENIED';
+  code:
+    | 'TRANSITION_NOT_ALLOWED'
+    | 'WIP_LIMIT_REACHED'
+    | 'FORMS_INCOMPLETE'
+    | 'PERMISSION_DENIED'
+    | 'FORMS_NOT_FILLED'
+    | 'COMMENT_REQUIRED'
+    | 'OWNER_ONLY';
   message: string;
   details?: any;
 }
@@ -341,6 +348,9 @@ export class CardsService {
       } as MoveBlockedError);
     }
 
+    // Validate transition rules
+    await this.validateTransitionRules(ctx, cardId, card.currentStageId, dto.toStageId, cardData);
+
     return this.prisma.$transaction(async (tx) => {
       const currentStage = await tx.stage.findUnique({
         where: { id: card.currentStageId },
@@ -463,6 +473,86 @@ export class CardsService {
     }
 
     return incomplete;
+  }
+
+  private async validateTransitionRules(
+    ctx: TenantContext,
+    cardId: string,
+    fromStageId: string,
+    toStageId: string,
+    cardData: any,
+  ): Promise<void> {
+    // Find the transition between stages
+    const transition = await this.prisma.stageTransition.findFirst({
+      where: {
+        fromStageId,
+        toStageId,
+      },
+      include: {
+        rules: {
+          where: { enabled: true },
+        },
+      },
+    });
+
+    if (!transition || !transition.rules || transition.rules.length === 0) {
+      return; // No rules to validate
+    }
+
+    for (const rule of transition.rules) {
+      switch (rule.ruleType) {
+        case 'FORM_REQUIRED': {
+          // Check if all forms are FILLED (not TO_FILL)
+          const pendingForms = cardData.forms.filter((f: any) => f.status === 'TO_FILL');
+          if (pendingForms.length > 0) {
+            throw new ConflictException({
+              code: 'FORMS_NOT_FILLED',
+              message: 'Todos os formulários devem estar preenchidos para realizar esta transição',
+              details: {
+                pendingForms: pendingForms.map((f: any) => ({
+                  id: f.id,
+                  name: f.formDefinition?.name || 'Unknown Form',
+                })),
+              },
+            } as MoveBlockedError);
+          }
+          break;
+        }
+
+        case 'COMMENT_REQUIRED': {
+          // Check if there's at least one comment
+          const commentsCount = await this.prisma.cardComment.count({
+            where: { cardId },
+          });
+          if (commentsCount === 0) {
+            throw new ConflictException({
+              code: 'COMMENT_REQUIRED',
+              message: 'É necessário adicionar um comentário antes de realizar esta transição',
+              details: {},
+            } as MoveBlockedError);
+          }
+          break;
+        }
+
+        case 'OWNER_ONLY': {
+          // Check if the user is the card owner (creator)
+          // For now, we'll skip this validation since we don't have user ID in context
+          // TODO: Implement when user authentication is added
+          // const card = await this.prisma.card.findUnique({
+          //   where: { id: cardId },
+          //   select: { createdBy: true },
+          // });
+          // if (card?.createdBy !== ctx.userId) {
+          //   throw new ConflictException({
+          //     code: 'OWNER_ONLY',
+          //     message: 'Apenas o criador do card pode realizar esta transição',
+          //     details: {},
+          //   } as MoveBlockedError);
+          // }
+          break;
+        }
+      }
+    }
   }
 
   async updateForm(
