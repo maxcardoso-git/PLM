@@ -19,6 +19,7 @@ import {
   AttachFormDto,
   CreateTransitionRuleDto,
   UpdateTransitionRuleDto,
+  UpdateFormRuleDto,
 } from './dto';
 import { TenantGuard, RequireOrganization } from '../../common/guards';
 import { Tenant } from '../../common/decorators';
@@ -121,6 +122,17 @@ export class StagesController {
     @Body() dto: AttachFormDto,
   ) {
     return this.stagesService.attachForm(ctx, stageId, dto);
+  }
+
+  @Patch('stage-form-rules/:ruleId')
+  @ApiOperation({ summary: 'Update form attach rule' })
+  @ApiResponse({ status: 200, description: 'Form rule updated' })
+  updateFormRule(
+    @Tenant() ctx: TenantContext,
+    @Param('ruleId', ParseUUIDPipe) ruleId: string,
+    @Body() dto: UpdateFormRuleDto,
+  ) {
+    return this.stagesService.updateFormRule(ctx, ruleId, dto);
   }
 
   @Delete('stage-form-rules/:ruleId')

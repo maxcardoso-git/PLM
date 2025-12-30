@@ -192,6 +192,7 @@ export function PipelineEditorPage() {
     uniqueKeyFieldId: '',
   });
   const [savingForm, setSavingForm] = useState(false);
+  const [editingFormRule, setEditingFormRule] = useState<FormAttachRule | null>(null);
 
   // Trigger modal
   const [showTriggerModal, setShowTriggerModal] = useState(false);
@@ -217,6 +218,7 @@ export function PipelineEditorPage() {
     conditions: [],
   });
   const [savingTrigger, setSavingTrigger] = useState(false);
+  const [editingTrigger, setEditingTrigger] = useState<StageTrigger | null>(null);
   const [formFieldsMap, setFormFieldsMap] = useState<Record<string, FormField[]>>({});
 
   // Transition rules modal
@@ -603,10 +605,38 @@ export function PipelineEditorPage() {
 
   const handleOpenFormModal = async (stage: Stage) => {
     setFormStage(stage);
+    setEditingFormRule(null);
     setSelectedFormId('');
     setSelectedFormFields([]);
     setFormSettings({ defaultFormStatus: 'TO_FILL', lockOnLeaveStage: false, uniqueKeyFieldId: '' });
     await fetchForms();
+    setShowFormModal(true);
+  };
+
+  const handleEditFormRule = async (stage: Stage, rule: FormAttachRule) => {
+    setFormStage(stage);
+    setEditingFormRule(rule);
+    const formId = rule.formDefinitionId || rule.externalFormId || '';
+    setSelectedFormId(formId);
+    setFormSettings({
+      defaultFormStatus: rule.defaultFormStatus as 'TO_FILL' | 'FILLED',
+      lockOnLeaveStage: rule.lockOnLeaveStage,
+      uniqueKeyFieldId: rule.uniqueKeyFieldId || '',
+    });
+    await fetchForms();
+    // Fetch fields for the form
+    if (formId) {
+      setLoadingFormFields(true);
+      try {
+        const fields = await fetchFormFields(formId);
+        if (fields.length > 0) {
+          setSelectedFormFields(fields);
+          setFormFieldsMap(prev => ({ ...prev, [formId]: fields }));
+        }
+      } finally {
+        setLoadingFormFields(false);
+      }
+    }
     setShowFormModal(true);
   };
 
@@ -642,6 +672,32 @@ export function PipelineEditorPage() {
 
     setSavingForm(true);
     try {
+      // If editing, use PATCH to update the rule
+      if (editingFormRule) {
+        const updatePayload = {
+          defaultFormStatus: formSettings.defaultFormStatus,
+          lockOnLeaveStage: formSettings.lockOnLeaveStage,
+          uniqueKeyFieldId: formSettings.defaultFormStatus === 'FILLED' ? formSettings.uniqueKeyFieldId : null,
+        };
+
+        const res = await fetch(`${API_BASE_URL}/stage-form-rules/${editingFormRule.id}`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify(updatePayload),
+        });
+
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.message || 'Falha ao atualizar regra');
+        }
+
+        setShowFormModal(false);
+        setEditingFormRule(null);
+        fetchVersionStages(selectedVersion);
+        showToast('success', 'Regra atualizada com sucesso!');
+        return;
+      }
+
       // Find selected form to get name/version
       const selectedForm = availableForms.find(f => f.id === selectedFormId);
 
@@ -731,6 +787,7 @@ export function PipelineEditorPage() {
 
   const handleOpenTriggerModal = async (stage: Stage) => {
     setTriggerStage(stage);
+    setEditingTrigger(null);
     setTriggerForm({
       integrationId: '',
       eventType: 'CARD_MOVEMENT',
@@ -747,6 +804,28 @@ export function PipelineEditorPage() {
     setShowTriggerModal(true);
   };
 
+  const handleEditTrigger = async (stage: Stage, trigger: StageTrigger) => {
+    setTriggerStage(stage);
+    setEditingTrigger(trigger);
+    setTriggerForm({
+      integrationId: trigger.integrationId,
+      eventType: trigger.eventType,
+      fromStageId: trigger.fromStageId || '',
+      formDefinitionId: trigger.formDefinitionId || trigger.externalFormId || '',
+      externalFormId: trigger.externalFormId || '',
+      externalFormName: trigger.externalFormName || trigger.formDefinition?.name || '',
+      fieldId: trigger.fieldId || '',
+      conditions: trigger.conditions.map(c => ({
+        fieldPath: c.fieldPath,
+        operator: c.operator,
+        value: c.value,
+      })),
+    });
+    await Promise.all([fetchIntegrations(), fetchForms()]);
+    await fetchAttachedFormFields(stage);
+    setShowTriggerModal(true);
+  };
+
   const handleSaveTrigger = async () => {
     if (!triggerStage || !triggerForm.integrationId) return;
 
@@ -754,6 +833,30 @@ export function PipelineEditorPage() {
     try {
       // Determine if using external forms
       const isUsingExternalForms = isFormsConfigured && settings.externalForms.baseUrl;
+
+      // If editing, use update API
+      if (editingTrigger) {
+        await api.updateStageTrigger(editingTrigger.id, {
+          integrationId: triggerForm.integrationId,
+          eventType: triggerForm.eventType,
+          fromStageId: triggerForm.fromStageId || undefined,
+          ...(isUsingExternalForms
+            ? {
+                externalFormId: triggerForm.formDefinitionId || undefined,
+                externalFormName: triggerForm.externalFormName || undefined,
+              }
+            : {
+                formDefinitionId: triggerForm.formDefinitionId || undefined,
+              }),
+          fieldId: triggerForm.fieldId || undefined,
+        });
+
+        setShowTriggerModal(false);
+        setEditingTrigger(null);
+        fetchVersionStages(selectedVersion);
+        showToast('success', 'Gatilho atualizado com sucesso!');
+        return;
+      }
 
       await api.createStageTrigger(triggerStage.id, {
         integrationId: triggerForm.integrationId,
@@ -776,7 +879,7 @@ export function PipelineEditorPage() {
       fetchVersionStages(selectedVersion);
       showToast('success', 'Gatilho criado com sucesso!');
     } catch (err) {
-      showToast('error', err instanceof Error ? err.message : 'Falha ao criar gatilho');
+      showToast('error', err instanceof Error ? err.message : (editingTrigger ? 'Falha ao atualizar gatilho' : 'Falha ao criar gatilho'));
     } finally {
       setSavingTrigger(false);
     }
@@ -1386,7 +1489,9 @@ export function PipelineEditorPage() {
                           return (
                             <div
                               key={rule.id}
-                              className="flex items-center gap-2 px-2 py-1 bg-purple-50 text-purple-700 rounded-md text-xs"
+                              className="flex items-center gap-2 px-2 py-1 bg-purple-50 text-purple-700 rounded-md text-xs group cursor-pointer hover:bg-purple-100"
+                              onClick={() => handleEditFormRule(stage, rule)}
+                              title="Clique para editar"
                             >
                               <Link2 size={12} />
                               <span>{formName}{formVersion ? ` v${formVersion}` : ''}</span>
@@ -1394,8 +1499,8 @@ export function PipelineEditorPage() {
                                 <span className="text-purple-400" title="Bloqueia ao sair da etapa">🔒</span>
                               )}
                               <button
-                                onClick={() => handleDetachForm(rule.id)}
-                                className="ml-1 text-purple-400 hover:text-red-500"
+                                onClick={(e) => { e.stopPropagation(); handleDetachForm(rule.id); }}
+                                className="ml-1 text-purple-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                                 title="Remover formulário"
                               >
                                 <X size={12} />
@@ -1418,7 +1523,9 @@ export function PipelineEditorPage() {
                         {stage.triggers.map((trigger) => (
                           <div
                             key={trigger.id}
-                            className="flex items-center gap-2 px-2 py-1 bg-amber-50 text-amber-700 rounded-md text-xs group"
+                            className="flex items-center gap-2 px-2 py-1 bg-amber-50 text-amber-700 rounded-md text-xs group cursor-pointer hover:bg-amber-100"
+                            onClick={() => handleEditTrigger(stage, trigger)}
+                            title="Clique para editar"
                           >
                             {trigger.eventType === 'CARD_MOVEMENT' ? (
                               <ArrowRight size={12} />
@@ -1440,7 +1547,7 @@ export function PipelineEditorPage() {
                               <span className="text-amber-400" title="Desabilitado">⏸</span>
                             )}
                             <button
-                              onClick={() => handleDeleteTrigger(trigger.id)}
+                              onClick={(e) => { e.stopPropagation(); handleDeleteTrigger(trigger.id); }}
                               className="ml-1 text-amber-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                               title="Remover gatilho"
                             >
@@ -1802,8 +1909,8 @@ export function PipelineEditorPage() {
       {/* Form Attachment Modal */}
       <Modal
         isOpen={showFormModal}
-        onClose={() => setShowFormModal(false)}
-        title="Vincular Formulário"
+        onClose={() => { setShowFormModal(false); setEditingFormRule(null); }}
+        title={editingFormRule ? "Editar Regra do Formulário" : "Vincular Formulário"}
       >
         <div className="space-y-4">
           <div className="text-sm text-gray-600 space-y-1">
@@ -1815,26 +1922,37 @@ export function PipelineEditorPage() {
 
           <div>
             <label className="label">Formulário</label>
-            <select
-              value={selectedFormId}
-              onChange={(e) => handleFormSelection(e.target.value)}
-              className="input mt-1"
-            >
-              <option value="">Selecione um formulário...</option>
-              {availableForms
-                .filter((f) => !formStage?.formAttachRules?.some((r) => r.formDefinitionId === f.id))
-                .map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.name} {f.version ? `(v${f.version})` : ''}
-                  </option>
-                ))}
-            </select>
-            {availableForms.length === 0 && (
-              <p className="text-xs text-amber-600 mt-1">
-                {pipeline?.projectId
-                  ? `Nenhum formulário publicado/aprovado encontrado para o projeto "${pipeline.projectName || pipeline.projectId}".`
-                  : 'Nenhum formulário publicado disponível. Publique um formulário primeiro.'}
-              </p>
+            {editingFormRule ? (
+              <div className="input mt-1 bg-gray-100 text-gray-600">
+                {editingFormRule.formDefinition?.name || editingFormRule.externalFormName || 'Formulário'}
+                {(editingFormRule.formDefinition?.version ?? editingFormRule.externalFormVersion)
+                  ? ` (v${editingFormRule.formDefinition?.version ?? editingFormRule.externalFormVersion})`
+                  : ''}
+              </div>
+            ) : (
+              <>
+                <select
+                  value={selectedFormId}
+                  onChange={(e) => handleFormSelection(e.target.value)}
+                  className="input mt-1"
+                >
+                  <option value="">Selecione um formulário...</option>
+                  {availableForms
+                    .filter((f) => !formStage?.formAttachRules?.some((r) => r.formDefinitionId === f.id || r.externalFormId === f.id))
+                    .map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.name} {f.version ? `(v${f.version})` : ''}
+                      </option>
+                    ))}
+                </select>
+                {availableForms.length === 0 && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    {pipeline?.projectId
+                      ? `Nenhum formulário publicado/aprovado encontrado para o projeto "${pipeline.projectName || pipeline.projectId}".`
+                      : 'Nenhum formulário publicado disponível. Publique um formulário primeiro.'}
+                  </p>
+                )}
+              </>
             )}
           </div>
 
@@ -1902,7 +2020,7 @@ export function PipelineEditorPage() {
           </div>
 
           <div className="flex justify-end gap-3 pt-4">
-            <button onClick={() => setShowFormModal(false)} className="btn-secondary">
+            <button onClick={() => { setShowFormModal(false); setEditingFormRule(null); }} className="btn-secondary">
               Cancelar
             </button>
             <button
@@ -1910,7 +2028,9 @@ export function PipelineEditorPage() {
               disabled={savingForm || !selectedFormId}
               className="btn-primary"
             >
-              {savingForm ? 'Vinculando...' : 'Vincular Formulário'}
+              {savingForm
+                ? (editingFormRule ? 'Salvando...' : 'Vinculando...')
+                : (editingFormRule ? 'Salvar Alterações' : 'Vincular Formulário')}
             </button>
           </div>
         </div>
@@ -1919,8 +2039,8 @@ export function PipelineEditorPage() {
       {/* Trigger Configuration Modal */}
       <Modal
         isOpen={showTriggerModal}
-        onClose={() => setShowTriggerModal(false)}
-        title="Configurar Gatilho"
+        onClose={() => { setShowTriggerModal(false); setEditingTrigger(null); }}
+        title={editingTrigger ? "Editar Gatilho" : "Configurar Gatilho"}
       >
         <div className="space-y-4">
           <div className="text-sm text-gray-600">
@@ -2125,7 +2245,7 @@ export function PipelineEditorPage() {
           </div>
 
           <div className="flex justify-end gap-3 pt-4">
-            <button onClick={() => setShowTriggerModal(false)} className="btn-secondary">
+            <button onClick={() => { setShowTriggerModal(false); setEditingTrigger(null); }} className="btn-secondary">
               Cancelar
             </button>
             <button
@@ -2133,7 +2253,9 @@ export function PipelineEditorPage() {
               disabled={savingTrigger || !triggerForm.integrationId}
               className="btn-primary"
             >
-              {savingTrigger ? 'Salvando...' : 'Adicionar Gatilho'}
+              {savingTrigger
+                ? 'Salvando...'
+                : (editingTrigger ? 'Salvar Alterações' : 'Adicionar Gatilho')}
             </button>
           </div>
         </div>

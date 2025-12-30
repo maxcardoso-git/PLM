@@ -184,3 +184,20 @@ export class UpdateTransitionRuleDto {
   @IsBoolean()
   enabled?: boolean;
 }
+
+export class UpdateFormRuleDto {
+  @ApiPropertyOptional({ enum: ['FILLED', 'TO_FILL'] })
+  @IsOptional()
+  @IsEnum(['FILLED', 'TO_FILL'])
+  defaultFormStatus?: 'FILLED' | 'TO_FILL';
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  lockOnLeaveStage?: boolean;
+
+  @ApiPropertyOptional({ description: 'ID of the form field to use as unique key' })
+  @IsOptional()
+  @IsString()
+  uniqueKeyFieldId?: string;
+}

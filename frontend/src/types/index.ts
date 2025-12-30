@@ -295,6 +295,8 @@ export interface StageTrigger {
   eventType: TriggerEventType;
   fromStageId?: string;
   formDefinitionId?: string;
+  externalFormId?: string;
+  externalFormName?: string;
   fieldId?: string;
   executionOrder: number;
   enabled: boolean;

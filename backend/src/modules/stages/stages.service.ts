@@ -385,6 +385,49 @@ export class StagesService {
     });
   }
 
+  async updateFormRule(
+    ctx: TenantContext,
+    ruleId: string,
+    dto: { defaultFormStatus?: 'FILLED' | 'TO_FILL'; lockOnLeaveStage?: boolean; uniqueKeyFieldId?: string },
+  ) {
+    const rule = await this.prisma.stageFormAttachRule.findFirst({
+      where: { id: ruleId },
+      include: {
+        stage: {
+          include: {
+            pipelineVersion: {
+              include: { pipeline: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!rule) {
+      throw new NotFoundException('Attach rule not found');
+    }
+
+    if (rule.stage.pipelineVersion.pipeline.tenantId !== ctx.tenantId) {
+      throw new NotFoundException('Attach rule not found');
+    }
+
+    if (rule.stage.pipelineVersion.status === 'published') {
+      throw new BadRequestException('Cannot modify published version');
+    }
+
+    return this.prisma.stageFormAttachRule.update({
+      where: { id: ruleId },
+      data: {
+        ...(dto.defaultFormStatus !== undefined && { defaultFormStatus: dto.defaultFormStatus }),
+        ...(dto.lockOnLeaveStage !== undefined && { lockOnLeaveStage: dto.lockOnLeaveStage }),
+        ...(dto.uniqueKeyFieldId !== undefined && { uniqueKeyFieldId: dto.uniqueKeyFieldId || null }),
+      },
+      include: {
+        formDefinition: true,
+      },
+    });
+  }
+
   async detachForm(ctx: TenantContext, ruleId: string) {
     const rule = await this.prisma.stageFormAttachRule.findFirst({
       where: { id: ruleId },
