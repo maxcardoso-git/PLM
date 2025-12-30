@@ -84,7 +84,7 @@ export function KanbanColumn({ stage, onCardClick, onAddCard, isOver }: KanbanCo
       >
         <div className="space-y-2 min-h-[100px]">
           {stage.cards.map((card) => (
-            <KanbanCard key={card.id} card={card} onClick={onCardClick} />
+            <KanbanCard key={card.id} card={card} onClick={onCardClick} stageTriggers={stage.triggers} />
           ))}
 
           {stage.cards.length === 0 && (

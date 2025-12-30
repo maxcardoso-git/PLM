@@ -1,7 +1,8 @@
+import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, FileText, AlertCircle, CheckCircle, Clock, Zap, XCircle, Loader2 } from 'lucide-react';
-import type { KanbanCard as KanbanCardType } from '../../types';
+import { GripVertical, FileText, AlertCircle, CheckCircle, Clock, Zap, XCircle, Loader2, Info } from 'lucide-react';
+import type { KanbanCard as KanbanCardType, KanbanStageTrigger } from '../../types';
 import { clsx } from 'clsx';
 
 function formatDate(date: string) {
@@ -16,6 +17,7 @@ function formatDate(date: string) {
 interface KanbanCardProps {
   card: KanbanCardType;
   onClick: (card: KanbanCardType) => void;
+  stageTriggers?: KanbanStageTrigger[];
 }
 
 const priorityColors: Record<string, string> = {
@@ -32,7 +34,9 @@ const priorityLabels: Record<string, string> = {
   urgent: 'Urgent',
 };
 
-export function KanbanCard({ card, onClick }: KanbanCardProps) {
+export function KanbanCard({ card, onClick, stageTriggers }: KanbanCardProps) {
+  const [showTriggers, setShowTriggers] = useState(false);
+
   const {
     attributes,
     listeners,
@@ -145,7 +149,40 @@ export function KanbanCard({ card, onClick }: KanbanCardProps) {
                 {card.triggerExecutionSummary.success}/{card.triggerExecutionSummary.total}
               </span>
             )}
+
+            {/* Stage integration indicator */}
+            {stageTriggers && stageTriggers.length > 0 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowTriggers(!showTriggers);
+                }}
+                className="flex items-center gap-1 text-xs text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full hover:bg-purple-200 transition-colors"
+                title="Ver integrações configuradas"
+              >
+                <Zap size={10} />
+                <Info size={10} />
+              </button>
+            )}
           </div>
+
+          {/* Integration rules popup */}
+          {showTriggers && stageTriggers && stageTriggers.length > 0 && (
+            <div className="mt-2 p-2 bg-purple-50 border border-purple-200 rounded-lg text-xs">
+              <div className="font-medium text-purple-900 mb-1 flex items-center gap-1">
+                <Zap size={12} />
+                Integrações Configuradas
+              </div>
+              <ul className="space-y-1">
+                {stageTriggers.map((trigger) => (
+                  <li key={trigger.id} className="text-purple-700 flex items-center gap-1">
+                    <span className="w-1 h-1 bg-purple-500 rounded-full" />
+                    {trigger.integrationName}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* Creation date */}
           <div className="flex items-center gap-1 mt-2 text-xs text-gray-400">
