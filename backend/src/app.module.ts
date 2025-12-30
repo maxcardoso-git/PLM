@@ -4,6 +4,7 @@ import { APP_FILTER } from '@nestjs/core';
 
 import { PrismaModule } from './prisma';
 import { GlobalExceptionFilter } from './common/filters';
+import { AuthModule } from './auth';
 
 import { TenantsModule } from './modules/tenants';
 import { FormsModule } from './modules/forms';
@@ -23,6 +24,7 @@ import { StageTriggersModule } from './modules/stage-triggers/stage-triggers.mod
       envFilePath: '.env',
     }),
     PrismaModule,
+    AuthModule,
     TenantsModule,
     FormsModule,
     PipelinesModule,

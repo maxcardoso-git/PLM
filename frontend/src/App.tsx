@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TenantProvider } from './context/TenantContext';
 import { SettingsProvider } from './context/SettingsContext';
 import { Layout } from './components/layout';
-import { DashboardPage, PipelinesPage, PipelineKanbanPage, PipelineEditorPage, FormsPage, FormViewPage, SettingsPage, TemplatesPage, IntegrationsPage } from './pages';
+import { DashboardPage, PipelinesPage, PipelineKanbanPage, PipelineEditorPage, FormsPage, FormViewPage, SettingsPage, TemplatesPage, IntegrationsPage, AuthCallbackPage } from './pages';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -21,6 +21,9 @@ function App() {
         <TenantProvider>
           <BrowserRouter>
             <Routes>
+              {/* Auth callback route - outside Layout */}
+              <Route path="/auth/tah-callback" element={<AuthCallbackPage />} />
+
               <Route path="/" element={<Layout />}>
                 <Route index element={<DashboardPage />} />
                 <Route path="pipelines" element={<PipelinesPage />} />

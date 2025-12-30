@@ -7,3 +7,4 @@ export * from './FormViewPage';
 export * from './SettingsPage';
 export * from './TemplatesPage';
 export * from './IntegrationsPage';
+export * from './AuthCallbackPage';
