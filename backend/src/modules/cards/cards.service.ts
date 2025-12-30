@@ -5,7 +5,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { CreateCardDto, MoveCardDto, UpdateCardFormDto } from './dto';
+import { CreateCardDto, MoveCardDto, UpdateCardFormDto, CreateCommentDto } from './dto';
 import { TenantContext } from '../../common/decorators';
 
 export interface MoveBlockedError {
@@ -230,6 +230,9 @@ export class CardsService {
           orderBy: { executedAt: 'desc' },
           take: 10,
         },
+        comments: {
+          orderBy: { createdAt: 'desc' },
+        },
         pipeline: {
           select: { id: true, key: true, name: true },
         },
@@ -270,6 +273,7 @@ export class CardsService {
         completedAt: exec.completedAt,
         errorMessage: exec.errorMessage,
       })),
+      comments: card.comments,
       allowedTransitions: card.currentStage.transitionsFrom.map((t) => t.toStage),
     };
   }
@@ -516,6 +520,9 @@ export class CardsService {
 
     // Delete related records in transaction
     await this.prisma.$transaction(async (tx) => {
+      // Delete comments
+      await tx.cardComment.deleteMany({ where: { cardId } });
+
       // Delete trigger executions
       await tx.triggerExecution.deleteMany({ where: { cardId } });
 
@@ -738,5 +745,56 @@ export class CardsService {
         cardCount: (cardsByStage.get(stage.id) || []).length,
       })),
     };
+  }
+
+  // Comment methods
+  async createComment(ctx: TenantContext, cardId: string, dto: CreateCommentDto) {
+    // Verify card exists and belongs to tenant
+    await this.findOne(ctx, cardId);
+
+    const comment = await this.prisma.cardComment.create({
+      data: {
+        cardId,
+        content: dto.content,
+        userName: dto.userName,
+        userId: dto.userId,
+      },
+    });
+
+    return comment;
+  }
+
+  async getComments(ctx: TenantContext, cardId: string) {
+    // Verify card exists and belongs to tenant
+    await this.findOne(ctx, cardId);
+
+    const comments = await this.prisma.cardComment.findMany({
+      where: { cardId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return { items: comments };
+  }
+
+  async deleteComment(ctx: TenantContext, cardId: string, commentId: string) {
+    // Verify card exists and belongs to tenant
+    await this.findOne(ctx, cardId);
+
+    const comment = await this.prisma.cardComment.findFirst({
+      where: {
+        id: commentId,
+        cardId,
+      },
+    });
+
+    if (!comment) {
+      throw new NotFoundException(`Comment ${commentId} not found`);
+    }
+
+    await this.prisma.cardComment.delete({
+      where: { id: commentId },
+    });
+
+    return { deleted: true, id: commentId };
   }
 }

@@ -5,6 +5,7 @@ import type {
   Pipeline,
   KanbanBoard,
   CardFull,
+  CardComment,
   ListResponse,
   FormDefinition,
   Integration,
@@ -235,6 +236,26 @@ class ApiClient {
 
   async deleteStageTrigger(triggerId: string): Promise<{ deleted: boolean; id: string }> {
     const { data } = await this.client.delete(`/stage-triggers/${triggerId}`);
+    return data;
+  }
+
+  // Card Comments
+  async getCardComments(cardId: string): Promise<ListResponse<CardComment>> {
+    const { data } = await this.client.get(`/cards/${cardId}/comments`);
+    return data;
+  }
+
+  async createCardComment(cardId: string, payload: {
+    content: string;
+    userName: string;
+    userId?: string;
+  }): Promise<CardComment> {
+    const { data } = await this.client.post(`/cards/${cardId}/comments`, payload);
+    return data;
+  }
+
+  async deleteCardComment(cardId: string, commentId: string): Promise<{ deleted: boolean; id: string }> {
+    const { data } = await this.client.delete(`/cards/${cardId}/comments/${commentId}`);
     return data;
   }
 }

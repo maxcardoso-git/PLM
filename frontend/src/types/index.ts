@@ -122,6 +122,16 @@ export interface CardMoveHistory {
   toStage?: { id: string; name: string; color: string };
 }
 
+export interface CardComment {
+  id: string;
+  cardId: string;
+  userId?: string;
+  userName: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Form Attach Rule for Kanban
 export interface KanbanFormAttachRule {
   id: string;
@@ -179,6 +189,7 @@ export interface CardFull {
   forms: CardForm[];
   history: CardMoveHistory[];
   triggerExecutions?: TriggerExecution[];
+  comments?: CardComment[];
   allowedTransitions: { id: string; name: string; color: string; wipLimit?: number }[];
 }
 

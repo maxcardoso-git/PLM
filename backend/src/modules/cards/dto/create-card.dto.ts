@@ -93,3 +93,20 @@ export class UpdateCardFormDto {
   @IsObject()
   data?: Record<string, any>;
 }
+
+export class CreateCommentDto {
+  @ApiProperty({ example: 'Este cliente precisa de atenção especial.' })
+  @IsString()
+  @IsNotEmpty()
+  content: string;
+
+  @ApiProperty({ example: 'João Silva' })
+  @IsString()
+  @IsNotEmpty()
+  userName: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  userId?: string;
+}

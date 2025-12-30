@@ -342,6 +342,7 @@ model Card {
   forms             CardForm[]
   moveHistory       CardMoveHistory[]
   triggerExecutions TriggerExecution[]
+  comments          CardComment[]
 
   @@index([tenantId])
   @@index([orgId])
@@ -394,6 +395,22 @@ model CardMoveHistory {
   @@index([toStageId])
   @@index([movedAt(sort: Desc)])
   @@map("card_move_history")
+}
+
+model CardComment {
+  id        String   @id @default(uuid()) @db.Uuid
+  cardId    String   @map("card_id") @db.Uuid
+  userId    String?  @map("user_id") @db.Uuid
+  userName  String   @map("user_name") @db.VarChar(255)
+  content   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@index([cardId])
+  @@index([createdAt(sort: Desc)])
+  @@map("card_comments")
 }
 
 // =========================================================

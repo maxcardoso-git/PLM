@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { FormEvent } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, RefreshCw, FileText, Trash2, AlertTriangle, Calendar, Zap, ChevronDown, ChevronUp, Save, Loader2, CheckCircle, XCircle, Eye } from 'lucide-react';
+import { ArrowLeft, RefreshCw, FileText, Trash2, AlertTriangle, Calendar, Zap, ChevronDown, ChevronUp, Save, Loader2, CheckCircle, XCircle, Eye, MessageSquare, Send } from 'lucide-react';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
 import { useSettings } from '../context/SettingsContext';
@@ -43,6 +43,10 @@ export function PipelineKanbanPage() {
   // Execution details state
   const [expandedExecution, setExpandedExecution] = useState<string | null>(null);
 
+  // Comments state
+  const [newComment, setNewComment] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
+
   const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
   const fetchBoard = useCallback(async () => {
@@ -71,6 +75,7 @@ export function PipelineKanbanPage() {
   const handleCardClick = async (card: KanbanCard) => {
     setLoadingCard(true);
     setExpandedExecution(null);
+    setNewComment('');
     try {
       const fullCard = await api.getCard(card.id);
       setSelectedCard(fullCard);
@@ -78,6 +83,27 @@ export function PipelineKanbanPage() {
       console.error('Failed to fetch card details:', error);
     } finally {
       setLoadingCard(false);
+    }
+  };
+
+  const handleSubmitComment = async () => {
+    if (!selectedCard || !newComment.trim()) return;
+
+    setSubmittingComment(true);
+    try {
+      await api.createCardComment(selectedCard.card.id, {
+        content: newComment.trim(),
+        userName: 'Usuário', // TODO: Get from auth context
+      });
+
+      // Refresh card to get updated comments
+      const fullCard = await api.getCard(selectedCard.card.id);
+      setSelectedCard(fullCard);
+      setNewComment('');
+    } catch (error) {
+      console.error('Failed to create comment:', error);
+    } finally {
+      setSubmittingComment(false);
     }
   };
 
@@ -815,6 +841,61 @@ export function PipelineKanbanPage() {
                     </span>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* Comments */}
+            <div>
+              <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                <MessageSquare size={16} />
+                Comentários ({selectedCard.comments?.length || 0})
+              </h4>
+
+              {/* Add comment input */}
+              <div className="flex gap-2 mb-4">
+                <textarea
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  placeholder="Adicionar um comentário..."
+                  className="input flex-1 text-sm resize-none"
+                  rows={2}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                      handleSubmitComment();
+                    }
+                  }}
+                />
+                <button
+                  onClick={handleSubmitComment}
+                  disabled={submittingComment || !newComment.trim()}
+                  className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed self-end"
+                  title="Enviar (Ctrl+Enter)"
+                >
+                  {submittingComment ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <Send size={18} />
+                  )}
+                </button>
+              </div>
+
+              {/* Comments list */}
+              <div className="space-y-3 max-h-60 overflow-y-auto">
+                {selectedCard.comments && selectedCard.comments.length > 0 ? (
+                  selectedCard.comments.map((comment) => (
+                    <div key={comment.id} className="bg-gray-50 rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium text-gray-900 text-sm">{comment.userName}</span>
+                        <span className="text-xs text-gray-400">
+                          {new Date(comment.createdAt).toLocaleString('pt-BR')}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{comment.content}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500 italic text-center py-4">Nenhum comentário ainda</p>
+                )}
               </div>
             </div>
 

@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiHeader, ApiQuery } from '@nestjs/swagger';
 import { CardsService } from './cards.service';
-import { CreateCardDto, MoveCardDto, UpdateCardFormDto } from './dto';
+import { CreateCardDto, MoveCardDto, UpdateCardFormDto, CreateCommentDto } from './dto';
 import { TenantGuard, RequireOrganization } from '../../common/guards';
 import { Tenant } from '../../common/decorators';
 import type { TenantContext } from '../../common/decorators';
@@ -112,5 +112,39 @@ export class CardsController {
     @Param('cardId', ParseUUIDPipe) cardId: string,
   ) {
     return this.cardsService.getTriggerExecutions(ctx, cardId);
+  }
+
+  // Comment endpoints
+  @Post(':cardId/comments')
+  @ApiOperation({ summary: 'Add comment to a card' })
+  @ApiResponse({ status: 201, description: 'Comment created' })
+  createComment(
+    @Tenant() ctx: TenantContext,
+    @Param('cardId', ParseUUIDPipe) cardId: string,
+    @Body() dto: CreateCommentDto,
+  ) {
+    return this.cardsService.createComment(ctx, cardId, dto);
+  }
+
+  @Get(':cardId/comments')
+  @ApiOperation({ summary: 'Get comments for a card' })
+  @ApiResponse({ status: 200, description: 'List of comments' })
+  getComments(
+    @Tenant() ctx: TenantContext,
+    @Param('cardId', ParseUUIDPipe) cardId: string,
+  ) {
+    return this.cardsService.getComments(ctx, cardId);
+  }
+
+  @Delete(':cardId/comments/:commentId')
+  @ApiOperation({ summary: 'Delete a comment' })
+  @ApiResponse({ status: 200, description: 'Comment deleted' })
+  @ApiResponse({ status: 404, description: 'Comment not found' })
+  deleteComment(
+    @Tenant() ctx: TenantContext,
+    @Param('cardId', ParseUUIDPipe) cardId: string,
+    @Param('commentId', ParseUUIDPipe) commentId: string,
+  ) {
+    return this.cardsService.deleteComment(ctx, cardId, commentId);
   }
 }
