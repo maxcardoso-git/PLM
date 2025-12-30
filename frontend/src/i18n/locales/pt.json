@@ -423,7 +423,12 @@
     "testFailed": "Teste falhou",
     "invalidJson": "Payload JSON invalido",
     "confirmDelete": "Excluir Integracao",
-    "confirmDeleteMsg": "Tem certeza que deseja excluir esta integracao? Esta acao nao pode ser desfeita."
+    "confirmDeleteMsg": "Tem certeza que deseja excluir esta integracao? Esta acao nao pode ser desfeita.",
+    "viewUsage": "Ver onde esta sendo usada",
+    "usageTitle": "Uso da Integracao",
+    "noUsage": "Integracao nao utilizada",
+    "noUsageDesc": "Esta integracao ainda nao esta vinculada a nenhum gatilho de stage.",
+    "usageCount": "Esta integracao esta sendo usada em {{count}} gatilho(s)"
   },
   "language": {
     "select": "Idioma",

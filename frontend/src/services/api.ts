@@ -221,6 +221,23 @@ class ApiClient {
     return data;
   }
 
+  async getIntegrationUsage(id: string): Promise<{
+    integration: { id: string; key: string; name: string };
+    usages: {
+      triggerId: string;
+      eventType: string;
+      enabled: boolean;
+      pipeline: { id: string; key: string; name: string };
+      version: number;
+      versionStatus: string;
+      stage: { id: string; name: string };
+    }[];
+    totalCount: number;
+  }> {
+    const { data } = await this.client.get(`/integrations/${id}/usage`);
+    return data;
+  }
+
   // Stage Triggers
   async getStageTriggers(stageId: string): Promise<ListResponse<StageTrigger>> {
     const { data } = await this.client.get(`/stages/${stageId}/triggers`);

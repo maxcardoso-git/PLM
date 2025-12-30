@@ -423,7 +423,12 @@
     "testFailed": "Test failed",
     "invalidJson": "Invalid JSON payload",
     "confirmDelete": "Delete Integration",
-    "confirmDeleteMsg": "Are you sure you want to delete this integration? This action cannot be undone."
+    "confirmDeleteMsg": "Are you sure you want to delete this integration? This action cannot be undone.",
+    "viewUsage": "View where it is used",
+    "usageTitle": "Integration Usage",
+    "noUsage": "Integration not used",
+    "noUsageDesc": "This integration is not linked to any stage trigger yet.",
+    "usageCount": "This integration is being used in {{count}} trigger(s)"
   },
   "language": {
     "select": "Language",

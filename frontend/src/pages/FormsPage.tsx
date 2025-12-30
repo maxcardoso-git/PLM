@@ -1,8 +1,17 @@
 import { useState, useEffect } from 'react';
-import { FileText, AlertCircle, RefreshCw, Eye, FolderOpen, Settings, ExternalLink, Loader2 } from 'lucide-react';
+import { FileText, AlertCircle, RefreshCw, Eye, FolderOpen, Settings, ExternalLink, Loader2, Lightbulb, Target, BookOpen, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useSettings } from '../context/SettingsContext';
 import { Modal } from '../components/ui';
+import {
+  HowItWorksModal,
+  HowItWorksButton,
+  InfoCard,
+  FeatureList,
+  ExampleBox,
+  RulesList,
+  type HowItWorksContent,
+} from '../components/HowItWorksModal';
 
 interface FormDefinition {
   id: string;
@@ -94,6 +103,101 @@ export function FormsPage() {
   const [loadingSchema, setLoadingSchema] = useState(false);
   const [schemaError, setSchemaError] = useState<string | null>(null);
   const [formValues, setFormValues] = useState<Record<string, any>>({});
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
+
+  const howItWorksContent: HowItWorksContent = {
+    title: 'Formulários',
+    subtitle: 'Gerencie e visualize formulários externos',
+    sections: [
+      {
+        id: 'concept',
+        title: 'Conceito',
+        icon: <Lightbulb size={18} />,
+        content: (
+          <div className="space-y-4">
+            <p>
+              <strong>Formulários</strong> são estruturas de dados que capturam informações durante o
+              processamento de cards nos pipelines. Eles são gerenciados por uma API externa e
+              podem ser anexados a stages para coleta de dados.
+            </p>
+            <InfoCard title="Formulários Externos">
+              O PLM consome formulários de uma API externa configurada nas Configurações.
+              Esta página permite visualizar os formulários disponíveis e simular seu preenchimento.
+            </InfoCard>
+            <p>
+              Os formulários são organizados por <strong>Projeto</strong>, facilitando a identificação
+              de quais formulários pertencem a cada área ou contexto de negócio.
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: 'features',
+        title: 'Funcionalidades',
+        icon: <Zap size={18} />,
+        content: (
+          <div className="space-y-4">
+            <p>Na tela de Formulários você pode:</p>
+            <FeatureList
+              items={[
+                { text: 'Visualizar todos os formulários publicados e aprovados' },
+                { text: 'Agrupar formulários por projeto para melhor organização' },
+                { text: 'Simular o preenchimento de formulários antes de anexá-los' },
+                { text: 'Verificar os campos, tipos e validações de cada formulário' },
+                { text: 'Acessar a API externa para gerenciar os formulários' },
+              ]}
+            />
+            <InfoCard title="Simulação" variant="info">
+              O botão "Simular" permite testar o preenchimento do formulário sem salvar dados.
+              É útil para verificar se o formulário está configurado corretamente.
+            </InfoCard>
+          </div>
+        ),
+      },
+      {
+        id: 'rules',
+        title: 'Regras',
+        icon: <BookOpen size={18} />,
+        content: (
+          <div className="space-y-4">
+            <p>Regras importantes sobre Formulários:</p>
+            <RulesList
+              rules={[
+                'Apenas formulários com status "Published" e aprovados (BIA) são exibidos',
+                'A criação e edição de formulários é feita na API externa',
+                'Para usar formulários, você precisa configurar a API nas Configurações',
+                'Formulários podem ser anexados a stages do pipeline no Editor',
+                'Cada stage pode ter múltiplos formulários anexados',
+                'O preenchimento real ocorre no Kanban, ao abrir um card',
+              ]}
+            />
+          </div>
+        ),
+      },
+      {
+        id: 'examples',
+        title: 'Exemplos',
+        icon: <Target size={18} />,
+        content: (
+          <div className="space-y-4">
+            <p>Exemplos de uso de Formulários:</p>
+            <ExampleBox title="Cadastro de Cliente">
+              Crie um formulário com campos como Nome, CPF/CNPJ, Telefone, Email e Endereço.
+              Anexe-o ao stage "Cadastro" do pipeline de vendas para capturar os dados do cliente.
+            </ExampleBox>
+            <ExampleBox title="Checklist de Qualidade">
+              Configure um formulário com campos do tipo checkbox para verificação de itens.
+              Anexe ao stage "Inspeção" para garantir que todos os critérios foram verificados.
+            </ExampleBox>
+            <ExampleBox title="Feedback do Cliente">
+              Use campos de rating e textarea para capturar avaliações.
+              Anexe ao stage "Concluído" para coletar feedback após a finalização do processo.
+            </ExampleBox>
+          </div>
+        ),
+      },
+    ],
+  };
 
   const fetchForms = async () => {
     if (!isConfigured) return;
@@ -496,6 +600,12 @@ export function FormsPage() {
 
   return (
     <div className="p-6">
+      <HowItWorksModal
+        isOpen={showHowItWorks}
+        onClose={() => setShowHowItWorks(false)}
+        content={howItWorksContent}
+      />
+
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <FileText className="text-gray-400" size={28} />
@@ -507,6 +617,7 @@ export function FormsPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <HowItWorksButton onClick={() => setShowHowItWorks(true)} />
           <button
             onClick={fetchForms}
             disabled={loading}

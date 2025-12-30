@@ -12,11 +12,23 @@ import {
   Copy,
   X,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Sparkles,
+  Shield,
+  BookOpen,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
 import { Modal } from '../components/ui';
+import {
+  HowItWorksModal,
+  HowItWorksButton,
+  InfoCard,
+  FeatureList,
+  ExampleBox,
+  RulesList,
+  type HowItWorksContent,
+} from '../components/HowItWorksModal';
 
 type StageClassification = 'NOT_STARTED' | 'ON_GOING' | 'WAITING' | 'FINISHED' | 'CANCELED';
 
@@ -235,6 +247,149 @@ export function TemplatesPage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // How it Works modal state
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
+
+  const howItWorksContent: HowItWorksContent = {
+    title: 'Templates de Pipeline',
+    subtitle: 'Comece rapidamente com modelos prontos',
+    sections: [
+      {
+        id: 'conceito',
+        title: 'Conceito',
+        icon: <LayoutTemplate size={20} />,
+        content: (
+          <div className="space-y-4">
+            <InfoCard title="O que são Templates?" variant="highlight">
+              <p>
+                Templates são <strong>modelos pré-configurados de pipelines</strong> que aceleram
+                a criação de novos fluxos de trabalho. Cada template inclui estágios, cores,
+                classificações e transições já definidas para cenários comuns de negócio.
+              </p>
+            </InfoCard>
+
+            <InfoCard title="Ponto de Partida">
+              <p>
+                Os templates servem como <strong>ponto de partida</strong>. Após criar um pipeline
+                a partir de um template, você pode customizá-lo completamente: adicionar, remover
+                ou modificar estágios e transições conforme suas necessidades específicas.
+              </p>
+            </InfoCard>
+
+            <InfoCard title="Categorias">
+              <p>
+                Os templates são organizados por <strong>área de negócio</strong>: RH, Vendas,
+                Suporte, Projetos, Marketing e Compliance. Cada categoria atende fluxos de trabalho
+                típicos do setor.
+              </p>
+            </InfoCard>
+          </div>
+        ),
+      },
+      {
+        id: 'funcionalidades',
+        title: 'Funcionalidades',
+        icon: <Sparkles size={20} />,
+        content: (
+          <div className="space-y-4">
+            <FeatureList
+              items={[
+                { icon: <LayoutTemplate size={16} />, text: 'Templates prontos para diversos cenários de negócio' },
+                { icon: <FolderKanban size={16} />, text: 'Estágios com cores e classificações já definidos' },
+                { icon: <ArrowRight size={16} />, text: 'Transições pré-configuradas seguindo boas práticas' },
+                { icon: <Copy size={16} />, text: 'Preview completo antes de criar o pipeline' },
+                { icon: <Sparkles size={16} />, text: 'Criação instantânea com um clique' },
+                { icon: <CheckCircle2 size={16} />, text: 'Redirecionamento automático para o editor' },
+              ]}
+            />
+
+            <InfoCard title="Preview Detalhado">
+              <p>
+                Antes de criar, você pode ver o <strong>preview completo</strong> do template:
+                todos os estágios com suas cores, quais são iniciais e finais, e todas as
+                transições possíveis entre eles.
+              </p>
+            </InfoCard>
+          </div>
+        ),
+      },
+      {
+        id: 'regras',
+        title: 'Regras',
+        icon: <Shield size={20} />,
+        content: (
+          <div className="space-y-4">
+            <RulesList
+              rules={[
+                'Uma organização deve estar selecionada para criar pipelines a partir de templates',
+                'O pipeline criado recebe o nome do template com sufixo "(Template)"',
+                'Uma chave única é gerada automaticamente para evitar conflitos',
+                'Após criação, o pipeline é independente - alterações não afetam o template original',
+                'Todos os estágios e transições são criados na versão 1 (rascunho) do pipeline',
+                'Você será redirecionado automaticamente para o editor após a criação',
+              ]}
+            />
+
+            <InfoCard title="Customização Livre" variant="warning">
+              <p>
+                Após criar o pipeline a partir do template, ele é <strong>totalmente independente</strong>.
+                Você pode renomear, adicionar formulários, configurar gatilhos e fazer quaisquer
+                modificações necessárias.
+              </p>
+            </InfoCard>
+          </div>
+        ),
+      },
+      {
+        id: 'exemplos',
+        title: 'Exemplos',
+        icon: <BookOpen size={20} />,
+        content: (
+          <div className="space-y-4">
+            <ExampleBox title="Recrutamento e Seleção">
+              <p className="text-sm text-gray-600 mb-3">
+                Template para processo seletivo completo:
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {['Triagem', 'Análise de Currículo', 'Entrevista RH', 'Entrevista Técnica', 'Proposta', 'Contratado', 'Reprovado'].map((stage) => (
+                  <span key={stage} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                    {stage}
+                  </span>
+                ))}
+              </div>
+            </ExampleBox>
+
+            <ExampleBox title="Funil de Vendas">
+              <p className="text-sm text-gray-600 mb-3">
+                Template para gestão de leads e oportunidades:
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {['Lead Captado', 'Qualificação', 'Apresentação', 'Proposta Enviada', 'Negociação', 'Fechado Ganho', 'Fechado Perdido'].map((stage) => (
+                  <span key={stage} className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">
+                    {stage}
+                  </span>
+                ))}
+              </div>
+            </ExampleBox>
+
+            <ExampleBox title="Aprovação e Compliance">
+              <p className="text-sm text-gray-600 mb-3">
+                Template para fluxos de aprovação multinível:
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {['Rascunho', 'Em Revisão', 'Aprovação N1', 'Aprovação N2', 'Aprovação Final', 'Aprovado', 'Rejeitado'].map((stage) => (
+                  <span key={stage} className="text-xs px-2 py-1 bg-teal-100 text-teal-700 rounded">
+                    {stage}
+                  </span>
+                ))}
+              </div>
+            </ExampleBox>
+          </div>
+        ),
+      },
+    ],
+  };
+
   const handlePreview = (template: PipelineTemplate) => {
     setSelectedTemplate(template);
     setShowPreview(true);
@@ -302,7 +457,10 @@ export function TemplatesPage() {
   return (
     <div className="p-6">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Templates de Pipeline</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-gray-900">Templates de Pipeline</h1>
+          <HowItWorksButton onClick={() => setShowHowItWorks(true)} />
+        </div>
         <p className="text-gray-500 mt-1">
           Comece rapidamente com templates pré-configurados para diferentes áreas de negócio
         </p>
@@ -506,6 +664,13 @@ export function TemplatesPage() {
           </div>
         )}
       </Modal>
+
+      {/* How it Works Modal */}
+      <HowItWorksModal
+        isOpen={showHowItWorks}
+        onClose={() => setShowHowItWorks(false)}
+        content={howItWorksContent}
+      />
     </div>
   );
 }

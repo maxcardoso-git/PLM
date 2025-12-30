@@ -156,4 +156,57 @@ export class IntegrationsService {
       testPayload: payload || integration.defaultPayload || {},
     };
   }
+
+  async getUsage(ctx: TenantContext, id: string) {
+    const integration = await this.findOne(ctx, id);
+
+    const triggers = await this.prisma.stageTrigger.findMany({
+      where: { integrationId: id },
+      include: {
+        stage: {
+          select: {
+            id: true,
+            name: true,
+            pipelineVersion: {
+              select: {
+                id: true,
+                version: true,
+                status: true,
+                pipeline: {
+                  select: { id: true, key: true, name: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const usages = triggers.map((trigger) => ({
+      triggerId: trigger.id,
+      eventType: trigger.eventType,
+      enabled: trigger.enabled,
+      pipeline: {
+        id: trigger.stage.pipelineVersion.pipeline.id,
+        key: trigger.stage.pipelineVersion.pipeline.key,
+        name: trigger.stage.pipelineVersion.pipeline.name,
+      },
+      version: trigger.stage.pipelineVersion.version,
+      versionStatus: trigger.stage.pipelineVersion.status,
+      stage: {
+        id: trigger.stage.id,
+        name: trigger.stage.name,
+      },
+    }));
+
+    return {
+      integration: {
+        id: integration.id,
+        key: integration.key,
+        name: integration.name,
+      },
+      usages,
+      totalCount: triggers.length,
+    };
+  }
 }

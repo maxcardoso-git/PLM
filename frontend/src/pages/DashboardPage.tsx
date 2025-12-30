@@ -1,9 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Workflow, FileText, Settings, ArrowRight, LayoutGrid, CheckCircle2, Clock, Users } from 'lucide-react';
+import { Workflow, FileText, Settings, ArrowRight, LayoutGrid, CheckCircle2, Clock, Users, Lightbulb, Target, BookOpen, Zap } from 'lucide-react';
 import { useTenant } from '../context/TenantContext';
 import { api } from '../services/api';
+import {
+  HowItWorksModal,
+  HowItWorksButton,
+  InfoCard,
+  FeatureList,
+  ExampleBox,
+  RulesList,
+  type HowItWorksContent,
+} from '../components/HowItWorksModal';
 
 interface DashboardStats {
   totalPipelines: number;
@@ -22,6 +31,98 @@ export function DashboardPage() {
     totalForms: 0,
   });
   const [loadingStats, setLoadingStats] = useState(false);
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
+
+  const howItWorksContent: HowItWorksContent = {
+    title: 'Dashboard PLM',
+    subtitle: 'Sua central de controle para gerenciamento de processos',
+    sections: [
+      {
+        id: 'concept',
+        title: 'Conceito',
+        icon: <Lightbulb size={18} />,
+        content: (
+          <div className="space-y-4">
+            <p>
+              O <strong>Dashboard</strong> é a tela inicial do PLM (Process Lifecycle Management),
+              oferecendo uma visão geral do seu ambiente de trabalho e acesso rápido às principais funcionalidades.
+            </p>
+            <InfoCard title="O que é o PLM?">
+              O PLM é uma plataforma de gerenciamento de processos baseada em pipelines (fluxos de trabalho)
+              que permite criar, configurar e executar workflows personalizados para qualquer tipo de processo
+              empresarial.
+            </InfoCard>
+            <p>
+              Através do Dashboard, você pode monitorar o status dos seus pipelines, verificar quantos
+              estão publicados ou em rascunho, e acessar rapidamente as áreas de configuração.
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: 'features',
+        title: 'Funcionalidades',
+        icon: <Zap size={18} />,
+        content: (
+          <div className="space-y-4">
+            <p>O Dashboard oferece as seguintes funcionalidades:</p>
+            <FeatureList
+              items={[
+                { text: 'Visualização do contexto atual (Tenant e Organização selecionados)' },
+                { text: 'Estatísticas em tempo real: total de pipelines, publicados, rascunhos e formulários' },
+                { text: 'Links rápidos para Pipelines, Formulários e Configurações' },
+                { text: 'Indicadores visuais para facilitar a navegação' },
+              ]}
+            />
+            <InfoCard title="Estatísticas" variant="info">
+              As estatísticas são atualizadas automaticamente quando você acessa o Dashboard,
+              refletindo sempre o estado atual do seu ambiente.
+            </InfoCard>
+          </div>
+        ),
+      },
+      {
+        id: 'rules',
+        title: 'Regras',
+        icon: <BookOpen size={18} />,
+        content: (
+          <div className="space-y-4">
+            <p>Algumas regras importantes para usar o Dashboard:</p>
+            <RulesList
+              rules={[
+                'Você precisa selecionar um Tenant e uma Organização na barra lateral para ver as estatísticas',
+                'As estatísticas mostram apenas os dados da organização selecionada',
+                'Cada tenant pode ter múltiplas organizações com seus próprios pipelines',
+                'O Dashboard é a página inicial padrão após o login',
+              ]}
+            />
+          </div>
+        ),
+      },
+      {
+        id: 'examples',
+        title: 'Exemplos',
+        icon: <Target size={18} />,
+        content: (
+          <div className="space-y-4">
+            <p>Veja alguns cenários de uso do Dashboard:</p>
+            <ExampleBox title="Verificar status dos processos">
+              Ao acessar o Dashboard pela manhã, você pode rapidamente ver quantos pipelines estão
+              publicados e quantos ainda estão em desenvolvimento (rascunho), ajudando no planejamento do dia.
+            </ExampleBox>
+            <ExampleBox title="Navegação rápida">
+              Use os cards de links rápidos para ir diretamente para a área que precisa trabalhar,
+              seja criar um novo pipeline, configurar formulários ou ajustar as configurações do sistema.
+            </ExampleBox>
+            <ExampleBox title="Monitoramento de equipe">
+              Gestores podem usar o Dashboard para ter uma visão geral do progresso da equipe,
+              verificando quantos processos já foram finalizados e publicados.
+            </ExampleBox>
+          </div>
+        ),
+      },
+    ],
+  };
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -109,12 +210,21 @@ export function DashboardPage() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">{t('dashboard.title')}</h1>
-        <p className="text-gray-500 mt-2">
-          {t('dashboard.overview')}
-        </p>
+      <div className="flex items-start justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">{t('dashboard.title')}</h1>
+          <p className="text-gray-500 mt-2">
+            {t('dashboard.overview')}
+          </p>
+        </div>
+        <HowItWorksButton onClick={() => setShowHowItWorks(true)} />
       </div>
+
+      <HowItWorksModal
+        isOpen={showHowItWorks}
+        onClose={() => setShowHowItWorks(false)}
+        content={howItWorksContent}
+      />
 
       {/* Context Info */}
       {tenant && organization && (

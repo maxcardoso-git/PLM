@@ -12,11 +12,25 @@ import {
   AlertTriangle,
   Settings,
   Loader2,
+  Link2,
+  Key,
+  Webhook,
+  Shield,
+  BookOpen,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useSettings } from '../context/SettingsContext';
 import { useTenant } from '../context/TenantContext';
 import type { Integration, ExternalApiKey } from '../types';
+import {
+  HowItWorksModal,
+  HowItWorksButton,
+  InfoCard,
+  FeatureList,
+  ExampleBox,
+  RulesList,
+  type HowItWorksContent,
+} from '../components/HowItWorksModal';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
@@ -63,6 +77,173 @@ export function IntegrationsPage() {
 
   // Toast state
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string; details?: string } | null>(null);
+
+  // Usage modal state
+  const [showUsageModal, setShowUsageModal] = useState(false);
+  const [usageIntegration, setUsageIntegration] = useState<Integration | null>(null);
+  const [usageData, setUsageData] = useState<{
+    integration: { id: string; key: string; name: string };
+    usages: {
+      triggerId: string;
+      eventType: string;
+      enabled: boolean;
+      pipeline: { id: string; key: string; name: string };
+      version: number;
+      versionStatus: string;
+      stage: { id: string; name: string };
+    }[];
+    totalCount: number;
+  } | null>(null);
+  const [loadingUsage, setLoadingUsage] = useState(false);
+
+  // How it Works modal state
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
+
+  const howItWorksContent: HowItWorksContent = {
+    title: 'Integrações',
+    subtitle: 'Conecte seu PLM a sistemas externos',
+    sections: [
+      {
+        id: 'conceito',
+        title: 'Conceito',
+        icon: <Zap size={20} />,
+        content: (
+          <div className="space-y-4">
+            <InfoCard title="O que são Integrações?" variant="highlight">
+              <p>
+                Integrações permitem que o PLM se comunique com sistemas externos através de
+                <strong> APIs</strong>. Quando eventos ocorrem no pipeline (como movimentação de cards
+                ou preenchimento de formulários), o PLM pode automaticamente enviar dados para
+                outros sistemas.
+              </p>
+            </InfoCard>
+
+            <InfoCard title="Arquitetura">
+              <p>
+                Cada integração é configurada com uma <strong>API Key externa</strong> que autentica
+                as chamadas ao serviço de destino. A integração define o método HTTP, endpoint
+                e payload padrão que serão utilizados.
+              </p>
+            </InfoCard>
+
+            <InfoCard title="Gatilhos">
+              <p>
+                As integrações são acionadas através de <strong>gatilhos de stage</strong>. Você
+                configura em qual estágio do pipeline a integração será chamada e em qual
+                momento (entrada no estágio ou saída).
+              </p>
+            </InfoCard>
+          </div>
+        ),
+      },
+      {
+        id: 'funcionalidades',
+        title: 'Funcionalidades',
+        icon: <Key size={20} />,
+        content: (
+          <div className="space-y-4">
+            <FeatureList
+              items={[
+                { icon: <Key size={16} />, text: 'Vinculação com API Keys externas do serviço configurado' },
+                { icon: <Webhook size={16} />, text: 'Suporte a métodos GET, POST, PUT, PATCH e DELETE' },
+                { icon: <Settings size={16} />, text: 'Configuração de endpoint e payload padrão customizável' },
+                { icon: <TestTube2 size={16} />, text: 'Teste de integração antes de usar em produção' },
+                { icon: <Link2 size={16} />, text: 'Visualização de onde cada integração está sendo utilizada' },
+                { icon: <CheckCircle2 size={16} />, text: 'Ativar/desativar integrações sem excluir configuração' },
+              ]}
+            />
+
+            <InfoCard title="Gerenciamento de Uso">
+              <p>
+                O botão <strong>"Ver uso"</strong> mostra todos os pipelines e stages onde
+                a integração está configurada como gatilho. Isso ajuda a entender o impacto
+                de alterações e evitar exclusões acidentais.
+              </p>
+            </InfoCard>
+          </div>
+        ),
+      },
+      {
+        id: 'regras',
+        title: 'Regras',
+        icon: <Shield size={20} />,
+        content: (
+          <div className="space-y-4">
+            <RulesList
+              rules={[
+                'API Keys Service deve estar configurado em Configurações antes de criar integrações',
+                'Cada integração deve ter uma key única dentro da organização',
+                'A API Key externa selecionada na criação não pode ser alterada depois',
+                'Integrações em uso por gatilhos não podem ser excluídas - remova os gatilhos primeiro',
+                'Integrações desabilitadas não são executadas mesmo quando o gatilho é disparado',
+                'O payload pode ser sobrescrito no gatilho com dados dinâmicos do card',
+              ]}
+            />
+
+            <InfoCard title="Payload Dinâmico" variant="warning">
+              <p>
+                Nos gatilhos, você pode usar variáveis dinâmicas no payload como
+                <code className="mx-1 px-1 bg-orange-100 rounded">{'{{card.id}}'}</code>,
+                <code className="mx-1 px-1 bg-orange-100 rounded">{'{{card.title}}'}</code>,
+                <code className="mx-1 px-1 bg-orange-100 rounded">{'{{stage.name}}'}</code> e
+                campos do formulário.
+              </p>
+            </InfoCard>
+          </div>
+        ),
+      },
+      {
+        id: 'exemplos',
+        title: 'Exemplos',
+        icon: <BookOpen size={20} />,
+        content: (
+          <div className="space-y-4">
+            <ExampleBox title="Notificação via Slack">
+              <p className="text-sm text-gray-600 mb-2">
+                Quando um card entra no estágio "Aprovado", enviar notificação para um canal do Slack.
+              </p>
+              <div className="bg-gray-800 text-gray-100 p-3 rounded text-xs font-mono">
+                <div><span className="text-blue-400">POST</span> /api/messages</div>
+                <div className="mt-1 text-gray-400">{"{"}</div>
+                <div className="ml-4">"channel": "#aprovacoes",</div>
+                <div className="ml-4">"text": "Card {'{{card.title}}'} foi aprovado!"</div>
+                <div className="text-gray-400">{"}"}</div>
+              </div>
+            </ExampleBox>
+
+            <ExampleBox title="Sincronização com ERP">
+              <p className="text-sm text-gray-600 mb-2">
+                Ao finalizar o processo, criar registro no sistema ERP com dados do formulário.
+              </p>
+              <div className="bg-gray-800 text-gray-100 p-3 rounded text-xs font-mono">
+                <div><span className="text-green-400">POST</span> /api/erp/records</div>
+                <div className="mt-1 text-gray-400">{"{"}</div>
+                <div className="ml-4">"document": "{'{{forms.cadastro.cnpj}}'}"</div>
+                <div className="ml-4">"name": "{'{{forms.cadastro.razao_social}}'}"</div>
+                <div className="ml-4">"status": "active"</div>
+                <div className="text-gray-400">{"}"}</div>
+              </div>
+            </ExampleBox>
+
+            <ExampleBox title="Webhook para Analytics">
+              <p className="text-sm text-gray-600 mb-2">
+                Enviar evento de analytics quando um card muda de estágio para tracking de métricas.
+              </p>
+              <div className="bg-gray-800 text-gray-100 p-3 rounded text-xs font-mono">
+                <div><span className="text-green-400">POST</span> /api/events</div>
+                <div className="mt-1 text-gray-400">{"{"}</div>
+                <div className="ml-4">"event": "stage_change",</div>
+                <div className="ml-4">"cardId": "{'{{card.id}}'}"</div>
+                <div className="ml-4">"fromStage": "{'{{previousStage.name}}'}"</div>
+                <div className="ml-4">"toStage": "{'{{stage.name}}'}"</div>
+                <div className="text-gray-400">{"}"}</div>
+              </div>
+            </ExampleBox>
+          </div>
+        ),
+      },
+    ],
+  };
 
   const showToast = (type: 'success' | 'error', message: string, details?: string) => {
     setToast({ type, message, details });
@@ -300,6 +481,23 @@ export function IntegrationsPage() {
     }
   };
 
+  // Show usage modal
+  const openUsageModal = async (integration: Integration) => {
+    setUsageIntegration(integration);
+    setUsageData(null);
+    setShowUsageModal(true);
+    setLoadingUsage(true);
+
+    try {
+      const data = await api.getIntegrationUsage(integration.id);
+      setUsageData(data);
+    } catch (err) {
+      console.error('Failed to fetch integration usage:', err);
+    } finally {
+      setLoadingUsage(false);
+    }
+  };
+
   // Generate key from name
   const generateKey = (name: string) => {
     return name
@@ -331,6 +529,7 @@ export function IntegrationsPage() {
             <h1 className="text-2xl font-bold text-gray-900">{t('integrations.title')}</h1>
             <p className="text-sm text-gray-500">{t('integrations.subtitle')}</p>
           </div>
+          <HowItWorksButton onClick={() => setShowHowItWorks(true)} />
         </div>
         <button
           onClick={openCreateModal}
@@ -447,6 +646,13 @@ export function IntegrationsPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => openUsageModal(integration)}
+                        className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded"
+                        title={t('integrations.viewUsage')}
+                      >
+                        <Link2 size={16} />
+                      </button>
                       <button
                         onClick={() => openTestModal(integration)}
                         className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
@@ -752,6 +958,108 @@ export function IntegrationsPage() {
         </div>
       )}
 
+      {/* Usage Modal */}
+      {showUsageModal && usageIntegration && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  {t('integrations.usageTitle')}
+                </h2>
+                <p className="text-sm text-gray-500">{usageIntegration.name}</p>
+              </div>
+              <button
+                onClick={() => setShowUsageModal(false)}
+                className="p-1 text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {loadingUsage ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="animate-spin text-gray-400" size={32} />
+                </div>
+              ) : usageData?.totalCount === 0 ? (
+                <div className="text-center py-12">
+                  <Link2 className="mx-auto text-gray-300 mb-4" size={48} />
+                  <h3 className="text-lg font-semibold text-gray-900">{t('integrations.noUsage')}</h3>
+                  <p className="text-gray-500 mt-1">{t('integrations.noUsageDesc')}</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-600 mb-4">
+                    {t('integrations.usageCount', { count: usageData?.totalCount || 0 })}
+                  </p>
+                  {usageData?.usages.map((usage) => (
+                    <div
+                      key={usage.triggerId}
+                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gray-900">{usage.pipeline.name}</span>
+                          <span className="text-xs px-2 py-0.5 bg-gray-200 text-gray-600 rounded">
+                            v{usage.version}
+                          </span>
+                          <span className={`text-xs px-2 py-0.5 rounded ${
+                            usage.versionStatus === 'published'
+                              ? 'bg-green-100 text-green-700'
+                              : usage.versionStatus === 'draft'
+                              ? 'bg-yellow-100 text-yellow-700'
+                              : 'bg-gray-100 text-gray-600'
+                          }`}>
+                            {usage.versionStatus}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Stage: <span className="text-gray-700">{usage.stage.name}</span>
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`text-xs px-2 py-1 rounded-full ${
+                          usage.eventType === 'CARD_MOVEMENT'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-purple-100 text-purple-700'
+                        }`}>
+                          {usage.eventType === 'CARD_MOVEMENT' ? 'Movimento' : 'Campo'}
+                        </span>
+                        <span className={`flex items-center gap-1 text-xs ${
+                          usage.enabled ? 'text-green-600' : 'text-gray-400'
+                        }`}>
+                          {usage.enabled ? (
+                            <>
+                              <CheckCircle2 size={12} />
+                              Ativo
+                            </>
+                          ) : (
+                            <>
+                              <XCircle size={12} />
+                              Inativo
+                            </>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end px-6 py-4 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => setShowUsageModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg"
+              >
+                {t('common.close')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Toast Notification */}
       {toast && (
         <div className="fixed bottom-4 right-4 z-50 max-w-md animate-in slide-in-from-bottom-2">
@@ -782,6 +1090,13 @@ export function IntegrationsPage() {
           </div>
         </div>
       )}
+
+      {/* How it Works Modal */}
+      <HowItWorksModal
+        isOpen={showHowItWorks}
+        onClose={() => setShowHowItWorks(false)}
+        content={howItWorksContent}
+      />
     </div>
   );
 }

@@ -86,4 +86,15 @@ export class IntegrationsController {
   ) {
     return this.integrationsService.test(ctx, integrationId, dto.payload || {});
   }
+
+  @Get(':integrationId/usage')
+  @ApiOperation({ summary: 'Get integration usage in pipelines' })
+  @ApiResponse({ status: 200, description: 'Integration usage details' })
+  @ApiResponse({ status: 404, description: 'Integration not found' })
+  getUsage(
+    @Tenant() ctx: TenantContext,
+    @Param('integrationId', ParseUUIDPipe) integrationId: string,
+  ) {
+    return this.integrationsService.getUsage(ctx, integrationId);
+  }
 }

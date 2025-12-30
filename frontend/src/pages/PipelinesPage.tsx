@@ -2,12 +2,21 @@ import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, Workflow, Users, AlertCircle, Settings, Play, FolderOpen, RefreshCw, Trash2 } from 'lucide-react';
+import { Plus, Workflow, Users, AlertCircle, Settings, Play, FolderOpen, RefreshCw, Trash2, Lightbulb, Target, BookOpen, Zap } from 'lucide-react';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
 import { useSettings } from '../context/SettingsContext';
 import { Modal } from '../components/ui';
 import type { Pipeline } from '../types';
+import {
+  HowItWorksModal,
+  HowItWorksButton,
+  InfoCard,
+  FeatureList,
+  ExampleBox,
+  RulesList,
+  type HowItWorksContent,
+} from '../components/HowItWorksModal';
 
 type TabFilter = 'all' | 'published' | 'draft';
 
@@ -41,6 +50,103 @@ export function PipelinesPage() {
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [deleteModal, setDeleteModal] = useState<{ show: boolean; pipeline: Pipeline | null }>({ show: false, pipeline: null });
   const [deleting, setDeleting] = useState(false);
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
+
+  const howItWorksContent: HowItWorksContent = {
+    title: 'Pipelines',
+    subtitle: 'Gerencie seus fluxos de trabalho e processos',
+    sections: [
+      {
+        id: 'concept',
+        title: 'Conceito',
+        icon: <Lightbulb size={18} />,
+        content: (
+          <div className="space-y-4">
+            <p>
+              Um <strong>Pipeline</strong> é um fluxo de trabalho que define as etapas (stages) pelas quais
+              um item de trabalho (card) deve passar até sua conclusão.
+            </p>
+            <InfoCard title="O que é um Pipeline?">
+              Pense em um pipeline como uma linha de produção digital. Cada card representa uma unidade de trabalho
+              que se move através de diferentes etapas (stages), desde o início até a conclusão do processo.
+            </InfoCard>
+            <p>
+              Pipelines podem ser organizados por <strong>Projetos</strong>, facilitando o agrupamento de
+              processos relacionados e a navegação entre eles.
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: 'features',
+        title: 'Funcionalidades',
+        icon: <Zap size={18} />,
+        content: (
+          <div className="space-y-4">
+            <p>Na tela de Pipelines você pode:</p>
+            <FeatureList
+              items={[
+                { text: 'Criar novos pipelines com chave única, nome e descrição' },
+                { text: 'Associar pipelines a projetos para melhor organização' },
+                { text: 'Visualizar o status de cada pipeline (rascunho, publicado, arquivado)' },
+                { text: 'Filtrar pipelines por status usando as abas' },
+                { text: 'Acessar o editor de configuração de cada pipeline' },
+                { text: 'Abrir o quadro Kanban de pipelines publicados' },
+                { text: 'Excluir pipelines que não possuem cards' },
+              ]}
+            />
+            <InfoCard title="Dica" variant="info">
+              Use a aba "Publicados" para ver apenas os pipelines prontos para uso,
+              ou "Rascunhos" para ver os que ainda estão em desenvolvimento.
+            </InfoCard>
+          </div>
+        ),
+      },
+      {
+        id: 'rules',
+        title: 'Regras',
+        icon: <BookOpen size={18} />,
+        content: (
+          <div className="space-y-4">
+            <p>Regras importantes sobre Pipelines:</p>
+            <RulesList
+              rules={[
+                'A chave (key) do pipeline deve ser única dentro da organização',
+                'Apenas pipelines publicados aparecem no menu para acesso ao Kanban',
+                'Não é possível excluir um pipeline que possui cards',
+                'Cada pipeline pode ter múltiplas versões (draft, published, archived)',
+                'Somente uma versão pode estar publicada por vez',
+                'Após publicar, as alterações na versão são bloqueadas',
+              ]}
+            />
+          </div>
+        ),
+      },
+      {
+        id: 'examples',
+        title: 'Exemplos',
+        icon: <Target size={18} />,
+        content: (
+          <div className="space-y-4">
+            <p>Exemplos de uso de Pipelines:</p>
+            <ExampleBox title="Atendimento ao Cliente">
+              Crie um pipeline com stages como: "Novo Ticket", "Em Análise", "Aguardando Cliente",
+              "Em Resolução" e "Concluído". Cada ticket de suporte é um card que percorre esse fluxo.
+            </ExampleBox>
+            <ExampleBox title="Aprovação de Documentos">
+              Configure stages como: "Pendente", "Em Revisão", "Aguardando Aprovação", "Aprovado"
+              ou "Rejeitado". Use regras de transição para garantir que documentos tenham comentários
+              antes de serem rejeitados.
+            </ExampleBox>
+            <ExampleBox title="Processo de Vendas">
+              Estruture o funil com: "Lead", "Qualificação", "Proposta Enviada", "Negociação",
+              "Fechado Ganho" ou "Fechado Perdido". Anexe formulários para capturar dados em cada etapa.
+            </ExampleBox>
+          </div>
+        ),
+      },
+    ],
+  };
 
   const fetchProjects = async () => {
     if (!isProjectsConfigured) return;
@@ -211,6 +317,12 @@ export function PipelinesPage() {
 
   return (
     <div className="p-6">
+      <HowItWorksModal
+        isOpen={showHowItWorks}
+        onClose={() => setShowHowItWorks(false)}
+        content={howItWorksContent}
+      />
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{t('pipelines.title')}</h1>
@@ -219,6 +331,7 @@ export function PipelinesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <HowItWorksButton onClick={() => setShowHowItWorks(true)} />
           <button
             onClick={() => fetchPipelines(activeTab)}
             disabled={loading}

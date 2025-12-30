@@ -1,8 +1,17 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Settings, Key, Link2, CheckCircle2, XCircle, TestTube2, Route, Building2, Hash, FolderKanban, KeyRound } from 'lucide-react';
+import { Settings, Key, Link2, CheckCircle2, XCircle, TestTube2, Route, Building2, Hash, FolderKanban, KeyRound, Shield, BookOpen, Zap } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
+import {
+  HowItWorksModal,
+  HowItWorksButton,
+  InfoCard,
+  FeatureList,
+  ExampleBox,
+  RulesList,
+  type HowItWorksContent,
+} from '../components/HowItWorksModal';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
@@ -46,6 +55,141 @@ export function SettingsPage() {
   const [apiKeysTestStatus, setApiKeysTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [apiKeysTestMessage, setApiKeysTestMessage] = useState('');
   const [apiKeysSaved, setApiKeysSaved] = useState(false);
+
+  // How it Works modal state
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
+
+  const howItWorksContent: HowItWorksContent = {
+    title: 'Configurações',
+    subtitle: 'Configure as integrações externas do PLM',
+    sections: [
+      {
+        id: 'conceito',
+        title: 'Conceito',
+        icon: <Settings size={20} />,
+        content: (
+          <div className="space-y-4">
+            <InfoCard title="O que são as Configurações?" variant="highlight">
+              <p>
+                As configurações permitem conectar o PLM a <strong>sistemas externos</strong> que
+                fornecem dados para o funcionamento do sistema. Cada seção configura uma integração
+                específica com uma API externa.
+              </p>
+            </InfoCard>
+
+            <InfoCard title="APIs Externas">
+              <p>
+                O PLM se conecta a serviços externos para buscar formulários, projetos e chaves de API.
+                Cada configuração requer uma <strong>URL base</strong>, <strong>endpoint de listagem</strong>
+                e uma <strong>chave de autenticação</strong>.
+              </p>
+            </InfoCard>
+
+            <InfoCard title="Armazenamento Local">
+              <p>
+                As configurações são salvas no <strong>localStorage</strong> do navegador, o que
+                significa que cada usuário pode ter suas próprias configurações e elas persistem
+                entre sessões.
+              </p>
+            </InfoCard>
+          </div>
+        ),
+      },
+      {
+        id: 'funcionalidades',
+        title: 'Funcionalidades',
+        icon: <Zap size={20} />,
+        content: (
+          <div className="space-y-4">
+            <FeatureList
+              items={[
+                { icon: <Link2 size={16} />, text: 'External Forms API - Busca formulários externos para anexar a pipelines' },
+                { icon: <FolderKanban size={16} />, text: 'External Projects API - Importa projetos de sistemas externos' },
+                { icon: <Building2 size={16} />, text: 'Tenant Configuration - Define tenant e organização padrão' },
+                { icon: <KeyRound size={16} />, text: 'API Keys Service - Gerencia chaves para integrações' },
+                { icon: <TestTube2 size={16} />, text: 'Teste de conexão antes de salvar configurações' },
+                { icon: <CheckCircle2 size={16} />, text: 'Indicadores visuais de status de configuração' },
+              ]}
+            />
+
+            <InfoCard title="Teste de Conexão">
+              <p>
+                O botão <strong>"Testar Conexão"</strong> valida se a API externa está acessível
+                e retornando dados corretamente. Use sempre antes de salvar para garantir que
+                a configuração está funcionando.
+              </p>
+            </InfoCard>
+          </div>
+        ),
+      },
+      {
+        id: 'regras',
+        title: 'Regras',
+        icon: <Shield size={20} />,
+        content: (
+          <div className="space-y-4">
+            <RulesList
+              rules={[
+                'A URL base não deve terminar com barra "/" - será removida automaticamente',
+                'O endpoint deve começar com "/" - será adicionado automaticamente se ausente',
+                'A API Key é armazenada de forma segura no localStorage',
+                'Teste sempre a conexão antes de salvar para validar credenciais',
+                'Configurações desabilitadas não afetam o funcionamento do sistema',
+                'O Tenant ID e Organization ID são necessários para operações no backend',
+              ]}
+            />
+
+            <InfoCard title="Segurança" variant="warning">
+              <p>
+                As configurações incluem <strong>chaves de API sensíveis</strong>. Evite compartilhar
+                seu navegador ou exportar o localStorage sem antes remover essas configurações.
+              </p>
+            </InfoCard>
+          </div>
+        ),
+      },
+      {
+        id: 'exemplos',
+        title: 'Exemplos',
+        icon: <BookOpen size={20} />,
+        content: (
+          <div className="space-y-4">
+            <ExampleBox title="External Forms API">
+              <p className="text-sm text-gray-600 mb-2">
+                Configuração para buscar formulários de um sistema BIA:
+              </p>
+              <div className="bg-gray-100 p-3 rounded text-sm space-y-1">
+                <div><strong>Base URL:</strong> http://exemplo.com/api/v1</div>
+                <div><strong>Endpoint:</strong> /data-entry-forms/external/list</div>
+                <div><strong>API Key:</strong> orc_abc123...</div>
+              </div>
+            </ExampleBox>
+
+            <ExampleBox title="API Keys Service">
+              <p className="text-sm text-gray-600 mb-2">
+                Configuração para listar chaves de API disponíveis para integrações:
+              </p>
+              <div className="bg-gray-100 p-3 rounded text-sm space-y-1">
+                <div><strong>Base URL:</strong> http://exemplo.com/api/v1</div>
+                <div><strong>Endpoint:</strong> /api-keys</div>
+                <div><strong>API Key:</strong> orc_def456...</div>
+              </div>
+            </ExampleBox>
+
+            <ExampleBox title="Tenant Configuration">
+              <p className="text-sm text-gray-600 mb-2">
+                IDs do tenant e organização para operações multi-tenant:
+              </p>
+              <div className="bg-gray-100 p-3 rounded text-sm space-y-1">
+                <div><strong>Tenant ID:</strong> 766fea59-f15c-4443-bb7d-aec965c1131d</div>
+                <div><strong>Organization ID:</strong> Org-1</div>
+              </div>
+            </ExampleBox>
+          </div>
+        ),
+      },
+    ],
+  };
 
   // Forms API handlers
   const handleSave = (e: FormEvent) => {
@@ -217,6 +361,7 @@ export function SettingsPage() {
           <h1 className="text-2xl font-bold text-gray-900">{t('settings.title')}</h1>
           <p className="text-sm text-gray-500">{t('settings.subtitle')}</p>
         </div>
+        <HowItWorksButton onClick={() => setShowHowItWorks(true)} />
       </div>
 
       {/* External Forms API Configuration */}
@@ -720,6 +865,13 @@ export function SettingsPage() {
           </div>
         </form>
       </div>
+
+      {/* How it Works Modal */}
+      <HowItWorksModal
+        isOpen={showHowItWorks}
+        onClose={() => setShowHowItWorks(false)}
+        content={howItWorksContent}
+      />
     </div>
   );
 }
