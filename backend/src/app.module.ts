@@ -16,6 +16,8 @@ import { AppFeaturesModule } from './modules/app-features';
 import { ExternalFormsModule } from './modules/external-forms';
 import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { StageTriggersModule } from './modules/stage-triggers/stage-triggers.module';
+import { PlmApiKeysModule } from './modules/plm-api-keys';
+import { ExternalApiModule } from './modules/external-api';
 
 @Module({
   imports: [
@@ -35,6 +37,8 @@ import { StageTriggersModule } from './modules/stage-triggers/stage-triggers.mod
     ExternalFormsModule,
     IntegrationsModule,
     StageTriggersModule,
+    PlmApiKeysModule,
+    ExternalApiModule,
   ],
   providers: [
     {

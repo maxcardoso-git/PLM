@@ -218,6 +218,11 @@ export function PipelineKanbanPage() {
 
       // If card has a unique key value, try to fetch existing form data
       if (selectedCard?.card.uniqueKeyValue && uniqueKeyFieldId) {
+        console.log('[DEBUG] Fetching form data with uniqueKey:', {
+          formId,
+          uniqueKeyFieldId,
+          uniqueKeyValue: selectedCard.card.uniqueKeyValue,
+        });
         try {
           const dataResponse = await fetch(`${API_BASE_URL}/external-forms/proxy`, {
             method: 'POST',
@@ -234,10 +239,14 @@ export function PipelineKanbanPage() {
             }),
           });
 
+          console.log('[DEBUG] Data response status:', dataResponse.status);
+          const formData = await dataResponse.json();
+          console.log('[DEBUG] Form data response:', formData);
+
           if (dataResponse.ok) {
-            const formData = await dataResponse.json();
             // Normalize the form data structure
             const existingData = formData.data || formData.record || formData;
+            console.log('[DEBUG] Normalized existing data:', existingData);
             if (existingData && typeof existingData === 'object') {
               setExternalFormData(existingData);
             }
@@ -246,6 +255,11 @@ export function PipelineKanbanPage() {
           console.log('No existing form data found for unique key:', dataError);
           // It's OK if no data exists - just leave the form empty
         }
+      } else {
+        console.log('[DEBUG] Skipping form data fetch:', {
+          hasUniqueKeyValue: !!selectedCard?.card.uniqueKeyValue,
+          uniqueKeyFieldId,
+        });
       }
     } catch (error) {
       console.error('Failed to fetch external form schema:', error);

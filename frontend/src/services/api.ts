@@ -15,6 +15,9 @@ import type {
   TransitionRule,
   CreateTransitionRulePayload,
   UpdateTransitionRulePayload,
+  PlmApiKey,
+  CreatePlmApiKeyPayload,
+  UpdatePlmApiKeyPayload,
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
@@ -307,6 +310,42 @@ class ApiClient {
 
   async deleteTransitionRule(ruleId: string): Promise<{ deleted: boolean; id: string }> {
     const { data } = await this.client.delete(`/transition-rules/${ruleId}`);
+    return data;
+  }
+
+  // PLM API Keys
+  async getPlmApiKeys(): Promise<ListResponse<PlmApiKey>> {
+    const { data } = await this.client.get('/plm-api-keys');
+    return data;
+  }
+
+  async getPlmApiKey(id: string): Promise<PlmApiKey> {
+    const { data } = await this.client.get(`/plm-api-keys/${id}`);
+    return data;
+  }
+
+  async createPlmApiKey(payload: CreatePlmApiKeyPayload): Promise<PlmApiKey> {
+    const { data } = await this.client.post('/plm-api-keys', payload);
+    return data;
+  }
+
+  async updatePlmApiKey(id: string, payload: UpdatePlmApiKeyPayload): Promise<PlmApiKey> {
+    const { data } = await this.client.patch(`/plm-api-keys/${id}`, payload);
+    return data;
+  }
+
+  async deletePlmApiKey(id: string): Promise<{ deleted: boolean; id: string }> {
+    const { data } = await this.client.delete(`/plm-api-keys/${id}`);
+    return data;
+  }
+
+  async regeneratePlmApiKey(id: string): Promise<PlmApiKey> {
+    const { data } = await this.client.post(`/plm-api-keys/${id}/regenerate`);
+    return data;
+  }
+
+  async getPlmApiKeyPermissions(): Promise<{ permissions: { value: string; label: string }[] }> {
+    const { data } = await this.client.get('/plm-api-keys/permissions');
     return data;
   }
 }

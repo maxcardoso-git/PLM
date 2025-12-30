@@ -12,6 +12,7 @@ import {
   RulesList,
   type HowItWorksContent,
 } from '../components/HowItWorksModal';
+import { ExternalAccessSection } from '../components/ExternalAccessSection';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
@@ -865,6 +866,9 @@ export function SettingsPage() {
           </div>
         </form>
       </div>
+
+      {/* External Access Section */}
+      <ExternalAccessSection />
 
       {/* How it Works Modal */}
       <HowItWorksModal

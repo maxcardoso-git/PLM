@@ -70,6 +70,7 @@ enum MoveReason {
   manual
   api
   automation
+  external_api
 }
 
 enum OutboxStatus {
@@ -135,6 +136,7 @@ model Tenant {
   outboxEvents       OutboxEvent[]
   integrations       Integration[]
   users              User[]
+  plmApiKeys         PlmApiKey[]
 
   @@index([status])
   @@map("tenants")
@@ -245,6 +247,7 @@ model PipelineVersion {
 model Stage {
   id                String              @id @default(uuid()) @db.Uuid
   pipelineVersionId String              @map("pipeline_version_id") @db.Uuid
+  key               String?             @db.VarChar(100)
   name              String              @db.VarChar(255)
   stageOrder        Int                 @map("stage_order")
   classification    StageClassification
@@ -376,6 +379,7 @@ model Card {
   priority        CardPriority @default(medium)
   status          CardStatus   @default(active)
   uniqueKeyValue  String?      @map("unique_key_value") @db.VarChar(500)
+  sessionId       String?      @map("session_id") @db.VarChar(255)
   createdBy       String?      @map("created_by") @db.Uuid
   createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz
@@ -389,12 +393,14 @@ model Card {
   triggerExecutions TriggerExecution[]
   comments          CardComment[]
 
+  @@unique([pipelineId, sessionId], name: "uq_card_session")
   @@index([tenantId])
   @@index([orgId])
   @@index([pipelineId])
   @@index([currentStageId])
   @@index([status])
   @@index([priority])
+  @@index([sessionId])
   @@index([createdAt(sort: Desc)])
   @@index([pipelineId, status, currentStageId], name: "idx_cards_kanban")
   @@map("cards")
@@ -579,4 +585,31 @@ model TriggerExecution {
   @@index([cardId])
   @@index([status])
   @@map("trigger_executions")
+}
+
+// =========================================================
+// PLM API KEYS (External Integration)
+// =========================================================
+
+model PlmApiKey {
+  id          String    @id @default(uuid()) @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  orgId       String    @map("org_id") @db.VarChar(100)
+  name        String    @db.VarChar(255)
+  key         String    @unique @db.VarChar(64)
+  description String?   @db.Text
+  permissions String[]  @db.VarChar(50)
+  enabled     Boolean   @default(true)
+  expiresAt   DateTime? @map("expires_at") @db.Timestamptz
+  lastUsedAt  DateTime? @map("last_used_at") @db.Timestamptz
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([orgId])
+  @@index([key])
+  @@index([enabled])
+  @@map("plm_api_keys")
 }

@@ -369,3 +369,39 @@ export interface CreateTransitionRulePayload {
 export interface UpdateTransitionRulePayload {
   enabled?: boolean;
 }
+
+// PLM API Key Types
+export type PlmApiKeyPermission =
+  | 'cards:create'
+  | 'cards:read'
+  | 'cards:update'
+  | 'cards:move'
+  | 'forms:update';
+
+export interface PlmApiKey {
+  id: string;
+  name: string;
+  key?: string;
+  description?: string;
+  permissions: PlmApiKeyPermission[];
+  enabled: boolean;
+  expiresAt?: string;
+  lastUsedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatePlmApiKeyPayload {
+  name: string;
+  description?: string;
+  permissions: PlmApiKeyPermission[];
+  expiresAt?: string;
+}
+
+export interface UpdatePlmApiKeyPayload {
+  name?: string;
+  description?: string;
+  permissions?: PlmApiKeyPermission[];
+  enabled?: boolean;
+  expiresAt?: string;
+}
