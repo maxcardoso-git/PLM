@@ -346,6 +346,7 @@ export class StagesService {
           formDefinitionId: dto.formDefinitionId,
           defaultFormStatus: dto.defaultFormStatus,
           lockOnLeaveStage: dto.lockOnLeaveStage || false,
+          uniqueKeyFieldId: dto.uniqueKeyFieldId,
         },
         include: {
           formDefinition: {
@@ -379,6 +380,7 @@ export class StagesService {
         externalFormVersion: dto.externalFormVersion,
         defaultFormStatus: dto.defaultFormStatus,
         lockOnLeaveStage: dto.lockOnLeaveStage || false,
+        uniqueKeyFieldId: dto.uniqueKeyFieldId,
       },
     });
   }

@@ -42,6 +42,7 @@ interface FormAttachRule {
   externalFormVersion?: number;
   defaultFormStatus: string;
   lockOnLeaveStage: boolean;
+  uniqueKeyFieldId?: string;
   formDefinition?: {
     id: string;
     name: string;
@@ -179,9 +180,12 @@ export function PipelineEditorPage() {
   const [formStage, setFormStage] = useState<Stage | null>(null);
   const [availableForms, setAvailableForms] = useState<FormDefinition[]>([]);
   const [selectedFormId, setSelectedFormId] = useState<string>('');
+  const [selectedFormFields, setSelectedFormFields] = useState<FormField[]>([]);
+  const [loadingFormFields, setLoadingFormFields] = useState(false);
   const [formSettings, setFormSettings] = useState({
     defaultFormStatus: 'TO_FILL',
     lockOnLeaveStage: false,
+    uniqueKeyFieldId: '',
   });
   const [savingForm, setSavingForm] = useState(false);
 
@@ -596,9 +600,37 @@ export function PipelineEditorPage() {
   const handleOpenFormModal = async (stage: Stage) => {
     setFormStage(stage);
     setSelectedFormId('');
-    setFormSettings({ defaultFormStatus: 'TO_FILL', lockOnLeaveStage: false });
+    setSelectedFormFields([]);
+    setFormSettings({ defaultFormStatus: 'TO_FILL', lockOnLeaveStage: false, uniqueKeyFieldId: '' });
     await fetchForms();
     setShowFormModal(true);
+  };
+
+  // Fetch fields when a form is selected in the attach modal
+  const handleFormSelection = async (formId: string) => {
+    setSelectedFormId(formId);
+    setFormSettings(prev => ({ ...prev, uniqueKeyFieldId: '' }));
+    setSelectedFormFields([]);
+
+    if (!formId) return;
+
+    // Try to get fields from cache or fetch
+    if (formFieldsMap[formId]?.length > 0) {
+      setSelectedFormFields(formFieldsMap[formId]);
+      return;
+    }
+
+    // Fetch fields from external API
+    setLoadingFormFields(true);
+    try {
+      const fields = await fetchFormFields(formId);
+      if (fields.length > 0) {
+        setSelectedFormFields(fields);
+        setFormFieldsMap(prev => ({ ...prev, [formId]: fields }));
+      }
+    } finally {
+      setLoadingFormFields(false);
+    }
   };
 
   const handleAttachForm = async () => {
@@ -632,11 +664,13 @@ export function PipelineEditorPage() {
             ...(externalVersion != null && !isNaN(externalVersion) ? { externalFormVersion: externalVersion } : {}),
             defaultFormStatus: formSettings.defaultFormStatus,
             lockOnLeaveStage: formSettings.lockOnLeaveStage,
+            ...(formSettings.defaultFormStatus === 'FILLED' && formSettings.uniqueKeyFieldId ? { uniqueKeyFieldId: formSettings.uniqueKeyFieldId } : {}),
           }
         : {
             formDefinitionId: selectedFormId,
             defaultFormStatus: formSettings.defaultFormStatus,
             lockOnLeaveStage: formSettings.lockOnLeaveStage,
+            ...(formSettings.defaultFormStatus === 'FILLED' && formSettings.uniqueKeyFieldId ? { uniqueKeyFieldId: formSettings.uniqueKeyFieldId } : {}),
           };
 
       console.log('[DEBUG] Sending payload:', JSON.stringify(payload, null, 2));
@@ -1655,7 +1689,7 @@ export function PipelineEditorPage() {
             <label className="label">Formulário</label>
             <select
               value={selectedFormId}
-              onChange={(e) => setSelectedFormId(e.target.value)}
+              onChange={(e) => handleFormSelection(e.target.value)}
               className="input mt-1"
             >
               <option value="">Selecione um formulário...</option>
@@ -1680,7 +1714,7 @@ export function PipelineEditorPage() {
             <label className="label">Status inicial do formulário</label>
             <select
               value={formSettings.defaultFormStatus}
-              onChange={(e) => setFormSettings({ ...formSettings, defaultFormStatus: e.target.value })}
+              onChange={(e) => setFormSettings({ ...formSettings, defaultFormStatus: e.target.value, uniqueKeyFieldId: '' })}
               className="input mt-1"
             >
               <option value="TO_FILL">A preencher</option>
@@ -1688,6 +1722,41 @@ export function PipelineEditorPage() {
               <option value="APPROVED">Aprovado</option>
             </select>
           </div>
+
+          {/* Unique Key Field Selector - only shown when status is FILLED */}
+          {formSettings.defaultFormStatus === 'FILLED' && selectedFormId && (
+            <div>
+              <label className="label">Campo chave única (para buscar registro existente)</label>
+              {loadingFormFields ? (
+                <div className="flex items-center gap-2 mt-1 text-sm text-gray-500">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  <span>Carregando campos...</span>
+                </div>
+              ) : selectedFormFields.length > 0 ? (
+                <>
+                  <select
+                    value={formSettings.uniqueKeyFieldId}
+                    onChange={(e) => setFormSettings({ ...formSettings, uniqueKeyFieldId: e.target.value })}
+                    className="input mt-1"
+                  >
+                    <option value="">Selecione o campo chave...</option>
+                    {selectedFormFields.map((field) => (
+                      <option key={field.id} value={field.id}>
+                        {field.label || field.name || field.id} {field.type ? `(${field.type})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Este campo será usado para recuperar dados existentes do formulário na base externa.
+                  </p>
+                </>
+              ) : (
+                <p className="text-xs text-amber-600 mt-1 p-2 bg-amber-50 rounded">
+                  Não foi possível carregar os campos do formulário. O campo chave pode ser configurado posteriormente.
+                </p>
+              )}
+            </div>
+          )}
 
           <div>
             <label className="flex items-center gap-2">

@@ -319,6 +319,7 @@ model StageFormAttachRule {
   externalFormVersion Int?            @map("external_form_version")
   defaultFormStatus   CardFormStatus  @default(TO_FILL) @map("default_form_status")
   lockOnLeaveStage    Boolean         @default(false) @map("lock_on_leave_stage")
+  uniqueKeyFieldId    String?         @map("unique_key_field_id") @db.VarChar(255)
   createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz
 
   stage          Stage           @relation(fields: [stageId], references: [id], onDelete: Cascade)

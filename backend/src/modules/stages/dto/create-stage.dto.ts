@@ -148,6 +148,11 @@ export class AttachFormDto {
   @IsOptional()
   @IsBoolean()
   lockOnLeaveStage?: boolean;
+
+  @ApiPropertyOptional({ description: 'ID of the form field to use as unique key for retrieving existing records (required when defaultFormStatus is FILLED)' })
+  @IsOptional()
+  @IsString()
+  uniqueKeyFieldId?: string;
 }
 
 // Transition Rule Types
