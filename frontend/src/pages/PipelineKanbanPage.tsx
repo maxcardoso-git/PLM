@@ -319,7 +319,7 @@ export function PipelineKanbanPage() {
       </div>
 
       {/* Test Mode Banner */}
-      {board.pipeline.versionStatus === 'testing' && (
+      {board.pipeline.versionStatus === 'test' && (
         <div className="mb-4 p-3 bg-purple-100 border border-purple-300 rounded-lg flex items-center gap-3">
           <FlaskConical size={20} className="text-purple-600" />
           <div className="flex-1">

@@ -1067,7 +1067,7 @@ export function PipelineEditorPage() {
   }
 
   const currentVersion = pipeline.versions?.find((v) => v.version === selectedVersion);
-  const isTesting = currentVersion?.status === 'testing';
+  const isTesting = currentVersion?.status === 'test';
   const canTest = stages.length > 0 &&
     stages.some((s) => s.isInitial) &&
     stages.some((s) => s.isFinal) &&

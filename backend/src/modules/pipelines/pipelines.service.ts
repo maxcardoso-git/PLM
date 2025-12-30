@@ -280,7 +280,7 @@ export class PipelinesService {
       throw new BadRequestException('Cannot test a published version. Clone it first.');
     }
 
-    if (pipelineVersion.status === 'testing') {
+    if (pipelineVersion.status === 'test') {
       throw new BadRequestException('Version is already in test mode');
     }
 
@@ -298,7 +298,7 @@ export class PipelinesService {
       const updatedVersion = await tx.pipelineVersion.update({
         where: { id: pipelineVersion.id },
         data: {
-          status: 'testing',
+          status: 'test',
         },
       });
 
@@ -333,7 +333,7 @@ export class PipelinesService {
     const pipeline = await this.findOne(ctx, pipelineId);
     const pipelineVersion = await this.getVersion(ctx, pipelineId, version);
 
-    if (pipelineVersion.status !== 'testing') {
+    if (pipelineVersion.status !== 'test') {
       throw new BadRequestException('Version is not in test mode');
     }
 
@@ -436,7 +436,7 @@ export class PipelinesService {
       throw new BadRequestException('Version is already published');
     }
 
-    if (pipelineVersion.status === 'testing') {
+    if (pipelineVersion.status === 'test') {
       throw new BadRequestException('Cannot publish a version that is in test mode. End the test first.');
     }
 

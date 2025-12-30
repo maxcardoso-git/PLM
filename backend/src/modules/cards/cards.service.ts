@@ -35,7 +35,7 @@ export class CardsService {
       },
       include: {
         versions: {
-          where: { status: { in: ['published', 'testing'] } }, // Include testing versions
+          where: { status: { in: ['published', 'test'] } }, // Include test versions
           include: {
             stages: {
               include: {
