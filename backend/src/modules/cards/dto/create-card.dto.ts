@@ -63,12 +63,39 @@ export class CreateCardDto {
   @IsEnum(CardPriority)
   priority?: CardPriority;
 
+  @ApiPropertyOptional({ description: 'Unique key value for fetching external form data' })
+  @IsOptional()
+  @IsString()
+  uniqueKeyValue?: string;
+
   @ApiPropertyOptional({ type: [InitialFormDto] })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => InitialFormDto)
   forms?: InitialFormDto[];
+}
+
+export class UpdateCardDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  title?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional({ enum: CardPriority })
+  @IsOptional()
+  @IsEnum(CardPriority)
+  priority?: CardPriority;
+
+  @ApiPropertyOptional({ description: 'Unique key value for fetching external form data' })
+  @IsOptional()
+  @IsString()
+  uniqueKeyValue?: string;
 }
 
 export class MoveCardDto {

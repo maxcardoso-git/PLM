@@ -375,6 +375,7 @@ model Card {
   description     String?      @db.Text
   priority        CardPriority @default(medium)
   status          CardStatus   @default(active)
+  uniqueKeyValue  String?      @map("unique_key_value") @db.VarChar(500)
   createdBy       String?      @map("created_by") @db.Uuid
   createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz

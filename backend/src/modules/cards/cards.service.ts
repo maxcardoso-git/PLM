@@ -5,7 +5,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { CreateCardDto, MoveCardDto, UpdateCardFormDto, CreateCommentDto } from './dto';
+import { CreateCardDto, UpdateCardDto, MoveCardDto, UpdateCardFormDto, CreateCommentDto } from './dto';
 import { TenantContext } from '../../common/decorators';
 
 export interface MoveBlockedError {
@@ -74,6 +74,7 @@ export class CardsService {
           description: dto.description,
           priority: dto.priority || 'medium',
           status: 'active',
+          uniqueKeyValue: dto.uniqueKeyValue,
         },
       });
 
@@ -262,6 +263,7 @@ export class CardsService {
         description: card.description,
         priority: card.priority,
         status: card.status,
+        uniqueKeyValue: card.uniqueKeyValue,
         createdAt: card.createdAt,
         updatedAt: card.updatedAt,
         closedAt: card.closedAt,
@@ -283,6 +285,33 @@ export class CardsService {
       comments: card.comments,
       allowedTransitions: card.currentStage.transitionsFrom.map((t) => t.toStage),
     };
+  }
+
+  async update(ctx: TenantContext, cardId: string, dto: UpdateCardDto) {
+    const card = await this.prisma.card.findFirst({
+      where: {
+        id: cardId,
+        tenantId: ctx.tenantId,
+        orgId: ctx.orgId!,
+      },
+    });
+
+    if (!card) {
+      throw new NotFoundException(`Card ${cardId} not found`);
+    }
+
+    const updateData: any = {};
+    if (dto.title !== undefined) updateData.title = dto.title;
+    if (dto.description !== undefined) updateData.description = dto.description;
+    if (dto.priority !== undefined) updateData.priority = dto.priority;
+    if (dto.uniqueKeyValue !== undefined) updateData.uniqueKeyValue = dto.uniqueKeyValue;
+
+    await this.prisma.card.update({
+      where: { id: cardId },
+      data: updateData,
+    });
+
+    return this.findOne(ctx, cardId);
   }
 
   async move(ctx: TenantContext, cardId: string, dto: MoveCardDto): Promise<any> {

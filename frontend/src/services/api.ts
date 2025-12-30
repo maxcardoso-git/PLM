@@ -131,6 +131,16 @@ class ApiClient {
     return data;
   }
 
+  async updateCard(cardId: string, payload: {
+    title?: string;
+    description?: string;
+    priority?: string;
+    uniqueKeyValue?: string;
+  }): Promise<CardFull> {
+    const { data } = await this.client.patch(`/cards/${cardId}`, payload);
+    return data;
+  }
+
   async deleteCard(cardId: string): Promise<{ deleted: boolean; id: string }> {
     const { data } = await this.client.delete(`/cards/${cardId}`);
     return data;

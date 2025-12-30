@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiHeader, ApiQuery } from '@nestjs/swagger';
 import { CardsService } from './cards.service';
-import { CreateCardDto, MoveCardDto, UpdateCardFormDto, CreateCommentDto } from './dto';
+import { CreateCardDto, UpdateCardDto, MoveCardDto, UpdateCardFormDto, CreateCommentDto } from './dto';
 import { TenantGuard, RequireOrganization } from '../../common/guards';
 import { Tenant } from '../../common/decorators';
 import type { TenantContext } from '../../common/decorators';
@@ -67,6 +67,17 @@ export class CardsController {
     @Param('cardId', ParseUUIDPipe) cardId: string,
   ) {
     return this.cardsService.findOne(ctx, cardId);
+  }
+
+  @Patch(':cardId')
+  @ApiOperation({ summary: 'Update card' })
+  @ApiResponse({ status: 200, description: 'Card updated' })
+  update(
+    @Tenant() ctx: TenantContext,
+    @Param('cardId', ParseUUIDPipe) cardId: string,
+    @Body() dto: UpdateCardDto,
+  ) {
+    return this.cardsService.update(ctx, cardId, dto);
   }
 
   @Post(':cardId/move')

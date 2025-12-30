@@ -94,6 +94,7 @@ export interface Card {
   description?: string;
   priority: CardPriority;
   status: CardStatus;
+  uniqueKeyValue?: string;
   createdAt: string;
   updatedAt: string;
   closedAt?: string;

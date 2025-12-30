@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { FormEvent } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, RefreshCw, FileText, Trash2, AlertTriangle, Calendar, Zap, ChevronDown, ChevronUp, Save, Loader2, CheckCircle, XCircle, Eye, MessageSquare, Send } from 'lucide-react';
+import { ArrowLeft, RefreshCw, FileText, Trash2, AlertTriangle, Calendar, Zap, ChevronDown, ChevronUp, Save, Loader2, CheckCircle, XCircle, Eye, MessageSquare, Send, Key, Edit3 } from 'lucide-react';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
 import { useSettings } from '../context/SettingsContext';
@@ -47,6 +47,11 @@ export function PipelineKanbanPage() {
   const [newComment, setNewComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
 
+  // Unique key value state
+  const [editingUniqueKey, setEditingUniqueKey] = useState(false);
+  const [uniqueKeyValue, setUniqueKeyValue] = useState('');
+  const [savingUniqueKey, setSavingUniqueKey] = useState(false);
+
   const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
   const fetchBoard = useCallback(async () => {
@@ -76,9 +81,11 @@ export function PipelineKanbanPage() {
     setLoadingCard(true);
     setExpandedExecution(null);
     setNewComment('');
+    setEditingUniqueKey(false);
     try {
       const fullCard = await api.getCard(card.id);
       setSelectedCard(fullCard);
+      setUniqueKeyValue(fullCard.card.uniqueKeyValue || '');
     } catch (error) {
       console.error('Failed to fetch card details:', error);
     } finally {
@@ -104,6 +111,23 @@ export function PipelineKanbanPage() {
       console.error('Failed to create comment:', error);
     } finally {
       setSubmittingComment(false);
+    }
+  };
+
+  const handleSaveUniqueKey = async () => {
+    if (!selectedCard) return;
+
+    setSavingUniqueKey(true);
+    try {
+      const updatedCard = await api.updateCard(selectedCard.card.id, {
+        uniqueKeyValue: uniqueKeyValue.trim() || undefined,
+      });
+      setSelectedCard(updatedCard);
+      setEditingUniqueKey(false);
+    } catch (error) {
+      console.error('Failed to save unique key:', error);
+    } finally {
+      setSavingUniqueKey(false);
     }
   };
 
@@ -521,6 +545,72 @@ export function PipelineKanbanPage() {
                   </span>
                 )}
               </div>
+
+              {/* Unique Key Value - only show if stage has external forms configured */}
+              {(() => {
+                const currentStage = board?.stages.find(s => s.id === selectedCard.card.currentStageId);
+                const hasExternalForms = currentStage?.formAttachRules?.some(r => r.externalFormId);
+                if (!hasExternalForms) return null;
+
+                return (
+                  <div className="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm font-medium text-indigo-900 flex items-center gap-2">
+                        <Key size={14} />
+                        Chave Única (para buscar dados externos)
+                      </label>
+                      {!editingUniqueKey && (
+                        <button
+                          onClick={() => setEditingUniqueKey(true)}
+                          className="text-indigo-600 hover:text-indigo-800 p-1"
+                          title="Editar"
+                        >
+                          <Edit3 size={14} />
+                        </button>
+                      )}
+                    </div>
+                    {editingUniqueKey ? (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={uniqueKeyValue}
+                          onChange={(e) => setUniqueKeyValue(e.target.value)}
+                          className="input text-sm flex-1"
+                          placeholder="Ex: CPF, CNPJ, ID do cliente..."
+                          autoFocus
+                        />
+                        <button
+                          onClick={handleSaveUniqueKey}
+                          disabled={savingUniqueKey}
+                          className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1 text-sm"
+                        >
+                          {savingUniqueKey ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <Save size={14} />
+                          )}
+                          Salvar
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingUniqueKey(false);
+                            setUniqueKeyValue(selectedCard.card.uniqueKeyValue || '');
+                          }}
+                          className="px-3 py-1.5 text-gray-600 hover:text-gray-800 text-sm"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-indigo-700">
+                        {selectedCard.card.uniqueKeyValue || (
+                          <span className="text-indigo-400 italic">Não definido - clique em editar para configurar</span>
+                        )}
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Integration Info */}
