@@ -472,7 +472,7 @@ export function PipelineKanbanPage() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
           </div>
         ) : selectedCard ? (
-          <div className="space-y-6">
+          <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
             {/* Card Info */}
             <div>
               <p className="text-gray-600">{selectedCard.card.description || 'Sem descrição'}</p>
