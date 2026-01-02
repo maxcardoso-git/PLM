@@ -40,7 +40,8 @@
       "Bash(GIT_TRACE=0 git commit:*)",
       "Bash(gh auth login:*)",
       "Bash(unzip:*)",
-      "Bash(openssl rand:*)"
+      "Bash(openssl rand:*)",
+      "Bash(find:*)"
     ]
   }
 }

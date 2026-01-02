@@ -130,6 +130,17 @@ export class AppFeaturesService {
         requiresOrg: true,
       },
       {
+        id: 'plm.external-forms',
+        name: 'External Forms Integration',
+        description: 'Integration with external form services',
+        module: 'forms',
+        path: '/external-forms',
+        icon: 'FileInput',
+        actions: ['read', 'configure'],
+        isPublic: false,
+        requiresOrg: true,
+      },
+      {
         id: 'plm.automations',
         name: 'Automation Bindings',
         description: 'Configure automation triggers',
