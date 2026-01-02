@@ -116,6 +116,7 @@ class ApiClient {
     title: string;
     description?: string;
     priority?: string;
+    uniqueKeyValue?: string;
     forms?: { formDefinitionId: string; status: 'FILLED' | 'TO_FILL'; data: Record<string, any> }[];
   }): Promise<CardFull> {
     const { data } = await this.client.post('/cards', payload);

@@ -26,6 +26,7 @@ export function PipelineKanbanPage() {
   const [createStageId, setCreateStageId] = useState<string | null>(null);
   const [createStage, setCreateStage] = useState<KanbanStage | null>(null);
   const [newCard, setNewCard] = useState({ title: '', description: '', priority: 'medium' });
+  const [newCardUniqueKey, setNewCardUniqueKey] = useState('');
   const [formData, setFormData] = useState<Record<string, Record<string, any>>>({});
   const [creating, setCreating] = useState(false);
 
@@ -161,10 +162,12 @@ export function PipelineKanbanPage() {
         title: newCard.title,
         description: newCard.description,
         priority: newCard.priority,
+        uniqueKeyValue: newCardUniqueKey.trim() || undefined,
         forms: forms.length > 0 ? forms : undefined,
       });
       setShowCreateModal(false);
       setNewCard({ title: '', description: '', priority: 'medium' });
+      setNewCardUniqueKey('');
       setCreateStageId(null);
       setCreateStage(null);
       setFormData({});
@@ -470,6 +473,7 @@ export function PipelineKanbanPage() {
           setCreateStageId(null);
           setCreateStage(null);
           setFormData({});
+          setNewCardUniqueKey('');
         }}
         title={`Criar Card${createStage ? ` - ${createStage.name}` : ''}`}
       >
@@ -511,6 +515,28 @@ export function PipelineKanbanPage() {
               <option value="urgent">Urgente</option>
             </select>
           </div>
+
+          {/* Unique Key field - show if stage has external form with uniqueKeyFieldId */}
+          {createStage?.formAttachRules?.some(rule => rule.externalFormId && rule.uniqueKeyFieldId) && (
+            <div className="border-t pt-4 mt-4">
+              <div className="bg-indigo-50 rounded-lg p-4">
+                <label className="label flex items-center gap-2 text-indigo-700">
+                  <Key size={16} />
+                  Chave de Vinculação
+                </label>
+                <p className="text-xs text-indigo-600 mb-2">
+                  Digite a chave para vincular este card a um registro existente no formulário externo
+                </p>
+                <input
+                  type="text"
+                  value={newCardUniqueKey}
+                  onChange={(e) => setNewCardUniqueKey(e.target.value)}
+                  className="input mt-1"
+                  placeholder="Ex: CPF, CNPJ, ID do cliente..."
+                />
+              </div>
+            </div>
+          )}
 
           {/* Forms attached to this stage */}
           {createStage?.formAttachRules && createStage.formAttachRules.length > 0 && (
@@ -628,6 +654,7 @@ export function PipelineKanbanPage() {
                 setCreateStageId(null);
                 setCreateStage(null);
                 setFormData({});
+                setNewCardUniqueKey('');
               }}
               className="btn-secondary"
             >
