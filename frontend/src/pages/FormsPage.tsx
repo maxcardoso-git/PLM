@@ -104,6 +104,7 @@ export function FormsPage() {
   const [schemaError, setSchemaError] = useState<string | null>(null);
   const [formValues, setFormValues] = useState<Record<string, any>>({});
   const [showHowItWorks, setShowHowItWorks] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<{ total: number; filtered: number } | null>(null);
 
   const howItWorksContent: HowItWorksContent = {
     title: 'Formulários',
@@ -120,9 +121,12 @@ export function FormsPage() {
               processamento de cards nos pipelines. Eles são gerenciados por uma API externa e
               podem ser anexados a stages para coleta de dados.
             </p>
-            <InfoCard title="Formulários Externos">
-              O PLM consome formulários de uma API externa configurada nas Configurações.
-              Esta página permite visualizar os formulários disponíveis e simular seu preenchimento.
+            <InfoCard title="Configuração em Settings" variant="warning">
+              <strong>IMPORTANTE:</strong> Esta página exibe formulários da <strong>API Externa de Formulários</strong>,
+              configurada em <strong>Settings &gt; External Forms API</strong>.
+              <br /><br />
+              <strong>NÃO confunda com Integrations!</strong> A página de Integrações gerencia webhooks e triggers.
+              Os formulários são obtidos através de uma API separada (ex: GCP Forms).
             </InfoCard>
             <p>
               Os formulários são organizados por <strong>Projeto</strong>, facilitando a identificação
@@ -163,14 +167,20 @@ export function FormsPage() {
             <p>Regras importantes sobre Formulários:</p>
             <RulesList
               rules={[
-                'Apenas formulários com status "Published" e aprovados (BIA) são exibidos',
-                'A criação e edição de formulários é feita na API externa',
-                'Para usar formulários, você precisa configurar a API nas Configurações',
-                'Formulários podem ser anexados a stages do pipeline no Editor',
+                'Apenas formulários com status "Published" E biaStatus "Approved" são exibidos',
+                'A criação e edição de formulários é feita na API externa (ex: GCP Forms)',
+                'Para usar formulários, configure a API em Settings > External Forms API',
+                'Formulários podem ser anexados a stages do pipeline no Editor de Pipeline',
                 'Cada stage pode ter múltiplos formulários anexados',
                 'O preenchimento real ocorre no Kanban, ao abrir um card',
               ]}
             />
+            <InfoCard title="Não vê formulários?" variant="info">
+              Se a API está configurada mas nenhum formulário aparece, verifique:
+              <br />• Se os formulários na API externa têm status = "Published"
+              <br />• Se os formulários têm BIA Status = "Approved"
+              <br />• Se a API Key tem permissão para listar formulários externos
+            </InfoCard>
           </div>
         ),
       },
@@ -256,6 +266,9 @@ export function FormsPage() {
         return isPublished && isApproved;
       });
 
+      // Save debug info
+      setDebugInfo({ total: allForms.length, filtered: forms.length });
+
       // Debug: log first form to see structure
       if (forms.length > 0) {
         console.log('Form structure:', JSON.stringify(forms[0], null, 2));
@@ -286,6 +299,7 @@ export function FormsPage() {
       setExpandedProjects(new Set(sortedProjects.map(p => p.projectId)));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch forms');
+      setDebugInfo(null);
     } finally {
       setLoading(false);
     }
@@ -658,6 +672,25 @@ export function FormsPage() {
           <p className="text-gray-500 mt-1">
             Os formulários são criados e gerenciados na API externa.
           </p>
+          {debugInfo && debugInfo.total > 0 && (
+            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm inline-block text-left">
+              <p className="font-medium">Diagnóstico:</p>
+              <p>• API retornou {debugInfo.total} formulário(s)</p>
+              <p>• {debugInfo.total - debugInfo.filtered} foram filtrados (não têm status="Published" E biaStatus="Approved")</p>
+              <p className="mt-2 text-xs text-amber-600">
+                Verifique o Console do navegador (F12) para detalhes dos formulários filtrados.
+              </p>
+            </div>
+          )}
+          {debugInfo && debugInfo.total === 0 && (
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-800 text-sm inline-block text-left">
+              <p className="font-medium">Diagnóstico:</p>
+              <p>• A API externa não retornou nenhum formulário</p>
+              <p className="mt-2 text-xs text-blue-600">
+                Verifique se existem formulários na API externa e se a API Key tem permissão.
+              </p>
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-4">

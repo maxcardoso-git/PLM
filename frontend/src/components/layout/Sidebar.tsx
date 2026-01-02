@@ -1,16 +1,18 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { LayoutDashboard, Workflow, FileText, LayoutTemplate, Settings, Building2, User, Zap, LogOut } from 'lucide-react';
+import { LayoutDashboard, Workflow, FileText, LayoutTemplate, Settings, Building2, User, Zap, LogOut, Users, Layers } from 'lucide-react';
 import { useTenant } from '../../context/TenantContext';
 import { LanguageSelector } from './LanguageSelector';
 import { clsx } from 'clsx';
 
 const navigationKeys = [
   { key: 'dashboard', href: '/', icon: LayoutDashboard },
-  { key: 'pipelineDesign', href: '/pipeline-design', icon: Workflow },
-  { key: 'forms', href: '/forms', icon: FileText },
-  { key: 'integrations', href: '/integrations', icon: Zap },
-  { key: 'templates', href: '/templates', icon: LayoutTemplate },
+  { key: 'pipelines', href: '/pipelines', icon: Layers, section: 'operator' },
+  { key: 'pipelineDesign', href: '/pipeline-design', icon: Workflow, section: 'designer' },
+  { key: 'forms', href: '/forms', icon: FileText, section: 'designer' },
+  { key: 'integrations', href: '/integrations', icon: Zap, section: 'designer' },
+  { key: 'templates', href: '/templates', icon: LayoutTemplate, section: 'designer' },
+  { key: 'groups', href: '/groups', icon: Users, section: 'admin' },
   { key: 'settings', href: '/settings', icon: Settings },
 ];
 

@@ -18,6 +18,8 @@ import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { StageTriggersModule } from './modules/stage-triggers/stage-triggers.module';
 import { PlmApiKeysModule } from './modules/plm-api-keys';
 import { ExternalApiModule } from './modules/external-api';
+import { UserGroupsModule } from './modules/user-groups';
+import { PipelinePermissionsModule } from './modules/pipeline-permissions';
 
 @Module({
   imports: [
@@ -39,6 +41,8 @@ import { ExternalApiModule } from './modules/external-api';
     StageTriggersModule,
     PlmApiKeysModule,
     ExternalApiModule,
+    UserGroupsModule,
+    PipelinePermissionsModule,
   ],
   providers: [
     {

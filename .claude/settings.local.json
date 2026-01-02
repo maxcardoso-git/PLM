@@ -35,7 +35,9 @@
       "Bash(npx vite build)",
       "Bash(./node_modules/.bin/tsc:*)",
       "Bash(./node_modules/.bin/vite build:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(git mv:*)",
+      "Bash(GIT_TRACE=0 git commit:*)"
     ]
   }
 }

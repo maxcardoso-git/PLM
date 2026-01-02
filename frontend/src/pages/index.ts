@@ -8,3 +8,5 @@ export * from './SettingsPage';
 export * from './TemplatesPage';
 export * from './IntegrationsPage';
 export * from './AuthCallbackPage';
+export * from './GroupsPage';
+export * from './OperatorPipelinesPage';

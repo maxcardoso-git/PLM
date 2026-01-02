@@ -75,6 +75,7 @@ export class CardsService {
           priority: dto.priority || 'medium',
           status: 'active',
           uniqueKeyValue: dto.uniqueKeyValue,
+          createdBy: ctx.userId,
         },
       });
 
@@ -424,6 +425,7 @@ export class CardsService {
           fromStageId: card.currentStageId,
           toStageId: dto.toStageId,
           reason: dto.reason || 'manual',
+          movedBy: ctx.userId,
         },
       });
 

@@ -405,3 +405,61 @@ export interface UpdatePlmApiKeyPayload {
   enabled?: boolean;
   expiresAt?: string;
 }
+
+// User Groups and Permissions
+export type PipelineRole = 'VIEWER' | 'OPERATOR' | 'SUPERVISOR' | 'ADMIN';
+
+export interface UserGroup {
+  id: string;
+  tenantId: string;
+  orgId: string;
+  name: string;
+  description?: string;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { members: number; permissions: number };
+}
+
+export interface GroupMember {
+  id: string;
+  groupId: string;
+  userId: string;
+  addedBy?: string;
+  addedAt: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+  };
+}
+
+export interface PipelinePermission {
+  id: string;
+  pipelineId: string;
+  groupId: string;
+  role: PipelineRole;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+  group?: {
+    id: string;
+    name: string;
+    description: string | null;
+  };
+}
+
+export interface PublishedPipeline {
+  id: string;
+  name: string;
+  projectName?: string;
+  description?: string;
+  createdAt: string;
+  role: PipelineRole;
+  groupName: string;
+  publishedVersion?: {
+    id: string;
+    versionNumber: number;
+    publishedAt: string;
+  };
+}

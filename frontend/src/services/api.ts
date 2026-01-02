@@ -18,6 +18,11 @@ import type {
   PlmApiKey,
   CreatePlmApiKeyPayload,
   UpdatePlmApiKeyPayload,
+  UserGroup,
+  GroupMember,
+  PipelinePermission,
+  PipelineRole,
+  PublishedPipeline,
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
@@ -363,6 +368,93 @@ class ApiClient {
 
   async getPlmApiKeyPermissions(): Promise<{ permissions: { value: string; label: string }[] }> {
     const { data } = await this.client.get('/plm-api-keys/permissions');
+    return data;
+  }
+
+  // User Groups
+  async getUserGroups(): Promise<ListResponse<UserGroup>> {
+    const { data } = await this.client.get('/user-groups');
+    return data;
+  }
+
+  async getUserGroup(id: string): Promise<UserGroup & { members: GroupMember[] }> {
+    const { data } = await this.client.get(`/user-groups/${id}`);
+    return data;
+  }
+
+  async createUserGroup(payload: { name: string; description?: string }): Promise<UserGroup> {
+    const { data } = await this.client.post('/user-groups', payload);
+    return data;
+  }
+
+  async updateUserGroup(id: string, payload: { name?: string; description?: string }): Promise<UserGroup> {
+    const { data } = await this.client.patch(`/user-groups/${id}`, payload);
+    return data;
+  }
+
+  async deleteUserGroup(id: string): Promise<{ deleted: boolean; id: string }> {
+    const { data } = await this.client.delete(`/user-groups/${id}`);
+    return data;
+  }
+
+  async getGroupMembers(groupId: string): Promise<ListResponse<GroupMember>> {
+    const { data } = await this.client.get(`/user-groups/${groupId}/members`);
+    return data;
+  }
+
+  async addGroupMembers(groupId: string, userIds: string[]): Promise<{ added: number }> {
+    const { data } = await this.client.post(`/user-groups/${groupId}/members`, { userIds });
+    return data;
+  }
+
+  async removeGroupMember(groupId: string, userId: string): Promise<{ removed: boolean }> {
+    const { data } = await this.client.delete(`/user-groups/${groupId}/members/${userId}`);
+    return data;
+  }
+
+  async getAvailableUsersForGroup(groupId: string): Promise<{ items: { id: string; name: string; email: string }[] }> {
+    const { data } = await this.client.get(`/user-groups/${groupId}/available-users`);
+    return data;
+  }
+
+  // Pipeline Permissions
+  async getPipelinePermissions(pipelineId: string): Promise<ListResponse<PipelinePermission>> {
+    const { data } = await this.client.get(`/pipelines/${pipelineId}/permissions`);
+    return data;
+  }
+
+  async assignPipelinePermission(pipelineId: string, payload: { groupId: string; role: PipelineRole }): Promise<PipelinePermission> {
+    const { data } = await this.client.post(`/pipelines/${pipelineId}/permissions`, payload);
+    return data;
+  }
+
+  async updatePipelinePermission(pipelineId: string, permissionId: string, payload: { role: PipelineRole }): Promise<PipelinePermission> {
+    const { data } = await this.client.patch(`/pipelines/${pipelineId}/permissions/${permissionId}`, payload);
+    return data;
+  }
+
+  async removePipelinePermission(pipelineId: string, permissionId: string): Promise<void> {
+    await this.client.delete(`/pipelines/${pipelineId}/permissions/${permissionId}`);
+  }
+
+  async getMyPipelinePermission(pipelineId: string): Promise<{ hasAccess: boolean; permission: { role: PipelineRole; groupId: string; groupName: string } | null }> {
+    const { data } = await this.client.get(`/pipelines/${pipelineId}/my-permission`);
+    return data;
+  }
+
+  async getAvailableGroupsForPipeline(pipelineId: string): Promise<{ id: string; name: string; description: string | null; _count: { members: number } }[]> {
+    const { data } = await this.client.get(`/pipelines/${pipelineId}/available-groups`);
+    return data;
+  }
+
+  // Published Pipelines (for operators)
+  async getPublishedPipelines(): Promise<PublishedPipeline[]> {
+    const { data } = await this.client.get('/published-pipelines');
+    return data;
+  }
+
+  async getPublishedPipelinesByProject(): Promise<Record<string, PublishedPipeline[]>> {
+    const { data } = await this.client.get('/published-pipelines/by-project');
     return data;
   }
 }

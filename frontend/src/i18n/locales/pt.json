@@ -31,11 +31,12 @@
   },
   "sidebar": {
     "dashboard": "Dashboard",
-    "pipelines": "Pipelines",
+    "pipelines": "Meus Pipelines",
     "pipelineDesign": "Design de Pipelines",
     "forms": "Formularios",
     "integrations": "Integracoes",
     "templates": "Templates",
+    "groups": "Grupos",
     "settings": "Configuracoes",
     "context": "Contexto",
     "notAuthenticated": "Nao autenticado",

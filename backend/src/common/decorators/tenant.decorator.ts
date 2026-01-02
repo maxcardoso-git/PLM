@@ -3,6 +3,7 @@ import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 export interface TenantContext {
   tenantId: string;
   orgId?: string;
+  userId?: string;
 }
 
 export const Tenant = createParamDecorator(
@@ -11,6 +12,7 @@ export const Tenant = createParamDecorator(
     const tenantContext: TenantContext = {
       tenantId: request.headers['x-tenant-id'],
       orgId: request.headers['x-organization-id'],
+      userId: request.user?.id,
     };
 
     return data ? tenantContext[data] : tenantContext;
