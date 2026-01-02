@@ -1162,7 +1162,7 @@ export function PipelineEditorPage() {
     return (
       <div className="text-center py-12">
         <p className="text-red-500">{error || 'Pipeline not found'}</p>
-        <Link to="/pipelines" className="text-blue-600 hover:underline mt-2 inline-block">
+        <Link to="/pipeline-design" className="text-blue-600 hover:underline mt-2 inline-block">
           Back to Pipelines
         </Link>
       </div>
@@ -1187,7 +1187,7 @@ export function PipelineEditorPage() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <Link
-            to="/pipelines"
+            to="/pipeline-design"
             className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
           >
             <ArrowLeft size={20} />
@@ -1203,7 +1203,7 @@ export function PipelineEditorPage() {
         <div className="flex items-center gap-3">
           {(pipeline.publishedVersion || isTesting) && (
             <button
-              onClick={() => navigate(`/pipelines/${pipelineId}`)}
+              onClick={() => navigate(`/pipeline-design/${pipelineId}`)}
               className="btn-secondary"
             >
               <Play size={18} className="mr-2" />

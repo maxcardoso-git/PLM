@@ -7,7 +7,7 @@ import { clsx } from 'clsx';
 
 const navigationKeys = [
   { key: 'dashboard', href: '/', icon: LayoutDashboard },
-  { key: 'pipelines', href: '/pipelines', icon: Workflow },
+  { key: 'pipelineDesign', href: '/pipeline-design', icon: Workflow },
   { key: 'forms', href: '/forms', icon: FileText },
   { key: 'integrations', href: '/integrations', icon: Zap },
   { key: 'templates', href: '/templates', icon: LayoutTemplate },

@@ -32,6 +32,7 @@
   "sidebar": {
     "dashboard": "Panel",
     "pipelines": "Pipelines",
+    "pipelineDesign": "Diseño de Pipelines",
     "forms": "Formularios",
     "integrations": "Integraciones",
     "templates": "Plantillas",

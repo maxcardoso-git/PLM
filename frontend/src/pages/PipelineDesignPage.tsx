@@ -34,7 +34,7 @@ interface PipelinesByProject {
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
-export function PipelinesPage() {
+export function PipelineDesignPage() {
   const { organization } = useTenant();
   const { settings, isProjectsConfigured } = useSettings();
   const { t } = useTranslation();
@@ -466,7 +466,7 @@ export function PipelinesPage() {
                             <Trash2 size={14} />
                           </button>
                           <Link
-                            to={`/pipelines/${pipeline.id}/edit`}
+                            to={`/pipeline-design/${pipeline.id}/edit`}
                             className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-100 rounded-md transition-colors"
                             title={t('pipelines.editPipeline')}
                           >
@@ -475,7 +475,7 @@ export function PipelinesPage() {
                           </Link>
                           {pipeline.publishedVersion && (
                             <Link
-                              to={`/pipelines/${pipeline.id}`}
+                              to={`/pipeline-design/${pipeline.id}`}
                               className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
                               title="Kanban"
                             >

@@ -443,7 +443,7 @@ export function TemplatesPage() {
       setSuccess(true);
       setTimeout(() => {
         setShowPreview(false);
-        navigate(`/pipelines/${pipeline.id}/edit`);
+        navigate(`/pipeline-design/${pipeline.id}/edit`);
       }, 1500);
     } catch (err: any) {
       console.error('Failed to create pipeline from template:', err);

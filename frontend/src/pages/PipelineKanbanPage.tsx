@@ -329,7 +329,7 @@ export function PipelineKanbanPage() {
     return (
       <div className="text-center py-12">
         <p className="text-gray-500">Pipeline not found or not published</p>
-        <Link to="/pipelines" className="text-blue-600 hover:underline mt-2 inline-block">
+        <Link to="/pipeline-design" className="text-blue-600 hover:underline mt-2 inline-block">
           Back to Pipelines
         </Link>
       </div>
@@ -342,7 +342,7 @@ export function PipelineKanbanPage() {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-4">
           <Link
-            to="/pipelines"
+            to="/pipeline-design"
             className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
           >
             <ArrowLeft size={20} />
@@ -376,7 +376,7 @@ export function PipelineKanbanPage() {
             </p>
           </div>
           <Link
-            to={`/pipelines/${pipelineId}/edit`}
+            to={`/pipeline-design/${pipelineId}/edit`}
             className="px-3 py-1.5 text-sm font-medium text-purple-700 bg-purple-200 rounded-lg hover:bg-purple-300 transition-colors"
           >
             Gerenciar Teste

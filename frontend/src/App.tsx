@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TenantProvider } from './context/TenantContext';
 import { SettingsProvider } from './context/SettingsContext';
 import { Layout } from './components/layout';
-import { DashboardPage, PipelinesPage, PipelineKanbanPage, PipelineEditorPage, FormsPage, FormViewPage, SettingsPage, TemplatesPage, IntegrationsPage, AuthCallbackPage } from './pages';
+import { DashboardPage, PipelineDesignPage, PipelineKanbanPage, PipelineEditorPage, FormsPage, FormViewPage, SettingsPage, TemplatesPage, IntegrationsPage, AuthCallbackPage } from './pages';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,9 +26,9 @@ function App() {
 
               <Route path="/" element={<Layout />}>
                 <Route index element={<DashboardPage />} />
-                <Route path="pipelines" element={<PipelinesPage />} />
-                <Route path="pipelines/:pipelineId" element={<PipelineKanbanPage />} />
-                <Route path="pipelines/:pipelineId/edit" element={<PipelineEditorPage />} />
+                <Route path="pipeline-design" element={<PipelineDesignPage />} />
+                <Route path="pipeline-design/:pipelineId" element={<PipelineKanbanPage />} />
+                <Route path="pipeline-design/:pipelineId/edit" element={<PipelineEditorPage />} />
                 <Route path="forms" element={<FormsPage />} />
                 <Route path="forms/:formId" element={<FormViewPage />} />
                 <Route path="templates" element={<TemplatesPage />} />

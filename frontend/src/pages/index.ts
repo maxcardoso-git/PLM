@@ -1,5 +1,5 @@
 export * from './DashboardPage';
-export * from './PipelinesPage';
+export * from './PipelineDesignPage';
 export * from './PipelineKanbanPage';
 export * from './PipelineEditorPage';
 export * from './FormsPage';

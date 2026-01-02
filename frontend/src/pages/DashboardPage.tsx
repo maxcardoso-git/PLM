@@ -155,10 +155,10 @@ export function DashboardPage() {
 
   const quickLinks = [
     {
-      titleKey: 'sidebar.pipelines',
+      titleKey: 'sidebar.pipelineDesign',
       descKey: 'dashboard.pipelinesDesc',
       icon: Workflow,
-      href: '/pipelines',
+      href: '/pipeline-design',
       color: 'bg-blue-500',
     },
     {
