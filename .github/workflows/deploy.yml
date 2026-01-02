@@ -35,8 +35,12 @@ jobs:
             docker stop plm_backend plm_frontend 2>/dev/null || true
             docker rm plm_backend plm_frontend 2>/dev/null || true
 
+            # Create network if not exists
+            docker network create plm_network 2>/dev/null || true
+
             # Start backend with correct config
             docker run -d --name plm_backend \
+              --network plm_network \
               -e DATABASE_URL="postgresql://postgres:postgres@host.docker.internal:5439/plm?schema=public" \
               -e NODE_ENV=production \
               -e PORT=3000 \
@@ -56,6 +60,7 @@ jobs:
 
             # Start frontend
             docker run -d --name plm_frontend \
+              --network plm_network \
               -p 8090:80 \
               --restart unless-stopped \
               ghcr.io/maxcardoso-git/plm/frontend:latest
