@@ -41,7 +41,7 @@ jobs:
             # Start backend with correct config
             docker run -d --name plm_backend \
               --network plm_network \
-              -e DATABASE_URL="postgresql://plm:plm_secret@host.docker.internal:5439/plm?schema=public" \
+              -e DATABASE_URL="postgresql://postgres:postgres@host.docker.internal:5439/plm?schema=public" \
               -e NODE_ENV=production \
               -e PORT=3000 \
               -e TAH_BASE_URL=http://72.61.52.70:3050 \
