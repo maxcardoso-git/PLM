@@ -249,39 +249,47 @@ export function PipelineKanbanPage() {
         }
       }
 
-      // Fallback: If card has a unique key value, try to fetch existing form data
+      // Fallback: If card has a unique key value, try to fetch existing form data using lookup
       if (selectedCard?.card.uniqueKeyValue && uniqueKeyFieldId) {
-        console.log('[DEBUG] Fetching form data with uniqueKey:', {
+        console.log('[DEBUG] Fetching form data with uniqueKey lookup:', {
           formId,
           uniqueKeyFieldId,
           uniqueKeyValue: selectedCard.card.uniqueKeyValue,
         });
         try {
+          // New API uses GET /submissions/lookup with query parameters
+          const lookupEndpoint = `/data-entry-forms/submissions/lookup?formId=${formId}&keyField=${uniqueKeyFieldId}&keyValue=${encodeURIComponent(selectedCard.card.uniqueKeyValue)}`;
           const dataResponse = await fetch(`${API_BASE_URL}/external-forms/proxy`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               baseUrl: settings.externalForms.baseUrl,
-              endpoint: `/data-entry-forms/external/${formId}/data`,
+              endpoint: lookupEndpoint,
               apiKey: settings.externalForms.apiKey,
-              method: 'POST',
-              body: {
-                keyField: uniqueKeyFieldId,
-                keyValue: selectedCard.card.uniqueKeyValue,
-              },
+              method: 'GET',
             }),
           });
 
-          console.log('[DEBUG] Data response status:', dataResponse.status);
-          const formData = await dataResponse.json();
-          console.log('[DEBUG] Form data response:', formData);
+          console.log('[DEBUG] Lookup response status:', dataResponse.status);
+          const lookupResult = await dataResponse.json();
+          console.log('[DEBUG] Lookup result:', lookupResult);
 
-          if (dataResponse.ok) {
-            // Normalize the form data structure
-            const existingData = formData.data || formData.record || formData;
+          if (dataResponse.ok && lookupResult.data) {
+            // New API returns data in the data field
+            const existingData = lookupResult.data.data || lookupResult.data;
             console.log('[DEBUG] Normalized existing data:', existingData);
             if (existingData && typeof existingData === 'object') {
               setExternalFormData(existingData);
+
+              // If we found existing data, also save the submissionId reference
+              if (lookupResult.data.submissionId) {
+                await api.updateExternalForm(selectedCard.card.id, formId, {
+                  stageId: selectedCard.card.currentStageId,
+                  externalRowId: lookupResult.data.submissionId,
+                  status: 'FILLED',
+                });
+                console.log('[DEBUG] Saved submissionId from lookup:', lookupResult.data.submissionId);
+              }
             }
           }
         } catch (dataError) {
@@ -335,13 +343,13 @@ export function PipelineKanbanPage() {
         }),
       });
 
-      // Get the row ID from the external API response
+      // Get the submission ID from the external API response
       let externalRowId: string | undefined;
       if (submitResponse.ok) {
         const result = await submitResponse.json();
-        // The external API may return the row ID in different fields
-        externalRowId = result.id || result.rowId || result.recordId || result.data?.id;
-        console.log('[DEBUG] External form submitted, rowId:', externalRowId);
+        // New API returns submissionId in data.submissionId
+        externalRowId = result.data?.submissionId || result.submissionId || result.id;
+        console.log('[DEBUG] External form submitted, submissionId:', externalRowId);
       }
 
       // Save the external form reference to our backend
