@@ -328,7 +328,7 @@ export function PipelineKanbanPage() {
           endpoint: `/data-entry-forms/external/${formId}/submit`,
           apiKey: settings.externalForms.apiKey,
           method: 'POST',
-          payload: {
+          body: {
             cardId: selectedCard.card.id,
             data: externalFormData,
           },
@@ -352,6 +352,14 @@ export function PipelineKanbanPage() {
           status: 'FILLED',
         });
         console.log('[DEBUG] Saved external form reference to backend');
+
+        // Update the card's uniqueKeyValue if not set
+        if (!selectedCard.card.uniqueKeyValue) {
+          await api.updateCard(selectedCard.card.id, {
+            uniqueKeyValue: externalRowId,
+          });
+          console.log('[DEBUG] Updated card uniqueKeyValue with externalRowId');
+        }
       }
 
       // Collapse the form after save
