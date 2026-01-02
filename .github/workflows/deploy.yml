@@ -1,0 +1,61 @@
+name: Deploy PLM
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd /root/plm
+
+            # Pull latest code
+            git pull origin main
+
+            # Build images
+            docker compose -f docker-compose.prod.yml build backend frontend
+
+            # Stop and remove old containers
+            docker stop plm_backend plm_frontend 2>/dev/null || true
+            docker rm plm_backend plm_frontend 2>/dev/null || true
+
+            # Start backend with correct config
+            docker run -d --name plm_backend \
+              -e DATABASE_URL="postgresql://postgres:postgres@host.docker.internal:5439/plm?schema=public" \
+              -e NODE_ENV=production \
+              -e PORT=3000 \
+              -e TAH_BASE_URL=http://72.61.52.70:3050 \
+              -e TAH_JWKS_URL=http://72.61.52.70:3050/.well-known/jwks.json \
+              -e TAH_ISSUER=http://72.61.52.70:3050 \
+              -e APP_ID=p_l_m \
+              -e JWT_SECRET="${{ secrets.PLM_JWT_SECRET }}" \
+              -e JWT_EXPIRES_IN=24h \
+              -e COOKIE_DOMAIN=72.61.52.70 \
+              -p 3333:3000 \
+              --add-host=host.docker.internal:host-gateway \
+              --restart unless-stopped \
+              plm-backend:latest
+
+            # Start frontend
+            docker run -d --name plm_frontend \
+              -p 8090:80 \
+              --restart unless-stopped \
+              plm-frontend:latest
+
+            # Cleanup old images
+            docker image prune -f
+
+            echo "Deploy completed!"
