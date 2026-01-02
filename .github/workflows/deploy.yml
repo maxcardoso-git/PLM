@@ -52,13 +52,13 @@ jobs:
               -p 3333:3000 \
               --add-host=host.docker.internal:host-gateway \
               --restart unless-stopped \
-              plm-backend:latest
+              ghcr.io/maxcardoso-git/plm/backend:latest
 
             # Start frontend
             docker run -d --name plm_frontend \
               -p 8090:80 \
               --restart unless-stopped \
-              plm-frontend:latest
+              ghcr.io/maxcardoso-git/plm/frontend:latest
 
             # Cleanup old images
             docker image prune -f
