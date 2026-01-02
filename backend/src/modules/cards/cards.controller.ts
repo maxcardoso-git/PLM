@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiHeader, ApiQuery } from '@nestjs/swagger';
 import { CardsService } from './cards.service';
-import { CreateCardDto, UpdateCardDto, MoveCardDto, UpdateCardFormDto, CreateCommentDto } from './dto';
+import { CreateCardDto, UpdateCardDto, MoveCardDto, UpdateCardFormDto, CreateCommentDto, UpdateExternalFormDto } from './dto';
 import { TenantGuard, RequireOrganization } from '../../common/guards';
 import { Tenant } from '../../common/decorators';
 import type { TenantContext } from '../../common/decorators';
@@ -102,6 +102,29 @@ export class CardsController {
     @Body() dto: UpdateCardFormDto,
   ) {
     return this.cardsService.updateForm(ctx, cardId, formDefinitionId, dto);
+  }
+
+  @Patch(':cardId/external-forms/:externalFormId')
+  @ApiOperation({ summary: 'Update external form reference for a card' })
+  @ApiResponse({ status: 200, description: 'External form updated' })
+  updateExternalForm(
+    @Tenant() ctx: TenantContext,
+    @Param('cardId', ParseUUIDPipe) cardId: string,
+    @Param('externalFormId') externalFormId: string,
+    @Body() dto: UpdateExternalFormDto,
+  ) {
+    return this.cardsService.updateExternalForm(ctx, cardId, externalFormId, dto);
+  }
+
+  @Get(':cardId/external-forms/:externalFormId')
+  @ApiOperation({ summary: 'Get external form reference for a card' })
+  @ApiResponse({ status: 200, description: 'External form data' })
+  getExternalForm(
+    @Tenant() ctx: TenantContext,
+    @Param('cardId', ParseUUIDPipe) cardId: string,
+    @Param('externalFormId') externalFormId: string,
+  ) {
+    return this.cardsService.getExternalForm(ctx, cardId, externalFormId);
   }
 
   @Delete(':cardId')

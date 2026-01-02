@@ -5,7 +5,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { CreateCardDto, UpdateCardDto, MoveCardDto, UpdateCardFormDto, CreateCommentDto } from './dto';
+import { CreateCardDto, UpdateCardDto, MoveCardDto, UpdateCardFormDto, CreateCommentDto, UpdateExternalFormDto } from './dto';
 import { TenantContext } from '../../common/decorators';
 
 export interface MoveBlockedError {
@@ -220,6 +220,14 @@ export class CardsService {
           },
           orderBy: { attachedAt: 'asc' },
         },
+        externalForms: {
+          include: {
+            stage: {
+              select: { id: true, name: true },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
         moveHistory: {
           include: {
             fromStage: { select: { id: true, name: true, color: true } },
@@ -271,6 +279,7 @@ export class CardsService {
         pipeline: card.pipeline,
       },
       forms: card.forms,
+      externalForms: card.externalForms,
       history: card.moveHistory,
       triggerExecutions: card.triggerExecutions.map((exec) => ({
         id: exec.id,
@@ -918,5 +927,60 @@ export class CardsService {
     });
 
     return { deleted: true, id: commentId };
+  }
+
+  // External form methods
+  async updateExternalForm(
+    ctx: TenantContext,
+    cardId: string,
+    externalFormId: string,
+    dto: UpdateExternalFormDto,
+  ) {
+    // Verify card exists and belongs to tenant
+    await this.findOne(ctx, cardId);
+
+    // Upsert the external form reference
+    const externalForm = await this.prisma.cardExternalForm.upsert({
+      where: {
+        uq_card_external_form: {
+          cardId,
+          externalFormId,
+        },
+      },
+      update: {
+        externalRowId: dto.externalRowId,
+        status: dto.status || 'FILLED',
+        stageId: dto.stageId,
+      },
+      create: {
+        cardId,
+        externalFormId,
+        externalRowId: dto.externalRowId,
+        stageId: dto.stageId,
+        status: dto.status || 'FILLED',
+      },
+    });
+
+    return externalForm;
+  }
+
+  async getExternalForm(
+    ctx: TenantContext,
+    cardId: string,
+    externalFormId: string,
+  ) {
+    // Verify card exists and belongs to tenant
+    await this.findOne(ctx, cardId);
+
+    const externalForm = await this.prisma.cardExternalForm.findUnique({
+      where: {
+        uq_card_external_form: {
+          cardId,
+          externalFormId,
+        },
+      },
+    });
+
+    return externalForm;
   }
 }

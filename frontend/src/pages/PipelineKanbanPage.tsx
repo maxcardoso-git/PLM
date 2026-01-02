@@ -216,7 +216,40 @@ export function PipelineKanbanPage() {
 
       setExternalFormSchema(schema);
 
-      // If card has a unique key value, try to fetch existing form data
+      // First, check if we have a stored externalRowId in our backend
+      if (selectedCard) {
+        try {
+          const storedForm = await api.getExternalForm(selectedCard.card.id, formId);
+          if (storedForm?.externalRowId) {
+            console.log('[DEBUG] Found stored externalRowId:', storedForm.externalRowId);
+            // Fetch form data using the stored row ID
+            const dataResponse = await fetch(`${API_BASE_URL}/external-forms/proxy`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                baseUrl: settings.externalForms.baseUrl,
+                endpoint: `/data-entry-forms/external/${formId}/data/${storedForm.externalRowId}`,
+                apiKey: settings.externalForms.apiKey,
+                method: 'GET',
+              }),
+            });
+
+            if (dataResponse.ok) {
+              const formData = await dataResponse.json();
+              const existingData = formData.data || formData.record || formData;
+              console.log('[DEBUG] Loaded form data by rowId:', existingData);
+              if (existingData && typeof existingData === 'object') {
+                setExternalFormData(existingData);
+                return; // Data loaded successfully, no need to try uniqueKey
+              }
+            }
+          }
+        } catch (err) {
+          console.log('[DEBUG] No stored external form reference found');
+        }
+      }
+
+      // Fallback: If card has a unique key value, try to fetch existing form data
       if (selectedCard?.card.uniqueKeyValue && uniqueKeyFieldId) {
         console.log('[DEBUG] Fetching form data with uniqueKey:', {
           formId,
@@ -287,7 +320,7 @@ export function PipelineKanbanPage() {
     setSavingExternalForm(true);
     try {
       // Submit form data to external API
-      await fetch(`${API_BASE_URL}/external-forms/proxy`, {
+      const submitResponse = await fetch(`${API_BASE_URL}/external-forms/proxy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -301,6 +334,25 @@ export function PipelineKanbanPage() {
           },
         }),
       });
+
+      // Get the row ID from the external API response
+      let externalRowId: string | undefined;
+      if (submitResponse.ok) {
+        const result = await submitResponse.json();
+        // The external API may return the row ID in different fields
+        externalRowId = result.id || result.rowId || result.recordId || result.data?.id;
+        console.log('[DEBUG] External form submitted, rowId:', externalRowId);
+      }
+
+      // Save the external form reference to our backend
+      if (externalRowId) {
+        await api.updateExternalForm(selectedCard.card.id, formId, {
+          stageId: selectedCard.card.currentStageId,
+          externalRowId,
+          status: 'FILLED',
+        });
+        console.log('[DEBUG] Saved external form reference to backend');
+      }
 
       // Collapse the form after save
       setExpandedExternalForm(null);

@@ -137,3 +137,19 @@ export class CreateCommentDto {
   @IsUUID()
   userId?: string;
 }
+
+export class UpdateExternalFormDto {
+  @ApiProperty({ description: 'Stage ID where the form is being filled' })
+  @IsUUID()
+  stageId: string;
+
+  @ApiPropertyOptional({ description: 'External row ID returned by external API' })
+  @IsOptional()
+  @IsString()
+  externalRowId?: string;
+
+  @ApiPropertyOptional({ enum: ['FILLED', 'TO_FILL'] })
+  @IsOptional()
+  @IsEnum(['FILLED', 'TO_FILL'])
+  status?: 'FILLED' | 'TO_FILL';
+}

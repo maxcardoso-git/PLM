@@ -134,6 +134,23 @@ class ApiClient {
     return data;
   }
 
+  async updateExternalForm(
+    cardId: string,
+    externalFormId: string,
+    payload: { stageId: string; externalRowId?: string; status?: string }
+  ): Promise<any> {
+    const { data } = await this.client.patch(`/cards/${cardId}/external-forms/${externalFormId}`, payload);
+    return data;
+  }
+
+  async getExternalForm(
+    cardId: string,
+    externalFormId: string
+  ): Promise<{ id: string; cardId: string; externalFormId: string; externalRowId: string | null; stageId: string; status: string } | null> {
+    const { data } = await this.client.get(`/cards/${cardId}/external-forms/${externalFormId}`);
+    return data;
+  }
+
   async updateCard(cardId: string, payload: {
     title?: string;
     description?: string;

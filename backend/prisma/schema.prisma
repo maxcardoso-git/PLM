@@ -266,6 +266,7 @@ model Stage {
   transitionsTo          StageTransition[]     @relation("ToStage")
   cards                  Card[]
   cardFormsAttachedAt    CardForm[]
+  cardExternalForms      CardExternalForm[]
   moveHistoryFrom        CardMoveHistory[]     @relation("FromStageHistory")
   moveHistoryTo          CardMoveHistory[]     @relation("ToStageHistory")
   automationBindingsFrom AutomationBinding[]   @relation("FilterFromStage")
@@ -389,6 +390,7 @@ model Card {
   pipeline          Pipeline           @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
   currentStage      Stage              @relation(fields: [currentStageId], references: [id])
   forms             CardForm[]
+  externalForms     CardExternalForm[]
   moveHistory       CardMoveHistory[]
   triggerExecutions TriggerExecution[]
   comments          CardComment[]
@@ -426,6 +428,25 @@ model CardForm {
   @@index([formDefinitionId])
   @@index([status])
   @@map("card_forms")
+}
+
+model CardExternalForm {
+  id              String    @id @default(uuid()) @db.Uuid
+  cardId          String    @map("card_id") @db.Uuid
+  externalFormId  String    @map("external_form_id") @db.VarChar(255)
+  externalRowId   String?   @map("external_row_id") @db.VarChar(255)
+  stageId         String    @map("stage_id") @db.Uuid
+  status          CardFormStatus @default(TO_FILL)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  card  Card  @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  stage Stage @relation(fields: [stageId], references: [id])
+
+  @@unique([cardId, externalFormId], name: "uq_card_external_form")
+  @@index([cardId])
+  @@index([externalFormId])
+  @@map("card_external_forms")
 }
 
 model CardMoveHistory {
