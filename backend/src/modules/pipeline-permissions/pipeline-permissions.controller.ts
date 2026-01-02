@@ -9,12 +9,13 @@ import {
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
+  ApiHeader,
   ApiParam,
 } from '@nestjs/swagger';
 import { PipelinePermissionsService } from './pipeline-permissions.service';
@@ -23,13 +24,16 @@ import {
   UpdatePermissionDto,
   PermissionResponseDto,
 } from './dto';
-import { Tenant, TenantContext } from '../../common/decorators/tenant.decorator';
-import { CurrentUser } from '../../auth/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '../../auth/dto/tah-callback.dto';
+import { Tenant } from '../../common/decorators';
+import type { TenantContext } from '../../common/decorators';
+import { TenantGuard, RequireOrganization } from '../../common/guards';
 
 @ApiTags('Pipeline Permissions')
-@ApiBearerAuth()
 @Controller()
+@UseGuards(TenantGuard)
+@RequireOrganization()
+@ApiHeader({ name: 'X-Tenant-Id', required: true })
+@ApiHeader({ name: 'X-Organization-Id', required: true })
 export class PipelinePermissionsController {
   constructor(
     private readonly permissionsService: PipelinePermissionsService,
@@ -47,7 +51,7 @@ export class PipelinePermissionsController {
   ): Promise<PermissionResponseDto[]> {
     return this.permissionsService.getPermissions(
       ctx.tenantId,
-      ctx.orgId,
+      ctx.orgId!,
       pipelineId,
     );
   }
@@ -62,14 +66,13 @@ export class PipelinePermissionsController {
     @Param('pipelineId', ParseUUIDPipe) pipelineId: string,
     @Body() dto: AssignPermissionDto,
     @Tenant() ctx: TenantContext,
-    @CurrentUser() user: AuthenticatedUser,
   ): Promise<PermissionResponseDto> {
     return this.permissionsService.assignPermission(
       ctx.tenantId,
-      ctx.orgId,
+      ctx.orgId!,
       pipelineId,
       dto,
-      user.id,
+      ctx.userId,
     );
   }
 
@@ -87,7 +90,7 @@ export class PipelinePermissionsController {
   ): Promise<PermissionResponseDto> {
     return this.permissionsService.updatePermission(
       ctx.tenantId,
-      ctx.orgId,
+      ctx.orgId!,
       pipelineId,
       permissionId,
       dto,
@@ -108,7 +111,7 @@ export class PipelinePermissionsController {
   ): Promise<void> {
     return this.permissionsService.removePermission(
       ctx.tenantId,
-      ctx.orgId,
+      ctx.orgId!,
       pipelineId,
       permissionId,
     );
@@ -121,13 +124,16 @@ export class PipelinePermissionsController {
   async getMyPermission(
     @Param('pipelineId', ParseUUIDPipe) pipelineId: string,
     @Tenant() ctx: TenantContext,
-    @CurrentUser() user: AuthenticatedUser,
   ) {
+    if (!ctx.userId) {
+      return { hasAccess: false, permission: null };
+    }
+
     const permission = await this.permissionsService.getUserPermission(
       ctx.tenantId,
-      ctx.orgId,
+      ctx.orgId!,
       pipelineId,
-      user.id,
+      ctx.userId,
     );
 
     return {
@@ -146,7 +152,7 @@ export class PipelinePermissionsController {
   ) {
     return this.permissionsService.getAvailableGroups(
       ctx.tenantId,
-      ctx.orgId,
+      ctx.orgId!,
       pipelineId,
     );
   }
@@ -158,12 +164,15 @@ export class PipelinePermissionsController {
   @ApiResponse({ status: 200, description: 'Lista de pipelines' })
   async getAccessiblePipelines(
     @Tenant() ctx: TenantContext,
-    @CurrentUser() user: AuthenticatedUser,
   ) {
+    if (!ctx.userId) {
+      return [];
+    }
+
     return this.permissionsService.getAccessiblePipelines(
       ctx.tenantId,
-      ctx.orgId,
-      user.id,
+      ctx.orgId!,
+      ctx.userId,
     );
   }
 
@@ -172,12 +181,15 @@ export class PipelinePermissionsController {
   @ApiResponse({ status: 200, description: 'Pipelines agrupados por projeto' })
   async getAccessiblePipelinesByProject(
     @Tenant() ctx: TenantContext,
-    @CurrentUser() user: AuthenticatedUser,
   ) {
+    if (!ctx.userId) {
+      return {};
+    }
+
     return this.permissionsService.getAccessiblePipelinesByProject(
       ctx.tenantId,
-      ctx.orgId,
-      user.id,
+      ctx.orgId!,
+      ctx.userId,
     );
   }
 }
