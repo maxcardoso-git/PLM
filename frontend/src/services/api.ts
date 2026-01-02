@@ -418,7 +418,7 @@ class ApiClient {
   }
 
   // Pipeline Permissions
-  async getPipelinePermissions(pipelineId: string): Promise<ListResponse<PipelinePermission>> {
+  async getPipelinePermissions(pipelineId: string): Promise<PipelinePermission[]> {
     const { data } = await this.client.get(`/pipelines/${pipelineId}/permissions`);
     return data;
   }

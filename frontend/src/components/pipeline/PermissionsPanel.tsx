@@ -64,7 +64,7 @@ export function PermissionsPanel({ pipelineId }: PermissionsPanelProps) {
         api.getPipelinePermissions(pipelineId),
         api.getAvailableGroupsForPipeline(pipelineId),
       ]);
-      setPermissions(permsRes.items || []);
+      setPermissions(permsRes || []);
       setAvailableGroups(groupsRes);
       setError(null);
     } catch (err: any) {
