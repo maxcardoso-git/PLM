@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
   Users,
   Plus,
@@ -17,7 +16,6 @@ import { useTenant } from '../context/TenantContext';
 import type { UserGroup, GroupMember } from '../types';
 
 export function GroupsPage() {
-  const { t } = useTranslation();
   const { organization } = useTenant();
 
   const [groups, setGroups] = useState<UserGroup[]>([]);

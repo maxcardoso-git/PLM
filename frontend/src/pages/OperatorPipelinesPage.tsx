@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
 import {
   Layers,
   Loader2,
@@ -25,7 +24,6 @@ const ROLE_CONFIG: Record<PipelineRole, { label: string; color: string; icon: ty
 };
 
 export function OperatorPipelinesPage() {
-  const { t } = useTranslation();
   const navigate = useNavigate();
   const { organization } = useTenant();
 
