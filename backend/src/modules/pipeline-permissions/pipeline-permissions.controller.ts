@@ -23,14 +23,9 @@ import {
   UpdatePermissionDto,
   PermissionResponseDto,
 } from './dto';
-import { TenantContext } from '../../common/decorators/tenant.decorator';
+import { Tenant, TenantContext } from '../../common/decorators/tenant.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../auth/dto/tah-callback.dto';
-
-interface TenantCtx {
-  tenantId: string;
-  orgId: string;
-}
 
 @ApiTags('Pipeline Permissions')
 @ApiBearerAuth()
@@ -48,7 +43,7 @@ export class PipelinePermissionsController {
   @ApiResponse({ status: 200, description: 'Lista de permissões' })
   async getPermissions(
     @Param('pipelineId', ParseUUIDPipe) pipelineId: string,
-    @TenantContext() ctx: TenantCtx,
+    @Tenant() ctx: TenantContext,
   ): Promise<PermissionResponseDto[]> {
     return this.permissionsService.getPermissions(
       ctx.tenantId,
@@ -66,7 +61,7 @@ export class PipelinePermissionsController {
   async assignPermission(
     @Param('pipelineId', ParseUUIDPipe) pipelineId: string,
     @Body() dto: AssignPermissionDto,
-    @TenantContext() ctx: TenantCtx,
+    @Tenant() ctx: TenantContext,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<PermissionResponseDto> {
     return this.permissionsService.assignPermission(
@@ -88,7 +83,7 @@ export class PipelinePermissionsController {
     @Param('pipelineId', ParseUUIDPipe) pipelineId: string,
     @Param('permissionId', ParseUUIDPipe) permissionId: string,
     @Body() dto: UpdatePermissionDto,
-    @TenantContext() ctx: TenantCtx,
+    @Tenant() ctx: TenantContext,
   ): Promise<PermissionResponseDto> {
     return this.permissionsService.updatePermission(
       ctx.tenantId,
@@ -109,7 +104,7 @@ export class PipelinePermissionsController {
   async removePermission(
     @Param('pipelineId', ParseUUIDPipe) pipelineId: string,
     @Param('permissionId', ParseUUIDPipe) permissionId: string,
-    @TenantContext() ctx: TenantCtx,
+    @Tenant() ctx: TenantContext,
   ): Promise<void> {
     return this.permissionsService.removePermission(
       ctx.tenantId,
@@ -125,7 +120,7 @@ export class PipelinePermissionsController {
   @ApiResponse({ status: 200, description: 'Permissão do usuário' })
   async getMyPermission(
     @Param('pipelineId', ParseUUIDPipe) pipelineId: string,
-    @TenantContext() ctx: TenantCtx,
+    @Tenant() ctx: TenantContext,
     @CurrentUser() user: AuthenticatedUser,
   ) {
     const permission = await this.permissionsService.getUserPermission(
@@ -147,7 +142,7 @@ export class PipelinePermissionsController {
   @ApiResponse({ status: 200, description: 'Lista de grupos disponíveis' })
   async getAvailableGroups(
     @Param('pipelineId', ParseUUIDPipe) pipelineId: string,
-    @TenantContext() ctx: TenantCtx,
+    @Tenant() ctx: TenantContext,
   ) {
     return this.permissionsService.getAvailableGroups(
       ctx.tenantId,
@@ -162,7 +157,7 @@ export class PipelinePermissionsController {
   @ApiOperation({ summary: 'Listar pipelines publicados que o usuário tem acesso' })
   @ApiResponse({ status: 200, description: 'Lista de pipelines' })
   async getAccessiblePipelines(
-    @TenantContext() ctx: TenantCtx,
+    @Tenant() ctx: TenantContext,
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.permissionsService.getAccessiblePipelines(
@@ -176,7 +171,7 @@ export class PipelinePermissionsController {
   @ApiOperation({ summary: 'Listar pipelines publicados agrupados por projeto' })
   @ApiResponse({ status: 200, description: 'Pipelines agrupados por projeto' })
   async getAccessiblePipelinesByProject(
-    @TenantContext() ctx: TenantCtx,
+    @Tenant() ctx: TenantContext,
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.permissionsService.getAccessiblePipelinesByProject(

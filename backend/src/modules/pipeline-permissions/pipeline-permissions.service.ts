@@ -312,7 +312,7 @@ export class PipelinePermissionsService {
               take: 1,
               select: {
                 id: true,
-                versionNumber: true,
+                version: true,
                 publishedAt: true,
               },
             },
