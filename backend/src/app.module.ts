@@ -20,6 +20,7 @@ import { PlmApiKeysModule } from './modules/plm-api-keys';
 import { ExternalApiModule } from './modules/external-api';
 import { UserGroupsModule } from './modules/user-groups';
 import { PipelinePermissionsModule } from './modules/pipeline-permissions';
+import { ConversationsModule } from './modules/conversations/conversations.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { PipelinePermissionsModule } from './modules/pipeline-permissions';
     ExternalApiModule,
     UserGroupsModule,
     PipelinePermissionsModule,
+    ConversationsModule,
   ],
   providers: [
     {

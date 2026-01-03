@@ -23,6 +23,8 @@ import type {
   PipelinePermission,
   PipelineRole,
   PublishedPipeline,
+  CardConversation,
+  ConversationMessage,
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
@@ -457,6 +459,36 @@ class ApiClient {
 
   async getPublishedPipelinesByProject(): Promise<Record<string, PublishedPipeline[]>> {
     const { data } = await this.client.get('/published-pipelines/by-project');
+    return data;
+  }
+
+  // Card Conversations
+  async getCardConversations(cardId: string): Promise<CardConversation[]> {
+    const { data } = await this.client.get(`/cards/${cardId}/conversations`);
+    return data;
+  }
+
+  async getConversation(
+    conversationId: string,
+    limit?: number,
+    offset?: number
+  ): Promise<CardConversation & { messages: ConversationMessage[] }> {
+    const params: Record<string, number> = {};
+    if (limit) params.limit = limit;
+    if (offset) params.offset = offset;
+    const { data } = await this.client.get(`/conversations/${conversationId}`, { params });
+    return data;
+  }
+
+  async getConversationMessages(
+    conversationId: string,
+    limit?: number,
+    offset?: number
+  ): Promise<{ messages: ConversationMessage[]; total: number }> {
+    const params: Record<string, number> = {};
+    if (limit) params.limit = limit;
+    if (offset) params.offset = offset;
+    const { data } = await this.client.get(`/conversations/${conversationId}/messages`, { params });
     return data;
   }
 }

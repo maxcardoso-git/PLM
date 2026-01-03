@@ -22,6 +22,7 @@ const PERMISSION_LABELS: Record<PlmApiKeyPermission, string> = {
   'cards:update': 'Atualizar Cards',
   'cards:move': 'Mover Cards',
   'forms:update': 'Atualizar Formulários',
+  'conversations:write': 'Gerenciar Conversas',
 };
 
 const ALL_PERMISSIONS: PlmApiKeyPermission[] = [
@@ -30,6 +31,7 @@ const ALL_PERMISSIONS: PlmApiKeyPermission[] = [
   'cards:update',
   'cards:move',
   'forms:update',
+  'conversations:write',
 ];
 
 export function ExternalAccessSection() {
@@ -404,6 +406,84 @@ export function ExternalAccessSection() {
                   <p className="text-gray-600 text-xs">Mover card para outro estágio</p>
                   <div className="mt-2 p-2 bg-gray-50 rounded text-xs font-mono">
                     {`{ "toStageKey": "QUALIFICADO", "comment": "..." }`}
+                  </div>
+                </div>
+
+                {/* Conversations API */}
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <h5 className="font-medium text-gray-900 mb-3">API de Conversas</h5>
+
+                  <div className="space-y-4">
+                    <div className="p-3 bg-white rounded border border-gray-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">
+                          POST
+                        </span>
+                        <code className="text-sm">/api/v1/external/conversations</code>
+                      </div>
+                      <p className="text-gray-600 text-xs">Criar nova sessão de conversa</p>
+                      <div className="mt-2 p-2 bg-gray-50 rounded text-xs font-mono overflow-x-auto">
+                        {`{
+  "cardIdentifier": "session_abc123",
+  "identifierType": "sessionId",
+  "externalId": "conv_12345",
+  "channel": "WHATSAPP",
+  "participants": [
+    { "type": "CLIENT", "name": "João", "externalId": "+5511..." },
+    { "type": "AGENT", "name": "Bot", "externalId": "bot_1" }
+  ],
+  "startedAt": "2026-01-03T10:00:00Z",
+  "metadata": { "queue": "vendas" }
+}`}
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-white rounded border border-gray-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">
+                          POST
+                        </span>
+                        <code className="text-sm">/api/v1/external/conversations/:externalId/messages</code>
+                      </div>
+                      <p className="text-gray-600 text-xs">Adicionar mensagens a uma conversa</p>
+                      <div className="mt-2 p-2 bg-gray-50 rounded text-xs font-mono overflow-x-auto">
+                        {`{
+  "messages": [
+    {
+      "senderType": "CLIENT",
+      "senderName": "João",
+      "senderId": "+5511...",
+      "content": "Olá!",
+      "contentType": "text",
+      "sentAt": "2026-01-03T10:00:05Z"
+    }
+  ]
+}`}
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-white rounded border border-gray-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-medium rounded">
+                          PATCH
+                        </span>
+                        <code className="text-sm">/api/v1/external/conversations/:externalId</code>
+                      </div>
+                      <p className="text-gray-600 text-xs">Atualizar/encerrar conversa</p>
+                      <div className="mt-2 p-2 bg-gray-50 rounded text-xs font-mono overflow-x-auto">
+                        {`{
+  "status": "CLOSED",
+  "endedAt": "2026-01-03T10:30:00Z",
+  "summary": "Cliente solicitou informações..."
+}`}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 p-2 bg-blue-50 rounded text-xs text-blue-700">
+                    <strong>Canais:</strong> WHATSAPP, WEBCHAT, PHONE, EMAIL, OTHER<br/>
+                    <strong>Status:</strong> ACTIVE, CLOSED, ABANDONED, TRANSFERRED<br/>
+                    <strong>Tipos de participante:</strong> CLIENT, AGENT, OPERATOR
                   </div>
                 </div>
               </div>

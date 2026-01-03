@@ -16,6 +16,7 @@ export const API_KEY_PERMISSIONS = [
   'cards:update',
   'cards:move',
   'forms:update',
+  'conversations:write',
 ] as const;
 
 export type ApiKeyPermission = (typeof API_KEY_PERMISSIONS)[number];

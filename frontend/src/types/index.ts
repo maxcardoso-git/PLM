@@ -376,7 +376,8 @@ export type PlmApiKeyPermission =
   | 'cards:read'
   | 'cards:update'
   | 'cards:move'
-  | 'forms:update';
+  | 'forms:update'
+  | 'conversations:write';
 
 export interface PlmApiKey {
   id: string;
@@ -462,4 +463,48 @@ export interface PublishedPipeline {
     versionNumber: number;
     publishedAt: string;
   };
+}
+
+// Conversation Types
+export type ConversationChannel = 'WHATSAPP' | 'WEBCHAT' | 'PHONE' | 'EMAIL' | 'OTHER';
+export type ParticipantType = 'CLIENT' | 'AGENT' | 'OPERATOR';
+export type ConversationStatus = 'ACTIVE' | 'CLOSED' | 'ABANDONED' | 'TRANSFERRED';
+
+export interface Participant {
+  type: ParticipantType;
+  name: string;
+  externalId?: string;
+}
+
+export interface CardConversation {
+  id: string;
+  tenantId: string;
+  orgId: string;
+  cardId: string;
+  stageId?: string;
+  externalId: string;
+  channel: ConversationChannel;
+  status: ConversationStatus;
+  participants: Participant[];
+  summary?: string;
+  metadata?: Record<string, any>;
+  startedAt: string;
+  endedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  stage?: { id: string; name: string };
+  _count?: { messages: number };
+}
+
+export interface ConversationMessage {
+  id: string;
+  conversationId: string;
+  senderType: ParticipantType;
+  senderName: string;
+  senderId?: string;
+  content: string;
+  contentType: string;
+  mediaUrl?: string;
+  sentAt: string;
+  createdAt: string;
 }

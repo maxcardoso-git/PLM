@@ -462,6 +462,7 @@ model Card {
   moveHistory       CardMoveHistory[]
   triggerExecutions TriggerExecution[]
   comments          CardComment[]
+  conversations     CardConversation[]
 
   @@unique([pipelineId, sessionId], name: "uq_card_session")
   @@index([tenantId])
@@ -701,4 +702,73 @@ model PlmApiKey {
   @@index([key])
   @@index([enabled])
   @@map("plm_api_keys")
+}
+
+// =========================================================
+// CONVERSATIONS
+// =========================================================
+
+enum ConversationChannel {
+  WHATSAPP
+  WEBCHAT
+  PHONE
+  EMAIL
+  OTHER
+}
+
+enum ParticipantType {
+  CLIENT
+  AGENT
+  OPERATOR
+}
+
+enum ConversationStatus {
+  ACTIVE
+  CLOSED
+  ABANDONED
+  TRANSFERRED
+}
+
+model CardConversation {
+  id           String             @id @default(uuid()) @db.Uuid
+  tenantId     String             @map("tenant_id") @db.Uuid
+  orgId        String             @map("org_id") @db.VarChar(100)
+  cardId       String             @map("card_id") @db.Uuid
+  stageId      String?            @map("stage_id") @db.Uuid
+  externalId   String             @map("external_id") @db.VarChar(255)
+  channel      ConversationChannel
+  status       ConversationStatus @default(ACTIVE)
+  participants Json               @default("[]")
+  summary      String?            @db.Text
+  metadata     Json?
+  startedAt    DateTime           @map("started_at") @db.Timestamptz
+  endedAt      DateTime?          @map("ended_at") @db.Timestamptz
+  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+
+  card     Card                  @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  messages ConversationMessage[]
+
+  @@unique([tenantId, externalId], name: "uq_conversation_external")
+  @@index([cardId])
+  @@index([stageId])
+  @@map("card_conversations")
+}
+
+model ConversationMessage {
+  id             String          @id @default(uuid()) @db.Uuid
+  conversationId String          @map("conversation_id") @db.Uuid
+  senderType     ParticipantType @map("sender_type")
+  senderName     String          @map("sender_name") @db.VarChar(255)
+  senderId       String?         @map("sender_id") @db.VarChar(255)
+  content        String          @db.Text
+  contentType    String          @default("text") @map("content_type") @db.VarChar(50)
+  mediaUrl       String?         @map("media_url") @db.Text
+  sentAt         DateTime        @map("sent_at") @db.Timestamptz
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz
+
+  conversation CardConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@map("conversation_messages")
 }
