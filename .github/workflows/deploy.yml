@@ -51,6 +51,7 @@ jobs:
               -e JWT_SECRET="${{ secrets.PLM_JWT_SECRET }}" \
               -e JWT_EXPIRES_IN=24h \
               -e COOKIE_DOMAIN=72.61.52.70 \
+              -e CORS_ORIGIN=http://72.61.52.70:8090 \
               -e BACKEND_URL=http://72.61.52.70:3333 \
               -e FRONTEND_URL=http://72.61.52.70:8090 \
               -p 3333:3000 \
