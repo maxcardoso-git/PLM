@@ -38,6 +38,7 @@ class ApiClient {
       headers: {
         'Content-Type': 'application/json',
       },
+      withCredentials: true,
     });
 
     this.client.interceptors.request.use((config) => {
