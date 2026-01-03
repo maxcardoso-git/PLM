@@ -341,6 +341,7 @@ model Stage {
   automationBindingsTo   AutomationBinding[]   @relation("FilterToStage")
   triggers               StageTrigger[]
   triggersFromStage      StageTrigger[]        @relation("TriggerFromStage")
+  conversations          CardConversation[]
 
   @@index([pipelineVersionId])
   @@index([pipelineVersionId, stageOrder])
@@ -747,6 +748,7 @@ model CardConversation {
   updatedAt    DateTime           @updatedAt @map("updated_at") @db.Timestamptz
 
   card     Card                  @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  stage    Stage?                @relation(fields: [stageId], references: [id])
   messages ConversationMessage[]
 
   @@unique([tenantId, externalId], name: "uq_conversation_external")
