@@ -62,11 +62,11 @@ export class AuthController {
 
       // Set session cookie
       const cookieDomain = this.configService.get<string>('COOKIE_DOMAIN');
-      const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
+      const useSecureCookie = this.configService.get<string>('COOKIE_SECURE') === 'true';
 
       res.cookie('plm_session', sessionToken, {
         httpOnly: true,
-        secure: isProduction,
+        secure: useSecureCookie,
         sameSite: 'lax',
         domain: cookieDomain || undefined,
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
@@ -82,7 +82,7 @@ export class AuthController {
         orgId: user.orgId,
       }), {
         httpOnly: false,
-        secure: isProduction,
+        secure: useSecureCookie,
         sameSite: 'lax',
         domain: cookieDomain || undefined,
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
