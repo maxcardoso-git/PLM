@@ -209,9 +209,9 @@ export function ConversationsModal({
                               <span className={clsx('px-2 py-0.5 text-xs font-medium rounded-full', statusColors[conversation.status])}>
                                 {statusLabels[conversation.status]}
                               </span>
-                              {conversation.stageName && (
+                              {conversation.stage?.name && (
                                 <span className="text-xs text-gray-500">
-                                  @ {conversation.stageName}
+                                  @ {conversation.stage.name}
                                 </span>
                               )}
                             </div>
@@ -235,9 +235,9 @@ export function ConversationsModal({
                           </div>
 
                           <div className="flex-shrink-0 text-right">
-                            {conversation.messageCount !== undefined && (
+                            {conversation._count?.messages !== undefined && (
                               <span className="text-xs text-gray-500">
-                                {conversation.messageCount} msg
+                                {conversation._count.messages} msg
                               </span>
                             )}
                           </div>
