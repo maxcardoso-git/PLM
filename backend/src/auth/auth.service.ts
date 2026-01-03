@@ -77,6 +77,11 @@ export class AuthService {
   async findOrCreateUser(payload: TahJwtPayload): Promise<AuthenticatedUser> {
     const { sub: tahUserId, email, name, tenant_id, org_id, roles } = payload;
 
+    // TAH sometimes sends org_id equal to tenant_id or doesn't send it at all
+    // In these cases, default to 'org-1' which is the standard organization
+    const effectiveOrgId = (org_id && org_id !== tenant_id) ? org_id : 'org-1';
+    this.logger.debug(`TAH org_id: ${org_id}, effective orgId: ${effectiveOrgId}`);
+
     // First, ensure the tenant exists
     let tenant = await this.prisma.tenant.findUnique({
       where: { id: tenant_id },
@@ -106,7 +111,7 @@ export class AuthService {
         data: {
           email,
           name,
-          orgId: org_id,
+          orgId: effectiveOrgId,
           roles: roles || [],
           lastLoginAt: new Date(),
         },
@@ -119,7 +124,7 @@ export class AuthService {
           email,
           name,
           tenantId: tenant_id,
-          orgId: org_id,
+          orgId: effectiveOrgId,
           roles: roles || [],
           lastLoginAt: new Date(),
         },
