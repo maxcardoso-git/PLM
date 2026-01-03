@@ -268,6 +268,8 @@ export class PipelinePermissionsService {
     orgId: string,
     userId: string,
   ): Promise<any[]> {
+    console.log('[getAccessiblePipelines] tenantId:', tenantId, 'orgId:', orgId, 'userId:', userId);
+
     // Get all groups the user belongs to
     const userGroups = await this.prisma.groupMember.findMany({
       where: {
@@ -277,11 +279,14 @@ export class PipelinePermissionsService {
       select: { groupId: true },
     });
 
+    console.log('[getAccessiblePipelines] userGroups found:', userGroups.length, userGroups);
+
     if (userGroups.length === 0) {
       return [];
     }
 
     const groupIds = userGroups.map((ug) => ug.groupId);
+    console.log('[getAccessiblePipelines] groupIds:', groupIds);
 
     // Get all permissions for user's groups
     const permissions = await this.prisma.pipelinePermission.findMany({
@@ -323,6 +328,8 @@ export class PipelinePermissionsService {
         },
       },
     });
+
+    console.log('[getAccessiblePipelines] permissions found:', permissions.length, permissions.map(p => ({ pipelineId: p.pipelineId, role: p.role })));
 
     // Group by pipeline and get highest role
     const pipelineMap = new Map<string, any>();
