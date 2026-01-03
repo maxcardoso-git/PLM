@@ -27,10 +27,11 @@ import {
 import { Tenant } from '../../common/decorators';
 import type { TenantContext } from '../../common/decorators';
 import { TenantGuard, RequireOrganization } from '../../common/guards';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 
 @ApiTags('Pipeline Permissions')
 @Controller()
-@UseGuards(TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard)
 @RequireOrganization()
 @ApiHeader({ name: 'X-Tenant-Id', required: true })
 @ApiHeader({ name: 'X-Organization-Id', required: true })

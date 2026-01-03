@@ -41,7 +41,8 @@
       "Bash(gh auth login:*)",
       "Bash(unzip:*)",
       "Bash(openssl rand:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(gh auth:*)"
     ]
   }
 }
