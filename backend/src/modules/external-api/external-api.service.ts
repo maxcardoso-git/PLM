@@ -11,6 +11,9 @@ import {
   ExternalUpdateFormDto,
   ExternalMoveCardDto,
   CardIdentifierType,
+  ExternalCreateConversationDto,
+  ExternalAddMessagesDto,
+  ExternalUpdateConversationDto,
 } from './dto';
 
 interface ExternalApiContext {
@@ -531,5 +534,167 @@ export class ExternalApiService {
     });
 
     return this.findCard(ctx, card.id, CardIdentifierType.CARD_ID);
+  }
+
+  // ======================================
+  // Conversation Methods
+  // ======================================
+
+  async createConversation(ctx: ExternalApiContext, dto: ExternalCreateConversationDto) {
+    const identifierType = dto.identifierType || CardIdentifierType.SESSION_ID;
+
+    // Find the card
+    const card = await this.findCard(ctx, dto.cardIdentifier, identifierType);
+
+    // Check if conversation with this externalId already exists
+    const existing = await this.prisma.cardConversation.findUnique({
+      where: {
+        uq_conversation_external: {
+          tenantId: ctx.tenantId,
+          externalId: dto.externalId,
+        },
+      },
+    });
+
+    if (existing) {
+      // Return existing conversation (upsert behavior)
+      return this.getConversation(ctx, dto.externalId);
+    }
+
+    // Create new conversation
+    const conversation = await this.prisma.cardConversation.create({
+      data: {
+        tenantId: ctx.tenantId,
+        orgId: ctx.orgId,
+        cardId: card.id,
+        stageId: card.currentStageId,
+        externalId: dto.externalId,
+        channel: dto.channel,
+        status: 'ACTIVE',
+        participants: dto.participants as any,
+        metadata: dto.metadata,
+        startedAt: new Date(dto.startedAt),
+      },
+      include: {
+        stage: { select: { id: true, name: true, key: true } },
+        _count: { select: { messages: true } },
+      },
+    });
+
+    return this.formatConversation(conversation);
+  }
+
+  async getConversation(ctx: ExternalApiContext, externalId: string) {
+    const conversation = await this.prisma.cardConversation.findFirst({
+      where: {
+        tenantId: ctx.tenantId,
+        externalId: externalId,
+      },
+      include: {
+        stage: { select: { id: true, name: true, key: true } },
+        _count: { select: { messages: true } },
+      },
+    });
+
+    if (!conversation) {
+      throw new NotFoundException(`Conversation with externalId '${externalId}' not found`);
+    }
+
+    return this.formatConversation(conversation);
+  }
+
+  async addMessages(ctx: ExternalApiContext, externalId: string, dto: ExternalAddMessagesDto) {
+    // Find conversation
+    const conversation = await this.prisma.cardConversation.findFirst({
+      where: {
+        tenantId: ctx.tenantId,
+        externalId: externalId,
+      },
+    });
+
+    if (!conversation) {
+      throw new NotFoundException(`Conversation with externalId '${externalId}' not found`);
+    }
+
+    // Create messages
+    const messagesToCreate = dto.messages.map((msg) => ({
+      conversationId: conversation.id,
+      senderType: msg.senderType,
+      senderName: msg.senderName,
+      senderId: msg.senderId,
+      content: msg.content,
+      contentType: msg.contentType || 'text',
+      mediaUrl: msg.mediaUrl,
+      sentAt: new Date(msg.sentAt),
+    }));
+
+    await this.prisma.conversationMessage.createMany({
+      data: messagesToCreate,
+    });
+
+    // Return updated conversation
+    return this.getConversation(ctx, externalId);
+  }
+
+  async updateConversation(
+    ctx: ExternalApiContext,
+    externalId: string,
+    dto: ExternalUpdateConversationDto,
+  ) {
+    // Find conversation
+    const conversation = await this.prisma.cardConversation.findFirst({
+      where: {
+        tenantId: ctx.tenantId,
+        externalId: externalId,
+      },
+    });
+
+    if (!conversation) {
+      throw new NotFoundException(`Conversation with externalId '${externalId}' not found`);
+    }
+
+    // Build update data
+    const updateData: any = {};
+    if (dto.status) updateData.status = dto.status;
+    if (dto.endedAt) updateData.endedAt = new Date(dto.endedAt);
+    if (dto.summary !== undefined) updateData.summary = dto.summary;
+    if (dto.metadata) {
+      updateData.metadata = {
+        ...(conversation.metadata as object || {}),
+        ...dto.metadata,
+      };
+    }
+
+    await this.prisma.cardConversation.update({
+      where: { id: conversation.id },
+      data: updateData,
+    });
+
+    return this.getConversation(ctx, externalId);
+  }
+
+  private formatConversation(conversation: any) {
+    return {
+      id: conversation.id,
+      cardId: conversation.cardId,
+      externalId: conversation.externalId,
+      channel: conversation.channel,
+      status: conversation.status,
+      participants: conversation.participants,
+      summary: conversation.summary,
+      metadata: conversation.metadata,
+      startedAt: conversation.startedAt,
+      endedAt: conversation.endedAt,
+      createdAt: conversation.createdAt,
+      updatedAt: conversation.updatedAt,
+      stage: conversation.stage
+        ? {
+            id: conversation.stage.id,
+            name: conversation.stage.name,
+            key: conversation.stage.key,
+          }
+        : null,
+      messageCount: conversation._count?.messages || 0,
+    };
   }
 }

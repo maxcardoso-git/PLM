@@ -24,6 +24,9 @@ import {
   ExternalUpdateFormDto,
   ExternalMoveCardDto,
   CardIdentifierType,
+  ExternalCreateConversationDto,
+  ExternalAddMessagesDto,
+  ExternalUpdateConversationDto,
 } from './dto';
 import { ApiKeyGuard, RequireApiKeyPermissions } from '../../common/guards/api-key.guard';
 
@@ -144,5 +147,81 @@ export class ExternalApiController {
       orgId: req.apiKeyAuth.orgId,
     };
     return this.externalApiService.moveCard(ctx, identifier, type, dto);
+  }
+
+  // ======================================
+  // Conversation Endpoints
+  // ======================================
+
+  @Post('conversations')
+  @RequireApiKeyPermissions('conversations:write')
+  @ApiOperation({ summary: 'Create a new conversation session' })
+  @ApiResponse({ status: 201, description: 'Conversation created successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 401, description: 'Invalid API key' })
+  @ApiResponse({ status: 403, description: 'Insufficient permissions' })
+  @ApiResponse({ status: 404, description: 'Card not found' })
+  async createConversation(@Req() req: any, @Body() dto: ExternalCreateConversationDto) {
+    const ctx = {
+      tenantId: req.apiKeyAuth.tenantId,
+      orgId: req.apiKeyAuth.orgId,
+    };
+    return this.externalApiService.createConversation(ctx, dto);
+  }
+
+  @Get('conversations/:externalId')
+  @RequireApiKeyPermissions('conversations:write')
+  @ApiOperation({ summary: 'Get conversation by external ID' })
+  @ApiParam({ name: 'externalId', description: 'External conversation ID' })
+  @ApiResponse({ status: 200, description: 'Conversation details' })
+  @ApiResponse({ status: 401, description: 'Invalid API key' })
+  @ApiResponse({ status: 403, description: 'Insufficient permissions' })
+  @ApiResponse({ status: 404, description: 'Conversation not found' })
+  async getConversation(@Req() req: any, @Param('externalId') externalId: string) {
+    const ctx = {
+      tenantId: req.apiKeyAuth.tenantId,
+      orgId: req.apiKeyAuth.orgId,
+    };
+    return this.externalApiService.getConversation(ctx, externalId);
+  }
+
+  @Post('conversations/:externalId/messages')
+  @RequireApiKeyPermissions('conversations:write')
+  @ApiOperation({ summary: 'Add messages to a conversation' })
+  @ApiParam({ name: 'externalId', description: 'External conversation ID' })
+  @ApiResponse({ status: 201, description: 'Messages added successfully' })
+  @ApiResponse({ status: 401, description: 'Invalid API key' })
+  @ApiResponse({ status: 403, description: 'Insufficient permissions' })
+  @ApiResponse({ status: 404, description: 'Conversation not found' })
+  async addMessages(
+    @Req() req: any,
+    @Param('externalId') externalId: string,
+    @Body() dto: ExternalAddMessagesDto,
+  ) {
+    const ctx = {
+      tenantId: req.apiKeyAuth.tenantId,
+      orgId: req.apiKeyAuth.orgId,
+    };
+    return this.externalApiService.addMessages(ctx, externalId, dto);
+  }
+
+  @Patch('conversations/:externalId')
+  @RequireApiKeyPermissions('conversations:write')
+  @ApiOperation({ summary: 'Update or close a conversation' })
+  @ApiParam({ name: 'externalId', description: 'External conversation ID' })
+  @ApiResponse({ status: 200, description: 'Conversation updated successfully' })
+  @ApiResponse({ status: 401, description: 'Invalid API key' })
+  @ApiResponse({ status: 403, description: 'Insufficient permissions' })
+  @ApiResponse({ status: 404, description: 'Conversation not found' })
+  async updateConversation(
+    @Req() req: any,
+    @Param('externalId') externalId: string,
+    @Body() dto: ExternalUpdateConversationDto,
+  ) {
+    const ctx = {
+      tenantId: req.apiKeyAuth.tenantId,
+      orgId: req.apiKeyAuth.orgId,
+    };
+    return this.externalApiService.updateConversation(ctx, externalId, dto);
   }
 }
