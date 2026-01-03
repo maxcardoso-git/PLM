@@ -268,7 +268,25 @@ export class PipelinePermissionsService {
     orgId: string,
     userId: string,
   ): Promise<any[]> {
-    console.log('[getAccessiblePipelines] tenantId:', tenantId, 'orgId:', orgId, 'userId:', userId);
+    console.log('[getAccessiblePipelines] ========================================');
+    console.log('[getAccessiblePipelines] Input params:');
+    console.log('[getAccessiblePipelines]   tenantId:', tenantId);
+    console.log('[getAccessiblePipelines]   orgId:', orgId, '(type:', typeof orgId, ')');
+    console.log('[getAccessiblePipelines]   userId:', userId);
+
+    // Debug: Check what groups exist for this user (without org filter first)
+    const allUserGroupsNoOrgFilter = await this.prisma.groupMember.findMany({
+      where: { userId },
+      include: { group: { select: { id: true, name: true, tenantId: true, orgId: true } } },
+    });
+    console.log('[getAccessiblePipelines] User groups WITHOUT org filter:',
+      allUserGroupsNoOrgFilter.map(g => ({
+        groupId: g.groupId,
+        groupName: g.group.name,
+        groupTenantId: g.group.tenantId,
+        groupOrgId: g.group.orgId,
+      }))
+    );
 
     // Get all groups the user belongs to
     const userGroups = await this.prisma.groupMember.findMany({
@@ -279,7 +297,7 @@ export class PipelinePermissionsService {
       select: { groupId: true },
     });
 
-    console.log('[getAccessiblePipelines] userGroups found:', userGroups.length, userGroups);
+    console.log('[getAccessiblePipelines] userGroups WITH org filter:', userGroups.length, userGroups);
 
     if (userGroups.length === 0) {
       return [];
