@@ -21,9 +21,9 @@ export class AuthService {
       this.jwksClient = jwksRsa({
         jwksUri,
         cache: true,
-        cacheMaxAge: 600000, // 10 minutes
+        cacheMaxAge: 60000, // 1 minute - shorter cache to handle TAH key rotation
         rateLimit: true,
-        jwksRequestsPerMinute: 10,
+        jwksRequestsPerMinute: 30,
       });
     }
   }

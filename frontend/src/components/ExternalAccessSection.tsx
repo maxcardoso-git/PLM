@@ -7,11 +7,11 @@ import {
   Check,
   AlertCircle,
   RefreshCw,
-  ExternalLink,
-  ChevronDown,
-  ChevronUp,
+  Eye,
+  EyeOff,
   Clock,
   Shield,
+  Server,
 } from 'lucide-react';
 import api from '../services/api';
 import type { PlmApiKey, PlmApiKeyPermission } from '../types';
@@ -43,10 +43,13 @@ export function ExternalAccessSection() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newKeyVisible, setNewKeyVisible] = useState<{ id: string; key: string } | null>(null);
   const [copied, setCopied] = useState(false);
-  const [showDocs, setShowDocs] = useState(false);
+  const [expandedEndpoints, setExpandedEndpoints] = useState<string | null>(null);
 
   // State for copy feedback per key
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
+
+  // Base URL for API
+  const baseUrl = window.location.origin;
 
   // Create form state
   const [createForm, setCreateForm] = useState({
@@ -172,6 +175,126 @@ export function ExternalAccessSection() {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  // Get endpoints for a specific API Key based on its permissions
+  const getEndpointsForKey = (permissions: PlmApiKeyPermission[]) => {
+    const endpoints: Array<{
+      method: string;
+      path: string;
+      description: string;
+      body?: string;
+      methodColor: string;
+    }> = [];
+
+    // Cards endpoints
+    if (permissions.includes('cards:create')) {
+      endpoints.push({
+        method: 'POST',
+        path: '/api/v1/external/cards',
+        description: 'Criar um novo card',
+        body: `{
+  "pipelineKey": "VENDAS",
+  "sessionId": "session_abc123",
+  "title": "Novo Lead",
+  "priority": "medium",
+  "formData": { "form-key": { "campo": "valor" } }
+}`,
+        methodColor: 'bg-green-100 text-green-700',
+      });
+    }
+
+    if (permissions.includes('cards:read')) {
+      endpoints.push({
+        method: 'GET',
+        path: '/api/v1/external/cards/:identifier',
+        description: 'Buscar card por ID ou sessionId (query: type=cardId|sessionId)',
+        methodColor: 'bg-blue-100 text-blue-700',
+      });
+    }
+
+    if (permissions.includes('cards:update')) {
+      endpoints.push({
+        method: 'PATCH',
+        path: '/api/v1/external/cards/:identifier',
+        description: 'Atualizar dados do card',
+        methodColor: 'bg-yellow-100 text-yellow-700',
+      });
+    }
+
+    if (permissions.includes('cards:move')) {
+      endpoints.push({
+        method: 'POST',
+        path: '/api/v1/external/cards/:identifier/move',
+        description: 'Mover card para outro estágio',
+        body: `{ "toStageKey": "QUALIFICADO", "comment": "..." }`,
+        methodColor: 'bg-green-100 text-green-700',
+      });
+    }
+
+    if (permissions.includes('forms:update')) {
+      endpoints.push({
+        method: 'PATCH',
+        path: '/api/v1/external/cards/:identifier/forms/:formId',
+        description: 'Atualizar dados de um formulário',
+        methodColor: 'bg-yellow-100 text-yellow-700',
+      });
+    }
+
+    // Conversations endpoints
+    if (permissions.includes('conversations:write')) {
+      endpoints.push({
+        method: 'POST',
+        path: '/api/v1/external/conversations',
+        description: 'Criar nova sessão de conversa',
+        body: `{
+  "cardIdentifier": "session_abc123",
+  "identifierType": "sessionId",
+  "externalId": "conv_12345",
+  "channel": "WHATSAPP",
+  "participants": [
+    { "type": "CLIENT", "name": "João", "externalId": "+5511..." }
+  ]
+}`,
+        methodColor: 'bg-green-100 text-green-700',
+      });
+      endpoints.push({
+        method: 'POST',
+        path: '/api/v1/external/conversations/:externalId/messages',
+        description: 'Adicionar mensagens a uma conversa',
+        body: `{
+  "messages": [
+    { "senderType": "CLIENT", "content": "Olá!", "sentAt": "2026-01-03T10:00:05Z" }
+  ]
+}`,
+        methodColor: 'bg-green-100 text-green-700',
+      });
+      endpoints.push({
+        method: 'PATCH',
+        path: '/api/v1/external/conversations/:externalId',
+        description: 'Atualizar/encerrar conversa',
+        body: `{ "status": "CLOSED", "summary": "..." }`,
+        methodColor: 'bg-yellow-100 text-yellow-700',
+      });
+    }
+
+    // Pipelines endpoints
+    if (permissions.includes('pipelines:read')) {
+      endpoints.push({
+        method: 'GET',
+        path: '/api/v1/external/pipelines',
+        description: 'Listar todos os pipelines com seus estágios',
+        methodColor: 'bg-blue-100 text-blue-700',
+      });
+      endpoints.push({
+        method: 'GET',
+        path: '/api/v1/external/pipelines/:identifier',
+        description: 'Buscar pipeline por ID ou key (inclui formulários)',
+        methodColor: 'bg-blue-100 text-blue-700',
+      });
+    }
+
+    return endpoints;
   };
 
   return (
@@ -350,240 +473,90 @@ export function ExternalAccessSection() {
                 {apiKey.description && (
                   <p className="mt-2 text-sm text-gray-500">{apiKey.description}</p>
                 )}
+
+                {/* Ver Endpoints button */}
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                  <button
+                    onClick={() => setExpandedEndpoints(expandedEndpoints === apiKey.id ? null : apiKey.id)}
+                    className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+                  >
+                    {expandedEndpoints === apiKey.id ? (
+                      <>
+                        <EyeOff size={16} />
+                        Ocultar Endpoints
+                      </>
+                    ) : (
+                      <>
+                        <Eye size={16} />
+                        Ver Endpoints Disponiveis
+                      </>
+                    )}
+                  </button>
+
+                  {/* Endpoints panel */}
+                  {expandedEndpoints === apiKey.id && (
+                    <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                      {/* Base URL for Resource Registry */}
+                      <div className="mb-4 p-3 bg-purple-50 rounded border border-purple-100">
+                        <div className="flex items-center gap-2 text-purple-800 font-medium mb-2">
+                          <Server size={16} />
+                          URL Base (para Resource Registry)
+                        </div>
+                        <code className="block p-2 bg-white rounded text-sm font-mono text-purple-700 select-all">
+                          {baseUrl}
+                        </code>
+                      </div>
+
+                      {/* Authentication info */}
+                      <div className="mb-4 p-3 bg-indigo-50 rounded border border-indigo-100">
+                        <div className="flex items-center gap-2 text-indigo-800 font-medium mb-2">
+                          <Shield size={16} />
+                          Autenticacao
+                        </div>
+                        <p className="text-indigo-700 text-sm">
+                          Header: <code className="bg-white px-2 py-1 rounded font-mono">X-API-Key</code>
+                        </p>
+                        <p className="text-indigo-700 text-sm mt-1">
+                          Valor: <code className="bg-white px-2 py-1 rounded font-mono text-xs">{apiKey.key || 'plm_sk_...'}</code>
+                        </p>
+                      </div>
+
+                      {/* Endpoints list */}
+                      <h4 className="font-medium text-gray-900 mb-3">
+                        Endpoints ({getEndpointsForKey(apiKey.permissions).length})
+                      </h4>
+                      <div className="space-y-3">
+                        {getEndpointsForKey(apiKey.permissions).map((endpoint, idx) => (
+                          <div key={idx} className="p-3 bg-white rounded border border-gray-200">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`px-2 py-0.5 text-xs font-medium rounded ${endpoint.methodColor}`}>
+                                {endpoint.method}
+                              </span>
+                              <code className="text-sm font-mono text-gray-800 select-all">{endpoint.path}</code>
+                            </div>
+                            <p className="text-gray-600 text-xs">{endpoint.description}</p>
+                            {endpoint.body && (
+                              <pre className="mt-2 p-2 bg-gray-50 rounded text-xs font-mono overflow-x-auto text-gray-600">
+                                {endpoint.body}
+                              </pre>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      {getEndpointsForKey(apiKey.permissions).length === 0 && (
+                        <p className="text-gray-500 text-sm text-center py-4">
+                          Esta API Key nao tem permissoes configuradas.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>
         )}
 
-        {/* Documentation toggle */}
-        <div className="mt-6 border-t border-gray-200 pt-4">
-          <button
-            onClick={() => setShowDocs(!showDocs)}
-            className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-gray-900"
-          >
-            <ExternalLink size={16} />
-            Documentacao da API
-            {showDocs ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </button>
-
-          {showDocs && (
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg text-sm">
-              {/* Base URL */}
-              <div className="mb-4 p-3 bg-purple-50 rounded border border-purple-100">
-                <div className="text-purple-800 font-medium mb-2">URL Base</div>
-                <code className="block p-2 bg-white rounded text-sm font-mono text-purple-700 select-all">
-                  {window.location.origin}
-                </code>
-                <p className="mt-2 text-purple-600 text-xs">
-                  Use esta URL como base para todas as requisições à API.
-                </p>
-              </div>
-
-              <h4 className="font-medium text-gray-900 mb-3">Endpoints Disponíveis</h4>
-
-              <div className="space-y-4">
-                <div className="p-3 bg-white rounded border border-gray-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">
-                      POST
-                    </span>
-                    <code className="text-sm">/api/v1/external/cards</code>
-                  </div>
-                  <p className="text-gray-600 text-xs">Criar um novo card</p>
-                  <div className="mt-2 p-2 bg-gray-50 rounded text-xs font-mono">
-                    {`{
-  "pipelineKey": "VENDAS",
-  "sessionId": "session_abc123",
-  "title": "Novo Lead",
-  "description": "...",
-  "priority": "medium",
-  "formData": { "form-key": { "campo": "valor" } }
-}`}
-                  </div>
-                </div>
-
-                <div className="p-3 bg-white rounded border border-gray-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">
-                      GET
-                    </span>
-                    <code className="text-sm">/api/v1/external/cards/:identifier</code>
-                  </div>
-                  <p className="text-gray-600 text-xs">
-                    Buscar card por ID ou sessionId (query: type=cardId|sessionId)
-                  </p>
-                </div>
-
-                <div className="p-3 bg-white rounded border border-gray-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-medium rounded">
-                      PATCH
-                    </span>
-                    <code className="text-sm">/api/v1/external/cards/:identifier</code>
-                  </div>
-                  <p className="text-gray-600 text-xs">Atualizar dados do card</p>
-                </div>
-
-                <div className="p-3 bg-white rounded border border-gray-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-medium rounded">
-                      PATCH
-                    </span>
-                    <code className="text-sm">/api/v1/external/cards/:identifier/forms/:formId</code>
-                  </div>
-                  <p className="text-gray-600 text-xs">Atualizar dados de um formulário</p>
-                </div>
-
-                <div className="p-3 bg-white rounded border border-gray-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">
-                      POST
-                    </span>
-                    <code className="text-sm">/api/v1/external/cards/:identifier/move</code>
-                  </div>
-                  <p className="text-gray-600 text-xs">Mover card para outro estágio</p>
-                  <div className="mt-2 p-2 bg-gray-50 rounded text-xs font-mono">
-                    {`{ "toStageKey": "QUALIFICADO", "comment": "..." }`}
-                  </div>
-                </div>
-
-                {/* Conversations API */}
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <h5 className="font-medium text-gray-900 mb-3">API de Conversas</h5>
-
-                  <div className="space-y-4">
-                    <div className="p-3 bg-white rounded border border-gray-200">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">
-                          POST
-                        </span>
-                        <code className="text-sm">/api/v1/external/conversations</code>
-                      </div>
-                      <p className="text-gray-600 text-xs">Criar nova sessão de conversa</p>
-                      <div className="mt-2 p-2 bg-gray-50 rounded text-xs font-mono overflow-x-auto">
-                        {`{
-  "cardIdentifier": "session_abc123",
-  "identifierType": "sessionId",
-  "externalId": "conv_12345",
-  "channel": "WHATSAPP",
-  "participants": [
-    { "type": "CLIENT", "name": "João", "externalId": "+5511..." },
-    { "type": "AGENT", "name": "Bot", "externalId": "bot_1" }
-  ],
-  "startedAt": "2026-01-03T10:00:00Z",
-  "metadata": { "queue": "vendas" }
-}`}
-                      </div>
-                    </div>
-
-                    <div className="p-3 bg-white rounded border border-gray-200">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">
-                          POST
-                        </span>
-                        <code className="text-sm">/api/v1/external/conversations/:externalId/messages</code>
-                      </div>
-                      <p className="text-gray-600 text-xs">Adicionar mensagens a uma conversa</p>
-                      <div className="mt-2 p-2 bg-gray-50 rounded text-xs font-mono overflow-x-auto">
-                        {`{
-  "messages": [
-    {
-      "senderType": "CLIENT",
-      "senderName": "João",
-      "senderId": "+5511...",
-      "content": "Olá!",
-      "contentType": "text",
-      "sentAt": "2026-01-03T10:00:05Z"
-    }
-  ]
-}`}
-                      </div>
-                    </div>
-
-                    <div className="p-3 bg-white rounded border border-gray-200">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-medium rounded">
-                          PATCH
-                        </span>
-                        <code className="text-sm">/api/v1/external/conversations/:externalId</code>
-                      </div>
-                      <p className="text-gray-600 text-xs">Atualizar/encerrar conversa</p>
-                      <div className="mt-2 p-2 bg-gray-50 rounded text-xs font-mono overflow-x-auto">
-                        {`{
-  "status": "CLOSED",
-  "endedAt": "2026-01-03T10:30:00Z",
-  "summary": "Cliente solicitou informações..."
-}`}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 p-2 bg-blue-50 rounded text-xs text-blue-700">
-                    <strong>Canais:</strong> WHATSAPP, WEBCHAT, PHONE, EMAIL, OTHER<br/>
-                    <strong>Status:</strong> ACTIVE, CLOSED, ABANDONED, TRANSFERRED<br/>
-                    <strong>Tipos de participante:</strong> CLIENT, AGENT, OPERATOR
-                  </div>
-                </div>
-
-                {/* Pipelines API */}
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <h5 className="font-medium text-gray-900 mb-3">API de Pipelines</h5>
-
-                  <div className="space-y-4">
-                    <div className="p-3 bg-white rounded border border-gray-200">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">
-                          GET
-                        </span>
-                        <code className="text-sm">/api/v1/external/pipelines</code>
-                      </div>
-                      <p className="text-gray-600 text-xs">Listar todos os pipelines com seus estágios</p>
-                      <div className="mt-2 p-2 bg-gray-50 rounded text-xs font-mono overflow-x-auto">
-                        {`// Resposta
-{
-  "items": [
-    {
-      "id": "uuid",
-      "name": "Vendas",
-      "key": "VENDAS",
-      "stages": [
-        { "id": "uuid", "name": "Novo", "key": "NOVO", "isInitial": true },
-        { "id": "uuid", "name": "Qualificado", "key": "QUALIFICADO" },
-        { "id": "uuid", "name": "Fechado", "key": "FECHADO", "isFinal": true }
-      ]
-    }
-  ],
-  "total": 1
-}`}
-                      </div>
-                    </div>
-
-                    <div className="p-3 bg-white rounded border border-gray-200">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">
-                          GET
-                        </span>
-                        <code className="text-sm">/api/v1/external/pipelines/:identifier</code>
-                      </div>
-                      <p className="text-gray-600 text-xs">Buscar pipeline por ID ou key (inclui formulários anexados)</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 p-3 bg-indigo-50 rounded border border-indigo-100">
-                <div className="flex items-center gap-2 text-indigo-800 font-medium mb-2">
-                  <Shield size={16} />
-                  Autenticação
-                </div>
-                <p className="text-indigo-700 text-xs">
-                  Inclua o header <code className="bg-white px-1 py-0.5 rounded">X-API-Key</code>{' '}
-                  com sua API Key em todas as requisições.
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Create Modal */}
