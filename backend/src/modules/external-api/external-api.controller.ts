@@ -36,7 +36,7 @@ import { ApiKeyGuard, RequireApiKeyPermissions } from '../../common/guards/api-k
   description: 'PLM API Key for authentication',
   required: true,
 })
-@Controller('api/v1/external')
+@Controller('external')
 @UseGuards(ApiKeyGuard)
 export class ExternalApiController {
   constructor(private readonly externalApiService: ExternalApiService) {}
@@ -223,5 +223,39 @@ export class ExternalApiController {
       orgId: req.apiKeyAuth.orgId,
     };
     return this.externalApiService.updateConversation(ctx, externalId, dto);
+  }
+
+  // ======================================
+  // Pipeline Endpoints
+  // ======================================
+
+  @Get('pipelines')
+  @RequireApiKeyPermissions('pipelines:read')
+  @ApiOperation({ summary: 'List all pipelines' })
+  @ApiResponse({ status: 200, description: 'List of pipelines with stages' })
+  @ApiResponse({ status: 401, description: 'Invalid API key' })
+  @ApiResponse({ status: 403, description: 'Insufficient permissions' })
+  async listPipelines(@Req() req: any) {
+    const ctx = {
+      tenantId: req.apiKeyAuth.tenantId,
+      orgId: req.apiKeyAuth.orgId,
+    };
+    return this.externalApiService.listPipelines(ctx);
+  }
+
+  @Get('pipelines/:identifier')
+  @RequireApiKeyPermissions('pipelines:read')
+  @ApiOperation({ summary: 'Get pipeline by ID or key' })
+  @ApiParam({ name: 'identifier', description: 'Pipeline ID or key' })
+  @ApiResponse({ status: 200, description: 'Pipeline details with stages' })
+  @ApiResponse({ status: 401, description: 'Invalid API key' })
+  @ApiResponse({ status: 403, description: 'Insufficient permissions' })
+  @ApiResponse({ status: 404, description: 'Pipeline not found' })
+  async getPipeline(@Req() req: any, @Param('identifier') identifier: string) {
+    const ctx = {
+      tenantId: req.apiKeyAuth.tenantId,
+      orgId: req.apiKeyAuth.orgId,
+    };
+    return this.externalApiService.getPipeline(ctx, identifier);
   }
 }

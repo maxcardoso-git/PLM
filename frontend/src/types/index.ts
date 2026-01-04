@@ -377,7 +377,8 @@ export type PlmApiKeyPermission =
   | 'cards:update'
   | 'cards:move'
   | 'forms:update'
-  | 'conversations:write';
+  | 'conversations:write'
+  | 'pipelines:read';
 
 export interface PlmApiKey {
   id: string;

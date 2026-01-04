@@ -231,8 +231,10 @@
     "connectionSuccess": "Conexion exitosa!",
     "connectionFailed": "Error de conexion",
     "settingsSaved": "Configuracion guardada exitosamente",
-    "apiKeysService": "Servicio de API Keys",
-    "apiKeysServiceDesc": "Conectese al registro central de API Keys para integraciones"
+    "apiKeysService": "API Keys para Integraciones",
+    "apiKeysServiceDesc": "Obtiene claves de API de un servicio externo para webhooks e integraciones (usado en la pagina Integraciones)",
+    "dataEndpoint": "Endpoint de Datos",
+    "dataEndpointHint": "Endpoint para buscar datos del formulario por clave unica"
   },
   "kanban": {
     "createCard": "Crear Tarjeta",

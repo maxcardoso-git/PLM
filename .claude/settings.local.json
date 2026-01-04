@@ -42,7 +42,23 @@
       "Bash(unzip:*)",
       "Bash(openssl rand:*)",
       "Bash(find:*)",
-      "Bash(gh auth:*)"
+      "Bash(gh auth:*)",
+      "Bash(VITE_API_URL=/api/v1 npx vite build:*)",
+      "Bash(export PATH=\"/usr/local/bin:/opt/homebrew/bin:$PATH\")",
+      "Bash(/opt/homebrew/bin/npm run build)",
+      "Bash(source ~/.zshrc)",
+      "Bash(source ~/.bashrc)",
+      "Bash(docker exec:*)",
+      "Bash(docker ps:*)",
+      "Bash(docker info:*)",
+      "Bash(DOCKER_HOST=unix:///var/run/docker.sock docker ps:*)",
+      "Bash(docker context ls:*)",
+      "Bash(docker context use:*)",
+      "Bash(node:*)",
+      "Bash(docker logs:*)",
+      "Bash(PATH=\"/opt/homebrew/bin:$PATH\" npm run build:*)",
+      "Bash(/usr/bin/git -C /Users/maxcardoso/Documents/GitHub/PLM status)",
+      "Bash(/usr/bin/git status)"
     ]
   }
 }

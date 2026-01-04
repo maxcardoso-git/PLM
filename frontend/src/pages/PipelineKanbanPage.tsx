@@ -260,8 +260,10 @@ export function PipelineKanbanPage() {
           uniqueKeyValue: selectedCard.card.uniqueKeyValue,
         });
         try {
-          // New API uses GET /submissions/lookup with query parameters
-          const lookupEndpoint = `/data-entry-forms/submissions/lookup?formId=${formId}&keyField=${uniqueKeyFieldId}&keyValue=${encodeURIComponent(selectedCard.card.uniqueKeyValue)}`;
+          // Use configurable data endpoint from settings (supports {formId} placeholder)
+          const dataEndpointTemplate = settings.externalForms.dataEndpoint || '/data-entry-forms/external/{formId}/submissions/lookup';
+          const dataEndpoint = dataEndpointTemplate.replace('{formId}', formId);
+          const lookupEndpoint = `${dataEndpoint}?keyField=${uniqueKeyFieldId}&keyValue=${encodeURIComponent(selectedCard.card.uniqueKeyValue)}`;
           const dataResponse = await fetch(`${API_BASE_URL}/external-forms/proxy`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

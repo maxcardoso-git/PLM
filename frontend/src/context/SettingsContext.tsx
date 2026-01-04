@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 export interface ExternalFormsConfig {
   baseUrl: string;
   listEndpoint: string;
+  dataEndpoint: string;
   apiKey: string;
   enabled: boolean;
 }
@@ -50,6 +51,7 @@ const defaultSettings: PLMSettings = {
   externalForms: {
     baseUrl: '',
     listEndpoint: '/data-entry-forms/external/list',
+    dataEndpoint: '/data-entry-forms/external/{formId}/submissions/lookup',
     apiKey: '',
     enabled: false,
   },

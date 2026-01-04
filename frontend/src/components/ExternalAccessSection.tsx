@@ -23,6 +23,7 @@ const PERMISSION_LABELS: Record<PlmApiKeyPermission, string> = {
   'cards:move': 'Mover Cards',
   'forms:update': 'Atualizar Formulários',
   'conversations:write': 'Gerenciar Conversas',
+  'pipelines:read': 'Listar Pipelines',
 };
 
 const ALL_PERMISSIONS: PlmApiKeyPermission[] = [
@@ -32,6 +33,7 @@ const ALL_PERMISSIONS: PlmApiKeyPermission[] = [
   'cards:move',
   'forms:update',
   'conversations:write',
+  'pipelines:read',
 ];
 
 export function ExternalAccessSection() {
@@ -42,6 +44,9 @@ export function ExternalAccessSection() {
   const [newKeyVisible, setNewKeyVisible] = useState<{ id: string; key: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const [showDocs, setShowDocs] = useState(false);
+
+  // State for copy feedback per key
+  const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
 
   // Create form state
   const [createForm, setCreateForm] = useState({
@@ -121,10 +126,32 @@ export function ExternalAccessSection() {
     }
   };
 
-  const handleCopyKey = (key: string) => {
-    navigator.clipboard.writeText(key);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopyKey = async (key: string, keyId?: string) => {
+    try {
+      await navigator.clipboard.writeText(key);
+      if (keyId) {
+        setCopiedKeyId(keyId);
+        setTimeout(() => setCopiedKeyId(null), 2000);
+      } else {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    } catch (err) {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = key;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      if (keyId) {
+        setCopiedKeyId(keyId);
+        setTimeout(() => setCopiedKeyId(null), 2000);
+      } else {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    }
   };
 
   const togglePermission = (permission: PlmApiKeyPermission) => {
@@ -134,11 +161,6 @@ export function ExternalAccessSection() {
         ? prev.permissions.filter((p) => p !== permission)
         : [...prev.permissions, permission],
     }));
-  };
-
-  const maskApiKey = (key: string) => {
-    if (key.length <= 16) return key;
-    return `${key.substring(0, 12)}...${key.substring(key.length - 4)}`;
   };
 
   const formatDate = (dateStr?: string) => {
@@ -256,15 +278,20 @@ export function ExternalAccessSection() {
                         )}
                       </div>
                       <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                        <code className="bg-gray-100 px-1.5 py-0.5 rounded">
-                          {maskApiKey(apiKey.key || '')}
+                        <code className="bg-gray-100 px-2 py-1 rounded font-mono text-xs select-all">
+                          {apiKey.key || 'Chave não disponível'}
                         </code>
                         {apiKey.key && (
                           <button
-                            onClick={() => handleCopyKey(apiKey.key!)}
-                            className="text-gray-400 hover:text-gray-600"
+                            onClick={() => handleCopyKey(apiKey.key!, apiKey.id)}
+                            className="p-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded"
+                            title="Copiar chave"
                           >
-                            <Copy size={12} />
+                            {copiedKeyId === apiKey.id ? (
+                              <Check size={16} className="text-green-600" />
+                            ) : (
+                              <Copy size={16} />
+                            )}
                           </button>
                         )}
                       </div>
@@ -341,6 +368,17 @@ export function ExternalAccessSection() {
 
           {showDocs && (
             <div className="mt-4 p-4 bg-gray-50 rounded-lg text-sm">
+              {/* Base URL */}
+              <div className="mb-4 p-3 bg-purple-50 rounded border border-purple-100">
+                <div className="text-purple-800 font-medium mb-2">URL Base</div>
+                <code className="block p-2 bg-white rounded text-sm font-mono text-purple-700 select-all">
+                  {window.location.origin}
+                </code>
+                <p className="mt-2 text-purple-600 text-xs">
+                  Use esta URL como base para todas as requisições à API.
+                </p>
+              </div>
+
               <h4 className="font-medium text-gray-900 mb-3">Endpoints Disponíveis</h4>
 
               <div className="space-y-4">
@@ -484,6 +522,51 @@ export function ExternalAccessSection() {
                     <strong>Canais:</strong> WHATSAPP, WEBCHAT, PHONE, EMAIL, OTHER<br/>
                     <strong>Status:</strong> ACTIVE, CLOSED, ABANDONED, TRANSFERRED<br/>
                     <strong>Tipos de participante:</strong> CLIENT, AGENT, OPERATOR
+                  </div>
+                </div>
+
+                {/* Pipelines API */}
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <h5 className="font-medium text-gray-900 mb-3">API de Pipelines</h5>
+
+                  <div className="space-y-4">
+                    <div className="p-3 bg-white rounded border border-gray-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">
+                          GET
+                        </span>
+                        <code className="text-sm">/api/v1/external/pipelines</code>
+                      </div>
+                      <p className="text-gray-600 text-xs">Listar todos os pipelines com seus estágios</p>
+                      <div className="mt-2 p-2 bg-gray-50 rounded text-xs font-mono overflow-x-auto">
+                        {`// Resposta
+{
+  "items": [
+    {
+      "id": "uuid",
+      "name": "Vendas",
+      "key": "VENDAS",
+      "stages": [
+        { "id": "uuid", "name": "Novo", "key": "NOVO", "isInitial": true },
+        { "id": "uuid", "name": "Qualificado", "key": "QUALIFICADO" },
+        { "id": "uuid", "name": "Fechado", "key": "FECHADO", "isFinal": true }
+      ]
+    }
+  ],
+  "total": 1
+}`}
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-white rounded border border-gray-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">
+                          GET
+                        </span>
+                        <code className="text-sm">/api/v1/external/pipelines/:identifier</code>
+                      </div>
+                      <p className="text-gray-600 text-xs">Buscar pipeline por ID ou key (inclui formulários anexados)</p>
+                    </div>
                   </div>
                 </div>
               </div>

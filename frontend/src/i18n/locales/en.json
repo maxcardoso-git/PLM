@@ -231,8 +231,10 @@
     "connectionSuccess": "Connection successful!",
     "connectionFailed": "Connection failed",
     "settingsSaved": "Settings saved successfully",
-    "apiKeysService": "API Keys Service",
-    "apiKeysServiceDesc": "Connect to the central API Keys registry for integrations"
+    "apiKeysService": "API Keys for Integrations",
+    "apiKeysServiceDesc": "Fetches API keys from external service for webhooks and integrations (used in Integrations page)",
+    "dataEndpoint": "Data Endpoint",
+    "dataEndpointHint": "Endpoint to fetch form data by unique key"
   },
   "kanban": {
     "createCard": "Create Card",

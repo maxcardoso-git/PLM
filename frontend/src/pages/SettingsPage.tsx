@@ -24,6 +24,9 @@ export function SettingsPage() {
   const [listEndpoint, setListEndpoint] = useState(
     settings.externalForms.listEndpoint || '/data-entry-forms/external/list'
   );
+  const [dataEndpoint, setDataEndpoint] = useState(
+    settings.externalForms.dataEndpoint || '/data-entry-forms/external/{formId}/submissions/lookup'
+  );
   const [apiKey, setApiKey] = useState(settings.externalForms.apiKey);
   const [enabled, setEnabled] = useState(settings.externalForms.enabled);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
@@ -198,6 +201,7 @@ export function SettingsPage() {
     updateExternalFormsConfig({
       baseUrl: baseUrl.replace(/\/$/, ''),
       listEndpoint: listEndpoint.startsWith('/') ? listEndpoint : `/${listEndpoint}`,
+      dataEndpoint: dataEndpoint.startsWith('/') ? dataEndpoint : `/${dataEndpoint}`,
       apiKey,
       enabled,
     });
@@ -425,6 +429,24 @@ export function SettingsPage() {
               />
               <Route className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             </div>
+            <p className="mt-1 text-xs text-gray-500">Endpoint para listar formulários disponíveis</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Endpoint de Dados
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={dataEndpoint}
+                onChange={(e) => setDataEndpoint(e.target.value)}
+                placeholder="/data-entry-forms/external/{formId}/submissions/lookup"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <Route className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            </div>
+            <p className="mt-1 text-xs text-gray-500">Endpoint para buscar dados. Use {'{formId}'} como placeholder para o ID do formulário (ex: ?keyField=cpf&keyValue=123)</p>
           </div>
 
           <div>

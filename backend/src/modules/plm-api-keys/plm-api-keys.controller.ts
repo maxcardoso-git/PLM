@@ -46,15 +46,12 @@ export class PlmApiKeysController {
 
   @Get()
   @ApiOperation({ summary: 'List all API keys' })
-  @ApiResponse({ status: 200, description: 'List of API keys (keys are masked)' })
+  @ApiResponse({ status: 200, description: 'List of API keys' })
   async findAll(@Tenant() ctx: TenantContext) {
     const items = await this.plmApiKeysService.findAll(ctx);
-    // Mask keys in response
+    // Return full keys - frontend handles masking/display
     return {
-      items: items.map((item) => ({
-        ...item,
-        key: this.plmApiKeysService.maskKey(item.key),
-      })),
+      items,
     };
   }
 

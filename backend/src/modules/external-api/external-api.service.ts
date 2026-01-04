@@ -697,4 +697,176 @@ export class ExternalApiService {
       messageCount: conversation._count?.messages || 0,
     };
   }
+
+  // ======================================
+  // Pipeline Methods
+  // ======================================
+
+  async listPipelines(ctx: ExternalApiContext) {
+    const pipelines = await this.prisma.pipeline.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        orgId: ctx.orgId,
+        lifecycleStatus: { in: ['published', 'test'] },
+      },
+      include: {
+        versions: {
+          where: { status: { in: ['published', 'test'] } },
+          include: {
+            stages: {
+              orderBy: { stageOrder: 'asc' },
+              select: {
+                id: true,
+                name: true,
+                key: true,
+                stageOrder: true,
+                classification: true,
+                isInitial: true,
+                isFinal: true,
+                wipLimit: true,
+                color: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    return {
+      items: pipelines.map((pipeline) => this.formatPipeline(pipeline)),
+      total: pipelines.length,
+    };
+  }
+
+  async getPipeline(ctx: ExternalApiContext, identifier: string) {
+    // Try to find by ID first, then by key
+    let pipeline = await this.prisma.pipeline.findFirst({
+      where: {
+        id: identifier,
+        tenantId: ctx.tenantId,
+        orgId: ctx.orgId,
+        lifecycleStatus: { in: ['published', 'test'] },
+      },
+      include: {
+        versions: {
+          where: { status: { in: ['published', 'test'] } },
+          include: {
+            stages: {
+              orderBy: { stageOrder: 'asc' },
+              include: {
+                formAttachRules: {
+                  include: {
+                    formDefinition: {
+                      select: {
+                        id: true,
+                        name: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+    });
+
+    // If not found by ID, try by key
+    if (!pipeline) {
+      pipeline = await this.prisma.pipeline.findFirst({
+        where: {
+          key: identifier,
+          tenantId: ctx.tenantId,
+          orgId: ctx.orgId,
+          lifecycleStatus: { in: ['published', 'test'] },
+        },
+        include: {
+          versions: {
+            where: { status: { in: ['published', 'test'] } },
+            include: {
+              stages: {
+                orderBy: { stageOrder: 'asc' },
+                include: {
+                  formAttachRules: {
+                    include: {
+                      formDefinition: {
+                        select: {
+                          id: true,
+                          name: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
+        },
+      });
+    }
+
+    if (!pipeline) {
+      throw new NotFoundException(`Pipeline '${identifier}' not found`);
+    }
+
+    return this.formatPipelineDetailed(pipeline);
+  }
+
+  private formatPipeline(pipeline: any) {
+    const version = pipeline.versions?.[0];
+    return {
+      id: pipeline.id,
+      name: pipeline.name,
+      key: pipeline.key,
+      description: pipeline.description,
+      lifecycleStatus: pipeline.lifecycleStatus,
+      stages: version?.stages?.map((stage: any) => ({
+        id: stage.id,
+        name: stage.name,
+        key: stage.key,
+        order: stage.stageOrder,
+        type: stage.classification,
+        isInitial: stage.isInitial,
+        isFinal: stage.isFinal,
+        wipLimit: stage.wipLimit,
+        color: stage.color,
+      })) || [],
+    };
+  }
+
+  private formatPipelineDetailed(pipeline: any) {
+    const version = pipeline.versions?.[0];
+    return {
+      id: pipeline.id,
+      name: pipeline.name,
+      key: pipeline.key,
+      description: pipeline.description,
+      lifecycleStatus: pipeline.lifecycleStatus,
+      stages: version?.stages?.map((stage: any) => ({
+        id: stage.id,
+        name: stage.name,
+        key: stage.key,
+        order: stage.stageOrder,
+        type: stage.classification,
+        isInitial: stage.isInitial,
+        isFinal: stage.isFinal,
+        wipLimit: stage.wipLimit,
+        color: stage.color,
+        attachedForms: stage.formAttachRules?.map((rule: any) => ({
+          formId: rule.formDefinition?.id,
+          formName: rule.formDefinition?.name,
+          autoAttach: rule.autoAttach,
+          required: rule.required,
+          defaultStatus: rule.defaultFormStatus,
+        })) || [],
+      })) || [],
+    };
+  }
 }
