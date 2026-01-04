@@ -42,6 +42,10 @@ export function FormViewPage() {
     setError(null);
 
     try {
+      // Use configurable schema endpoint
+      const schemaEndpointTemplate = settings.externalForms.schemaEndpoint || '/forms/{formId}';
+      const schemaEndpoint = schemaEndpointTemplate.replace('{formId}', formId!);
+
       const response = await fetch(`${API_BASE_URL}/external-forms/proxy`, {
         method: 'POST',
         headers: {
@@ -49,7 +53,7 @@ export function FormViewPage() {
         },
         body: JSON.stringify({
           baseUrl: settings.externalForms.baseUrl,
-          endpoint: `/data-entry-forms/external/${formId}/schema`,
+          endpoint: schemaEndpoint,
           apiKey: settings.externalForms.apiKey,
           method: 'GET',
         }),

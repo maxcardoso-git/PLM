@@ -17,8 +17,8 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <SettingsProvider>
-        <TenantProvider>
+      <TenantProvider>
+        <SettingsProvider>
           <BrowserRouter>
             <Routes>
               {/* Auth callback route - outside Layout */}
@@ -40,8 +40,8 @@ function App() {
               </Route>
             </Routes>
           </BrowserRouter>
-        </TenantProvider>
-      </SettingsProvider>
+        </SettingsProvider>
+      </TenantProvider>
     </QueryClientProvider>
   );
 }

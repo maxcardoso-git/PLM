@@ -21,6 +21,7 @@ import { ExternalApiModule } from './modules/external-api';
 import { UserGroupsModule } from './modules/user-groups';
 import { PipelinePermissionsModule } from './modules/pipeline-permissions';
 import { ConversationsModule } from './modules/conversations/conversations.module';
+import { TenantSettingsModule } from './modules/tenant-settings/tenant-settings.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { ConversationsModule } from './modules/conversations/conversations.modul
     UserGroupsModule,
     PipelinePermissionsModule,
     ConversationsModule,
+    TenantSettingsModule,
   ],
   providers: [
     {

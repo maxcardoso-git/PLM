@@ -31,8 +31,14 @@ services:
     restart: always
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-plm}:${POSTGRES_PASSWORD:-plm_secret}@postgres:5432/${POSTGRES_DB:-plm}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-plm}:${POSTGRES_PASSWORD_ENCODED:-plm_secret}@postgres:5432/${POSTGRES_DB:-plm}?schema=public
       PORT: 3000
+      TAH_BASE_URL: ${TAH_BASE_URL:-http://72.61.52.70:3050}
+      TAH_JWKS_URL: ${TAH_JWKS_URL:-http://72.61.52.70:3050/.well-known/jwks.json}
+      TAH_ISSUER: ${TAH_ISSUER:-http://72.61.52.70:3050}
+      APP_ID: ${APP_ID:-p_l_m}
+      BACKEND_URL: ${BACKEND_URL:-http://72.61.52.70:8090}
+      JWT_SECRET: ${JWT_SECRET:-plm_session_secret_key}
     depends_on:
       postgres:
         condition: service_healthy

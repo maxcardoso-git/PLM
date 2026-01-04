@@ -190,13 +190,15 @@ export function PipelineKanbanPage() {
     setExternalFormData({});
 
     try {
-      // Fetch schema
+      // Fetch schema using configurable endpoint
+      const schemaEndpointTemplate = settings.externalForms.schemaEndpoint || '/forms/{formId}';
+      const schemaEndpoint = schemaEndpointTemplate.replace('{formId}', formId);
       const response = await fetch(`${API_BASE_URL}/external-forms/proxy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           baseUrl: settings.externalForms.baseUrl,
-          endpoint: `/data-entry-forms/external/${formId}/schema`,
+          endpoint: schemaEndpoint,
           apiKey: settings.externalForms.apiKey,
           method: 'GET',
         }),
@@ -231,7 +233,7 @@ export function PipelineKanbanPage() {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 baseUrl: settings.externalForms.baseUrl,
-                endpoint: `/data-entry-forms/external/${formId}/data/${storedForm.externalRowId}`,
+                endpoint: `/submissions/${storedForm.externalRowId}`,
                 apiKey: settings.externalForms.apiKey,
                 method: 'GET',
               }),
@@ -263,7 +265,9 @@ export function PipelineKanbanPage() {
           // Use configurable data endpoint from settings (supports {formId} placeholder)
           const dataEndpointTemplate = settings.externalForms.dataEndpoint || '/data-entry-forms/external/{formId}/submissions/lookup';
           const dataEndpoint = dataEndpointTemplate.replace('{formId}', formId);
-          const lookupEndpoint = `${dataEndpoint}?keyField=${uniqueKeyFieldId}&keyValue=${encodeURIComponent(selectedCard.card.uniqueKeyValue)}`;
+          // Use & if endpoint already has query params, otherwise use ?
+          const separator = dataEndpoint.includes('?') ? '&' : '?';
+          const lookupEndpoint = `${dataEndpoint}${separator}keyField=${uniqueKeyFieldId}&keyValue=${encodeURIComponent(selectedCard.card.uniqueKeyValue)}`;
           const dataResponse = await fetch(`${API_BASE_URL}/external-forms/proxy`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -338,11 +342,11 @@ export function PipelineKanbanPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           baseUrl: settings.externalForms.baseUrl,
-          endpoint: `/data-entry-forms/external/${formId}/submit`,
+          endpoint: `/submissions`,
           apiKey: settings.externalForms.apiKey,
           method: 'POST',
           body: {
-            cardId: selectedCard.card.id,
+            formId,
             data: externalFormData,
           },
         }),

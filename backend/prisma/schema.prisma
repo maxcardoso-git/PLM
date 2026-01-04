@@ -774,3 +774,37 @@ model ConversationMessage {
   @@index([conversationId])
   @@map("conversation_messages")
 }
+
+// =========================================================
+// TENANT SETTINGS (API Configurations)
+// =========================================================
+
+model TenantSettings {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @unique @map("tenant_id") @db.Uuid
+
+  // External Forms API
+  externalFormsBaseUrl       String? @map("external_forms_base_url") @db.VarChar(500)
+  externalFormsListEndpoint  String? @map("external_forms_list_endpoint") @db.VarChar(255)
+  externalFormsSchemaEndpoint String? @map("external_forms_schema_endpoint") @db.VarChar(255)
+  externalFormsDataEndpoint  String? @map("external_forms_data_endpoint") @db.VarChar(255)
+  externalFormsApiKey        String? @map("external_forms_api_key") @db.VarChar(500)
+  externalFormsEnabled       Boolean @default(false) @map("external_forms_enabled")
+
+  // External Projects API
+  externalProjectsBaseUrl      String? @map("external_projects_base_url") @db.VarChar(500)
+  externalProjectsListEndpoint String? @map("external_projects_list_endpoint") @db.VarChar(255)
+  externalProjectsApiKey       String? @map("external_projects_api_key") @db.VarChar(500)
+  externalProjectsEnabled      Boolean @default(false) @map("external_projects_enabled")
+
+  // API Keys Service
+  apiKeysServiceBaseUrl      String? @map("api_keys_service_base_url") @db.VarChar(500)
+  apiKeysServiceListEndpoint String? @map("api_keys_service_list_endpoint") @db.VarChar(255)
+  apiKeysServiceApiKey       String? @map("api_keys_service_api_key") @db.VarChar(500)
+  apiKeysServiceEnabled      Boolean @default(false) @map("api_keys_service_enabled")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("tenant_settings")
+}
