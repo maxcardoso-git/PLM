@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Settings, Key, Link2, CheckCircle2, XCircle, TestTube2, Route, Building2, Hash, FolderKanban, KeyRound, Shield, BookOpen, Zap } from 'lucide-react';
+import { Settings, Key, Link2, CheckCircle2, XCircle, TestTube2, Route, Building2, Hash, FolderKanban, KeyRound, Shield, BookOpen, Zap, FileText, Database, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
 import {
   HowItWorksModal,
@@ -62,6 +62,12 @@ export function SettingsPage() {
 
   // How it Works modal state
   const [showHowItWorks, setShowHowItWorks] = useState(false);
+
+  // Forms preview state
+  const [availableForms, setAvailableForms] = useState<any[]>([]);
+  const [showFormsPreview, setShowFormsPreview] = useState(false);
+  const [testingFormData, setTestingFormData] = useState<string | null>(null);
+  const [formDataResult, setFormDataResult] = useState<{ formId: string; data: any; error?: string } | null>(null);
 
   const howItWorksContent: HowItWorksContent = {
     title: 'Configurações',
@@ -218,6 +224,8 @@ export function SettingsPage() {
 
     setTestStatus('testing');
     setTestMessage(t('settings.testing'));
+    setAvailableForms([]);
+    setShowFormsPreview(false);
 
     try {
       const endpoint = listEndpoint.startsWith('/') ? listEndpoint : `/${listEndpoint}`;
@@ -237,9 +245,13 @@ export function SettingsPage() {
       if (response.ok) {
         const data = await response.json();
         const forms = data.data || data.items || data;
-        const count = Array.isArray(forms) ? forms.length : 0;
+        const formsList = Array.isArray(forms) ? forms : [];
+        setAvailableForms(formsList);
         setTestStatus('success');
-        setTestMessage(`${t('settings.connectionSuccess')} (${count} forms)`);
+        setTestMessage(`${t('settings.connectionSuccess')} (${formsList.length} forms)`);
+        if (formsList.length > 0) {
+          setShowFormsPreview(true);
+        }
       } else {
         setTestStatus('error');
         setTestMessage(t('settings.connectionFailed'));
@@ -247,6 +259,56 @@ export function SettingsPage() {
     } catch {
       setTestStatus('error');
       setTestMessage(t('settings.connectionFailed'));
+    }
+  };
+
+  const handleTestFormData = async (formId: string) => {
+    if (!baseUrl || !apiKey) return;
+
+    setTestingFormData(formId);
+    setFormDataResult(null);
+
+    try {
+      // Build the data endpoint URL
+      const dataEndpointTemplate = dataEndpoint || '/data-entry-forms/external/{formId}/submissions/lookup';
+      const formDataEndpoint = dataEndpointTemplate.replace('{formId}', formId);
+
+      // Test with a sample lookup (just to verify the endpoint works)
+      const response = await fetch(`${API_BASE_URL}/external-forms/proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          baseUrl: baseUrl.replace(/\/$/, ''),
+          endpoint: `${formDataEndpoint}?keyField=test&keyValue=test`,
+          apiKey,
+          method: 'GET',
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setFormDataResult({
+          formId,
+          data: result,
+        });
+      } else {
+        setFormDataResult({
+          formId,
+          data: null,
+          error: result.message || 'Endpoint nao encontrado ou erro na API',
+        });
+      }
+    } catch (err) {
+      setFormDataResult({
+        formId,
+        data: null,
+        error: 'Falha ao conectar com o endpoint de dados',
+      });
+    } finally {
+      setTestingFormData(null);
     }
   };
 
@@ -521,6 +583,93 @@ export function SettingsPage() {
               {t('settings.saveSettings')}
             </button>
           </div>
+
+          {/* Forms Preview Section */}
+          {availableForms.length > 0 && (
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={() => setShowFormsPreview(!showFormsPreview)}
+                className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800"
+              >
+                {showFormsPreview ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                <FileText size={16} />
+                Formularios Disponiveis ({availableForms.length})
+              </button>
+
+              {showFormsPreview && (
+                <div className="mt-4 space-y-3">
+                  {availableForms.map((form: any) => (
+                    <div key={form.id} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900">{form.name || form.title}</h4>
+                          {form.description && (
+                            <p className="text-sm text-gray-500 mt-1">{form.description}</p>
+                          )}
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                              ID: {form.id}
+                            </span>
+                            {form.uniqueKeyField && (
+                              <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                                Chave Unica: {form.uniqueKeyField}
+                              </span>
+                            )}
+                            {form.fields && (
+                              <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">
+                                {form.fields.length} campos
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleTestFormData(form.id)}
+                          disabled={testingFormData === form.id}
+                          className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-100 rounded hover:bg-purple-200 disabled:opacity-50"
+                        >
+                          {testingFormData === form.id ? (
+                            <>
+                              <div className="animate-spin h-3 w-3 border-2 border-purple-500 border-t-transparent rounded-full" />
+                              Testando...
+                            </>
+                          ) : (
+                            <>
+                              <Database size={14} />
+                              Testar Dados
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Form Data Test Result */}
+                      {formDataResult && formDataResult.formId === form.id && (
+                        <div className={`mt-3 p-3 rounded text-sm ${formDataResult.error ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+                          {formDataResult.error ? (
+                            <div className="flex items-center gap-2">
+                              <AlertCircle size={16} />
+                              {formDataResult.error}
+                            </div>
+                          ) : (
+                            <div>
+                              <div className="flex items-center gap-2 mb-2">
+                                <CheckCircle2 size={16} />
+                                Endpoint de dados funcionando!
+                              </div>
+                              <code className="block p-2 bg-white rounded text-xs text-gray-600 overflow-x-auto">
+                                {dataEndpoint.replace('{formId}', form.id)}
+                              </code>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </form>
       </div>
 
