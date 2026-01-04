@@ -58,7 +58,8 @@
       "Bash(docker logs:*)",
       "Bash(PATH=\"/opt/homebrew/bin:$PATH\" npm run build:*)",
       "Bash(/usr/bin/git -C /Users/maxcardoso/Documents/GitHub/PLM status)",
-      "Bash(/usr/bin/git status)"
+      "Bash(/usr/bin/git status)",
+      "Bash(tar:*)"
     ]
   }
 }
