@@ -201,3 +201,25 @@ export class UpdateFormRuleDto {
   @IsString()
   uniqueKeyFieldId?: string;
 }
+
+// Stage Order Item
+import { Type } from 'class-transformer';
+import { ValidateNested, IsArray } from 'class-validator';
+
+export class StageOrderItem {
+  @ApiProperty({ description: 'Stage ID' })
+  @IsUUID()
+  id: string;
+
+  @ApiProperty({ description: 'New stage order (1-based)' })
+  @IsInt()
+  stageOrder: number;
+}
+
+export class ReorderStagesDto {
+  @ApiProperty({ type: [StageOrderItem], description: 'Array of stage IDs with their new order' })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => StageOrderItem)
+  stageOrders: StageOrderItem[];
+}

@@ -169,6 +169,7 @@ export interface KanbanCard extends Card {
   pendingFormsCount: number;
   filledFormsCount: number;
   totalFormsCount: number;
+  commentsCount?: number;
   forms?: { id: string; status: CardFormStatus; formDefinitionId: string; formDefinition: { id: string; name: string } }[];
   triggerExecutionSummary?: TriggerExecutionSummary;
 }

@@ -258,4 +258,26 @@ export class ExternalApiController {
     };
     return this.externalApiService.getPipeline(ctx, identifier);
   }
+
+  @Get('pipelines/:identifier/workflow')
+  @RequireApiKeyPermissions('pipelines:read')
+  @ApiOperation({
+    summary: 'Get complete pipeline workflow design',
+    description: 'Returns full workflow structure including stages, transitions, rules, and form requirements. Optimized for AI assistants to understand and guide the process.',
+  })
+  @ApiParam({ name: 'identifier', description: 'Pipeline ID or key' })
+  @ApiResponse({
+    status: 200,
+    description: 'Complete pipeline workflow with stages, transitions, and rules',
+  })
+  @ApiResponse({ status: 401, description: 'Invalid API key' })
+  @ApiResponse({ status: 403, description: 'Insufficient permissions' })
+  @ApiResponse({ status: 404, description: 'Pipeline not found' })
+  async getPipelineWorkflow(@Req() req: any, @Param('identifier') identifier: string) {
+    const ctx = {
+      tenantId: req.apiKeyAuth.tenantId,
+      orgId: req.apiKeyAuth.orgId,
+    };
+    return this.externalApiService.getPipelineWorkflow(ctx, identifier);
+  }
 }

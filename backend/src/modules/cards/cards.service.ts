@@ -204,9 +204,12 @@ export class CardsService {
         currentStage: {
           include: {
             transitionsFrom: {
+              where: {
+                toStage: { active: true },
+              },
               include: {
                 toStage: {
-                  select: { id: true, name: true, color: true, wipLimit: true },
+                  select: { id: true, name: true, color: true, wipLimit: true, active: true },
                 },
               },
             },
@@ -355,6 +358,16 @@ export class CardsService {
 
     if (!targetStage) {
       throw new NotFoundException('Target stage not found');
+    }
+
+    if (!targetStage.active) {
+      throw new ConflictException({
+        code: 'TRANSITION_NOT_ALLOWED',
+        message: 'Target stage is inactive',
+        details: {
+          targetStageId: dto.toStageId,
+        },
+      } as MoveBlockedError);
     }
 
     if (targetStage.wipLimit) {
@@ -803,6 +816,9 @@ export class CardsService {
           orderBy: { executedAt: 'desc' },
           take: 5,
         },
+        _count: {
+          select: { comments: true },
+        },
       },
       orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }],
     });
@@ -825,6 +841,7 @@ export class CardsService {
           pendingFormsCount,
           filledFormsCount,
           totalFormsCount: card.forms.length,
+          commentsCount: card._count?.comments || 0,
           triggerExecutionSummary: {
             total: card.triggerExecutions.length,
             success: successExecutions,

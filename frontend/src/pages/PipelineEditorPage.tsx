@@ -1,6 +1,23 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import type { DragEndEvent } from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
   ArrowLeft,
   Plus,
   Trash2,
@@ -136,6 +153,40 @@ const STAGE_COLORS = [
   '#6B7280', '#EF4444', '#F59E0B', '#10B981', '#3B82F6',
   '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#06B6D4',
 ];
+
+// Sortable Stage Item Component
+interface SortableStageItemProps {
+  id: string;
+  children: React.ReactNode;
+}
+
+function SortableStageItem({ id, children }: SortableStageItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} className="bg-white rounded-lg border border-gray-200 p-4">
+      <div className="flex items-center gap-4 mb-0">
+        <div {...listeners} className="cursor-grab active:cursor-grabbing flex-shrink-0">
+          <GripVertical size={20} className="text-gray-400 hover:text-gray-600" />
+        </div>
+        <div className="flex-1 min-w-0">{children}</div>
+      </div>
+    </div>
+  );
+}
 
 export function PipelineEditorPage() {
   const { pipelineId } = useParams<{ pipelineId: string }>();
@@ -285,6 +336,45 @@ export function PipelineEditorPage() {
     fetchPipeline();
   }, [fetchPipeline]);
 
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Handle drag end for reordering stages
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = stages.findIndex((s) => s.id === active.id);
+      const newIndex = stages.findIndex((s) => s.id === over.id);
+
+      const newStages = arrayMove(stages, oldIndex, newIndex).map((stage, index) => ({
+        ...stage,
+        stageOrder: index + 1,
+      }));
+
+      setStages(newStages);
+
+      // Save to backend
+      try {
+        const versionId = pipeline?.versions?.[selectedVersion - 1]?.id;
+        if (versionId) {
+          await api.reorderStages(versionId, newStages.map((s) => ({ id: s.id, stageOrder: s.stageOrder })));
+          showToast('success', 'Ordem das etapas atualizada');
+        }
+      } catch (err) {
+        console.error('Failed to reorder stages:', err);
+        showToast('error', 'Erro ao reordenar etapas');
+        // Revert on error
+        fetchVersionStages(selectedVersion);
+      }
+    }
+  };
+
   const handleCreateStage = () => {
     setEditingStage(null);
     setStageForm({
@@ -363,15 +453,25 @@ export function PipelineEditorPage() {
 
   const handleDeleteStage = async (stageId: string) => {
     try {
-      await fetch(`${API_BASE_URL}/stages/${stageId}`, {
+      const res = await fetch(`${API_BASE_URL}/stages/${stageId}`, {
         method: 'DELETE',
         headers,
       });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const message = data.message || '';
+        if (message.toLowerCase().includes('published') || message.toLowerCase().includes('cannot')) {
+          throw new Error('Esta versão está publicada. Despublique-a primeiro para fazer alterações.');
+        }
+        throw new Error(message || 'Falha ao excluir etapa');
+      }
+
       setShowConfirmModal(false);
       fetchVersionStages(selectedVersion);
       showToast('success', 'Etapa excluída com sucesso!');
     } catch (err) {
-      showToast('error', 'Falha ao excluir etapa');
+      showToast('error', err instanceof Error ? err.message : 'Falha ao excluir etapa');
     }
   };
 
@@ -484,39 +584,11 @@ export function PipelineEditorPage() {
           allForms = data.data;
         }
 
-        console.log('Pipeline projectId:', pipeline?.projectId);
-        console.log('All forms count:', allForms.length);
+        console.log('External forms count:', allForms.length);
 
-        // Debug: log all forms with their project and status info
-        allForms.forEach((form, i) => {
-          const formAny = form as any;
-          const formProjectId = form.project?.id || form.projectId || formAny.project_id || formAny.projectId;
-          const biaValue = formAny.biaStatus || formAny.BIAStatus || formAny.bia_status || formAny.biastatus;
-          console.log(`Form ${i}: "${form.name}" - projectId=${formProjectId}, status=${form.status}, biaStatus=${biaValue}`);
-        });
-
-        // Filter by pipeline's project and status (Published AND Approved)
-        const filteredForms = allForms.filter(form => {
-          const formAny = form as any;
-
-          // Check if form belongs to same project as pipeline
-          const formProjectId = form.project?.id || form.projectId || formAny.project_id || formAny.projectId;
-          const matchesProject = !pipeline?.projectId || formProjectId === pipeline.projectId;
-
-          // Check status: Published AND Approved (BIA)
-          const isPublished = form.status?.toLowerCase() === 'published';
-          const biaValue = formAny.biaStatus || formAny.BIAStatus || formAny.bia_status || formAny.biastatus;
-          const isApproved = biaValue?.toLowerCase() === 'approved';
-
-          const passes = matchesProject && isPublished && isApproved;
-          if (!passes) {
-            console.log(`Form "${form.name}" filtered out: matchesProject=${matchesProject}, isPublished=${isPublished}, isApproved=${isApproved}`);
-          }
-          return passes;
-        });
-
-        console.log('Filtered forms count:', filteredForms.length);
-        setAvailableForms(filteredForms);
+        // External forms from the rawdata API don't have project/BIA filters
+        // They are available directly - just use them all
+        setAvailableForms(allForms);
       } catch (err) {
         console.error('Failed to fetch external forms:', err);
       }
@@ -538,8 +610,11 @@ export function PipelineEditorPage() {
     if (!isFormsConfigured || !settings.externalForms.baseUrl) return [];
 
     try {
-      const { baseUrl, apiKey } = settings.externalForms;
-      // Use proxy endpoint same as FormsPage
+      const { baseUrl, apiKey, schemaEndpoint } = settings.externalForms;
+      // Use configurable schema endpoint
+      const schemaEndpointTemplate = schemaEndpoint || '/forms/{formId}';
+      const endpoint = schemaEndpointTemplate.replace('{formId}', formId);
+
       const response = await fetch(`${API_BASE_URL}/external-forms/proxy`, {
         method: 'POST',
         headers: {
@@ -547,7 +622,7 @@ export function PipelineEditorPage() {
         },
         body: JSON.stringify({
           baseUrl,
-          endpoint: `/data-entry-forms/${formId}/schema`,
+          endpoint,
           apiKey,
           method: 'GET',
         }),
@@ -689,8 +764,12 @@ export function PipelineEditorPage() {
         });
 
         if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.message || 'Falha ao atualizar regra');
+          const data = await res.json().catch(() => ({}));
+          const message = data.message || '';
+          if (message.toLowerCase().includes('published') || message.toLowerCase().includes('cannot modify')) {
+            throw new Error('Esta versão está publicada. Despublique-a primeiro para fazer alterações.');
+          }
+          throw new Error(message || 'Falha ao atualizar regra');
         }
 
         setShowFormModal(false);
@@ -745,7 +824,13 @@ export function PipelineEditorPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.message || 'Falha ao vincular formulário');
+        const message = data.message || 'Falha ao vincular formulário';
+
+        // Tratamento especial para versão publicada
+        if (message.toLowerCase().includes('published') || message.toLowerCase().includes('cannot modify')) {
+          throw new Error('Esta versão está publicada. Despublique-a primeiro para fazer alterações.');
+        }
+        throw new Error(message);
       }
 
       setShowFormModal(false);
@@ -765,15 +850,25 @@ export function PipelineEditorPage() {
 
   const executeDetachForm = async (ruleId: string) => {
     try {
-      await fetch(`${API_BASE_URL}/stage-form-rules/${ruleId}`, {
+      const res = await fetch(`${API_BASE_URL}/stage-form-rules/${ruleId}`, {
         method: 'DELETE',
         headers,
       });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const message = data.message || '';
+        if (message.toLowerCase().includes('published') || message.toLowerCase().includes('cannot modify')) {
+          throw new Error('Esta versão está publicada. Despublique-a primeiro para fazer alterações.');
+        }
+        throw new Error(message || 'Falha ao desvincular formulário');
+      }
+
       setShowConfirmModal(false);
       fetchVersionStages(selectedVersion);
       showToast('success', 'Formulário desvinculado!');
     } catch (err) {
-      showToast('error', 'Falha ao desvincular formulário');
+      showToast('error', err instanceof Error ? err.message : 'Falha ao desvincular formulário');
     }
   };
 
@@ -1370,210 +1465,216 @@ export function PipelineEditorPage() {
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
-            {stages
-              .sort((a, b) => a.stageOrder - b.stageOrder)
-              .map((stage) => (
-                <div
-                  key={stage.id}
-                  className="bg-white rounded-lg border border-gray-200 p-4"
-                >
-                  <div className="flex items-center gap-4">
-                    <GripVertical size={20} className="text-gray-300" />
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={stages.sort((a, b) => a.stageOrder - b.stageOrder).map((s) => s.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-3">
+                {stages
+                  .sort((a, b) => a.stageOrder - b.stageOrder)
+                  .map((stage) => (
+                    <SortableStageItem key={stage.id} id={stage.id}>
+                      <div className="flex items-center gap-4">
+                        <div
+                          className="w-4 h-4 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: stage.color }}
+                        />
 
-                    <div
-                      className="w-4 h-4 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: stage.color }}
-                    />
-
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-900">{stage.name}</span>
-                        {stage.isInitial && (
-                          <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full flex items-center gap-1">
-                            <Play size={10} /> Initial
-                          </span>
-                        )}
-                        {stage.isFinal && (
-                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full flex items-center gap-1">
-                            <Flag size={10} /> Final
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-sm text-gray-500 mt-1">
-                        {CLASSIFICATIONS.find((c) => c.value === stage.classification)?.label}
-                        {stage.wipLimit && ` | WIP: ${stage.wipLimit}`}
-                        {stage.slaHours && ` | SLA: ${stage.slaHours}h`}
-                      </div>
-                    </div>
-
-                    {/* Transitions */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {stage.transitionsFrom?.map((t) => {
-                        const hasRules = (t._count?.rules || 0) > 0;
-                        return (
-                          <span
-                            key={t.id}
-                            className={`text-xs px-2 py-1 rounded-full flex items-center gap-1 group ${
-                              hasRules
-                                ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                                : 'bg-blue-50 text-blue-700'
-                            }`}
-                          >
-                            <ArrowRight size={12} />
-                            {t.toStage.name}
-                            {hasRules && (
-                              <span className="flex items-center gap-0.5 ml-1 px-1.5 py-0.5 bg-amber-200 rounded-full text-amber-900">
-                                <Lock size={10} className="fill-current" />
-                                <span className="text-[10px] font-medium">{t._count?.rules}</span>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-900">{stage.name}</span>
+                            {stage.isInitial && (
+                              <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                <Play size={10} /> Initial
                               </span>
                             )}
-                            <button
-                              onClick={() => handleOpenRulesModal(t.id, stage.name, t.toStage.name)}
-                              className={`ml-1 ${hasRules ? 'text-amber-600 hover:text-amber-800' : 'text-blue-500 hover:text-blue-700'}`}
-                              title="Configurar regras de transição"
-                            >
-                              <Lock size={12} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteTransition(t.id)}
-                              className={`ml-1 opacity-0 group-hover:opacity-100 transition-opacity ${hasRules ? 'text-amber-400 hover:text-red-500' : 'text-blue-400 hover:text-red-500'}`}
-                              title="Remover transição"
-                            >
-                              <X size={12} />
-                            </button>
-                          </span>
-                        );
-                      })}
-                      <button
-                        onClick={() => handleAddTransition(stage)}
-                        className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded-full border border-dashed border-blue-300"
-                        title="Adicionar transição"
-                      >
-                        <Plus size={12} />
-                        Transição
-                      </button>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => handleOpenFormModal(stage)}
-                        className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded"
-                        title="Vincular formulário"
-                      >
-                        <FileText size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleOpenTriggerModal(stage)}
-                        className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded"
-                        title="Configurar gatilhos"
-                      >
-                        <Zap size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleEditStage(stage)}
-                        className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
-                        title="Editar etapa"
-                      >
-                        <Settings size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteStageClick(stage)}
-                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded"
-                        title="Excluir etapa"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Attached Forms */}
-                  {stage.formAttachRules && stage.formAttachRules.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-gray-100">
-                      <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
-                        <FileText size={12} />
-                        <span>Formulários vinculados:</span>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {stage.formAttachRules.map((rule) => {
-                          const formName = rule.formDefinition?.name || rule.externalFormName || 'Unknown';
-                          const formVersion = rule.formDefinition?.version ?? rule.externalFormVersion;
-                          return (
-                            <div
-                              key={rule.id}
-                              className="flex items-center gap-2 px-2 py-1 bg-purple-50 text-purple-700 rounded-md text-xs group cursor-pointer hover:bg-purple-100"
-                              onClick={() => handleEditFormRule(stage, rule)}
-                              title="Clique para editar"
-                            >
-                              <Link2 size={12} />
-                              <span>{formName}{formVersion ? ` v${formVersion}` : ''}</span>
-                              {rule.lockOnLeaveStage && (
-                                <span className="text-purple-400" title="Bloqueia ao sair da etapa">🔒</span>
-                              )}
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleDetachForm(rule.id); }}
-                                className="ml-1 text-purple-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                                title="Remover formulário"
-                              >
-                                <X size={12} />
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Triggers */}
-                  {stage.triggers && stage.triggers.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-gray-100">
-                      <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
-                        <Zap size={12} />
-                        <span>Gatilhos configurados:</span>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {stage.triggers.map((trigger) => (
-                          <div
-                            key={trigger.id}
-                            className="flex items-center gap-2 px-2 py-1 bg-amber-50 text-amber-700 rounded-md text-xs group cursor-pointer hover:bg-amber-100"
-                            onClick={() => handleEditTrigger(stage, trigger)}
-                            title="Clique para editar"
-                          >
-                            {trigger.eventType === 'CARD_MOVEMENT' ? (
-                              <ArrowRight size={12} />
-                            ) : (
-                              <FileText size={12} />
-                            )}
-                            <span>{trigger.integration.name}</span>
-                            {trigger.fromStage && (
-                              <span className="text-amber-500" title={`De: ${trigger.fromStage.name}`}>
-                                ← {trigger.fromStage.name}
+                            {stage.isFinal && (
+                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                <Flag size={10} /> Final
                               </span>
                             )}
-                            {trigger.conditions.length > 0 && (
-                              <span className="bg-amber-200 text-amber-800 px-1 rounded" title="Condições">
-                                {trigger.conditions.length}
-                              </span>
-                            )}
-                            {!trigger.enabled && (
-                              <span className="text-amber-400" title="Desabilitado">⏸</span>
-                            )}
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleDeleteTrigger(trigger.id); }}
-                              className="ml-1 text-amber-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                              title="Remover gatilho"
-                            >
-                              <X size={12} />
-                            </button>
                           </div>
-                        ))}
+                          <div className="text-sm text-gray-500 mt-1">
+                            {CLASSIFICATIONS.find((c) => c.value === stage.classification)?.label}
+                            {stage.wipLimit && ` | WIP: ${stage.wipLimit}`}
+                            {stage.slaHours && ` | SLA: ${stage.slaHours}h`}
+                          </div>
+                        </div>
+
+                        {/* Transitions */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {stage.transitionsFrom?.map((t) => {
+                            const hasRules = (t._count?.rules || 0) > 0;
+                            return (
+                              <span
+                                key={t.id}
+                                className={`text-xs px-2 py-1 rounded-full flex items-center gap-1 group ${
+                                  hasRules
+                                    ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                    : 'bg-blue-50 text-blue-700'
+                                }`}
+                              >
+                                <ArrowRight size={12} />
+                                {t.toStage.name}
+                                {hasRules && (
+                                  <span className="flex items-center gap-0.5 ml-1 px-1.5 py-0.5 bg-amber-200 rounded-full text-amber-900">
+                                    <Lock size={10} className="fill-current" />
+                                    <span className="text-[10px] font-medium">{t._count?.rules}</span>
+                                  </span>
+                                )}
+                                <button
+                                  onClick={() => handleOpenRulesModal(t.id, stage.name, t.toStage.name)}
+                                  className={`ml-1 ${hasRules ? 'text-amber-600 hover:text-amber-800' : 'text-blue-500 hover:text-blue-700'}`}
+                                  title="Configurar regras de transição"
+                                >
+                                  <Lock size={12} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteTransition(t.id)}
+                                  className={`ml-1 opacity-0 group-hover:opacity-100 transition-opacity ${hasRules ? 'text-amber-400 hover:text-red-500' : 'text-blue-400 hover:text-red-500'}`}
+                                  title="Remover transição"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </span>
+                            );
+                          })}
+                          <button
+                            onClick={() => handleAddTransition(stage)}
+                            className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded-full border border-dashed border-blue-300"
+                            title="Adicionar transição"
+                          >
+                            <Plus size={12} />
+                            Transição
+                          </button>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleOpenFormModal(stage)}
+                            className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded"
+                            title="Vincular formulário"
+                          >
+                            <FileText size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleOpenTriggerModal(stage)}
+                            className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded"
+                            title="Configurar gatilhos"
+                          >
+                            <Zap size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleEditStage(stage)}
+                            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+                            title="Editar etapa"
+                          >
+                            <Settings size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteStageClick(stage)}
+                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded"
+                            title="Excluir etapa"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-          </div>
+
+                      {/* Attached Forms */}
+                      {stage.formAttachRules && stage.formAttachRules.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                          <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+                            <FileText size={12} />
+                            <span>Formulários vinculados:</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {stage.formAttachRules.map((rule) => {
+                              const formName = rule.formDefinition?.name || rule.externalFormName || 'Unknown';
+                              const formVersion = rule.formDefinition?.version ?? rule.externalFormVersion;
+                              return (
+                                <div
+                                  key={rule.id}
+                                  className="flex items-center gap-2 px-2 py-1 bg-purple-50 text-purple-700 rounded-md text-xs group cursor-pointer hover:bg-purple-100"
+                                  onClick={() => handleEditFormRule(stage, rule)}
+                                  title="Clique para editar"
+                                >
+                                  <Link2 size={12} />
+                                  <span>{formName}{formVersion ? ` v${formVersion}` : ''}</span>
+                                  {rule.lockOnLeaveStage && (
+                                    <span className="text-purple-400" title="Bloqueia ao sair da etapa">🔒</span>
+                                  )}
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleDetachForm(rule.id); }}
+                                    className="ml-1 text-purple-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    title="Remover formulário"
+                                  >
+                                    <X size={12} />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Triggers */}
+                      {stage.triggers && stage.triggers.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                          <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+                            <Zap size={12} />
+                            <span>Gatilhos configurados:</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {stage.triggers.map((trigger) => (
+                              <div
+                                key={trigger.id}
+                                className="flex items-center gap-2 px-2 py-1 bg-amber-50 text-amber-700 rounded-md text-xs group cursor-pointer hover:bg-amber-100"
+                                onClick={() => handleEditTrigger(stage, trigger)}
+                                title="Clique para editar"
+                              >
+                                {trigger.eventType === 'CARD_MOVEMENT' ? (
+                                  <ArrowRight size={12} />
+                                ) : (
+                                  <FileText size={12} />
+                                )}
+                                <span>{trigger.integration.name}</span>
+                                {trigger.fromStage && (
+                                  <span className="text-amber-500" title={`De: ${trigger.fromStage.name}`}>
+                                    ← {trigger.fromStage.name}
+                                  </span>
+                                )}
+                                {trigger.conditions.length > 0 && (
+                                  <span className="bg-amber-200 text-amber-800 px-1 rounded" title="Condições">
+                                    {trigger.conditions.length}
+                                  </span>
+                                )}
+                                {!trigger.enabled && (
+                                  <span className="text-amber-400" title="Desabilitado">⏸</span>
+                                )}
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleDeleteTrigger(trigger.id); }}
+                                  className="ml-1 text-amber-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  title="Remover gatilho"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </SortableStageItem>
+                  ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         )}
       </div>
       )}

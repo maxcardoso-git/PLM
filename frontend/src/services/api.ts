@@ -198,6 +198,10 @@ class ApiClient {
     return data;
   }
 
+  async reorderStages(versionId: string, stageOrders: { id: string; stageOrder: number }[]): Promise<void> {
+    await this.client.put(`/pipeline-versions/${versionId}/stages/reorder`, { stageOrders });
+  }
+
   // Transitions
   async createTransition(pipelineId: string, version: number, payload: {
     fromStageId: string;

@@ -117,6 +117,7 @@ export class ExternalApiService {
           description: dto.description,
           priority: dto.priority || 'medium',
           status: 'active',
+          uniqueKeyValue: dto.uniqueKeyValue,
         },
       });
 
@@ -263,6 +264,7 @@ export class ExternalApiService {
     if (dto.title !== undefined) updateData.title = dto.title;
     if (dto.description !== undefined) updateData.description = dto.description;
     if (dto.priority !== undefined) updateData.priority = dto.priority;
+    if (dto.uniqueKeyValue !== undefined) updateData.uniqueKeyValue = dto.uniqueKeyValue;
 
     await this.prisma.card.update({
       where: { id: card.id },
@@ -742,14 +744,24 @@ export class ExternalApiService {
   }
 
   async getPipeline(ctx: ExternalApiContext, identifier: string) {
-    // Try to find by ID first, then by key
-    let pipeline = await this.prisma.pipeline.findFirst({
-      where: {
-        id: identifier,
-        tenantId: ctx.tenantId,
-        orgId: ctx.orgId,
-        lifecycleStatus: { in: ['published', 'test'] },
-      },
+    // Check if identifier is a valid UUID
+    const isUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        identifier,
+      );
+
+    // Try to find by ID first (if valid UUID), then by key
+    let pipeline: Awaited<ReturnType<typeof this.prisma.pipeline.findFirst>> =
+      null;
+
+    if (isUuid) {
+      pipeline = await this.prisma.pipeline.findFirst({
+        where: {
+          id: identifier,
+          tenantId: ctx.tenantId,
+          orgId: ctx.orgId,
+          lifecycleStatus: { in: ['published', 'test'] },
+        },
       include: {
         versions: {
           where: { status: { in: ['published', 'test'] } },
@@ -774,9 +786,10 @@ export class ExternalApiService {
           take: 1,
         },
       },
-    });
+      });
+    }
 
-    // If not found by ID, try by key
+    // If not found by ID (or identifier is not a UUID), try by key
     if (!pipeline) {
       pipeline = await this.prisma.pipeline.findFirst({
         where: {
@@ -868,5 +881,154 @@ export class ExternalApiService {
         })) || [],
       })) || [],
     };
+  }
+
+  /**
+   * Get complete pipeline workflow design for AI assistants
+   * Includes stages, transitions, rules, and form requirements
+   */
+  async getPipelineWorkflow(ctx: ExternalApiContext, identifier: string) {
+    // Check if identifier is a valid UUID
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
+
+    // Try to find by ID first (if UUID), then by key
+    let pipeline: Awaited<ReturnType<typeof this.prisma.pipeline.findFirst>> = null;
+    if (isUuid) {
+      pipeline = await this.prisma.pipeline.findFirst({
+        where: {
+          id: identifier,
+          tenantId: ctx.tenantId,
+          orgId: ctx.orgId,
+          lifecycleStatus: { in: ['published', 'test'] },
+        },
+      });
+    }
+
+    // If not found by ID, try by key
+    if (!pipeline) {
+      pipeline = await this.prisma.pipeline.findFirst({
+        where: {
+          key: identifier,
+          tenantId: ctx.tenantId,
+          orgId: ctx.orgId,
+          lifecycleStatus: { in: ['published', 'test'] },
+        },
+      });
+    }
+
+    if (!pipeline) {
+      throw new NotFoundException(`Pipeline '${identifier}' not found`);
+    }
+
+    // Get the published version with all details
+    const pipelineVersion = await this.prisma.pipelineVersion.findFirst({
+      where: {
+        pipelineId: pipeline.id,
+        status: { in: ['published', 'test'] },
+      },
+      include: {
+        stages: {
+          where: { active: true },
+          orderBy: { stageOrder: 'asc' },
+          include: {
+            transitionsFrom: {
+              include: {
+                toStage: {
+                  select: { id: true, name: true, key: true },
+                },
+                rules: true,
+              },
+            },
+            formAttachRules: {
+              include: {
+                formDefinition: {
+                  select: { id: true, name: true },
+                },
+              },
+            },
+            triggers: {
+              where: { enabled: true },
+              include: {
+                integration: {
+                  select: { id: true, name: true, key: true },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!pipelineVersion) {
+      throw new NotFoundException(`Published version not found for pipeline '${identifier}'`);
+    }
+
+    // Format the workflow for AI consumption
+    return {
+      pipeline: {
+        id: pipeline.id,
+        name: pipeline.name,
+        key: pipeline.key,
+        description: pipeline.description,
+        status: pipeline.lifecycleStatus,
+        version: pipelineVersion.version,
+      },
+      stages: pipelineVersion.stages.map((stage) => ({
+        id: stage.id,
+        name: stage.name,
+        key: stage.key,
+        order: stage.stageOrder,
+        classification: stage.classification,
+        description: this.getStageClassificationDescription(stage.classification),
+        isInitial: stage.isInitial,
+        isFinal: stage.isFinal,
+        wipLimit: stage.wipLimit,
+        color: stage.color,
+        // Forms that get attached at this stage
+        forms: stage.formAttachRules.map((rule) => ({
+          id: rule.formDefinition?.id || rule.externalFormId,
+          name: rule.formDefinition?.name || rule.externalFormName,
+          isExternal: !rule.formDefinitionId,
+          defaultStatus: rule.defaultFormStatus,
+          lockOnLeaveStage: rule.lockOnLeaveStage,
+        })),
+        // Integrations/triggers configured for this stage
+        integrations: stage.triggers.map((trigger) => ({
+          id: trigger.id,
+          name: trigger.integration.name,
+          key: trigger.integration.key,
+          event: trigger.eventType,
+        })),
+        // Allowed transitions FROM this stage
+        allowedTransitions: stage.transitionsFrom.map((transition) => ({
+          toStageId: transition.toStageId,
+          toStageName: transition.toStage.name,
+          toStageKey: transition.toStage.key,
+          rules: {
+            requiresComment: transition.rules.some((r) => r.ruleType === 'COMMENT_REQUIRED'),
+            requiresFormFilled: transition.rules.some((r) => r.ruleType === 'FORM_REQUIRED'),
+            ownerOnly: transition.rules.some((r) => r.ruleType === 'OWNER_ONLY'),
+          },
+        })),
+      })),
+      // Summary for quick reference
+      summary: {
+        totalStages: pipelineVersion.stages.length,
+        initialStage: pipelineVersion.stages.find((s) => s.isInitial)?.name,
+        finalStages: pipelineVersion.stages.filter((s) => s.isFinal).map((s) => s.name),
+        stageFlow: pipelineVersion.stages.map((s) => s.name).join(' → '),
+      },
+    };
+  }
+
+  private getStageClassificationDescription(classification: string): string {
+    const descriptions: Record<string, string> = {
+      backlog: 'Estágio de espera/fila antes do processamento',
+      doing: 'Estágio de trabalho ativo em andamento',
+      waiting: 'Estágio de espera por ação externa ou aprovação',
+      done: 'Estágio de conclusão/finalização',
+    };
+    return descriptions[classification] || classification;
   }
 }

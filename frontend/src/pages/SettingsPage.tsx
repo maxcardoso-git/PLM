@@ -22,10 +22,13 @@ export function SettingsPage() {
   // Forms API configuration
   const [baseUrl, setBaseUrl] = useState(settings.externalForms.baseUrl);
   const [listEndpoint, setListEndpoint] = useState(
-    settings.externalForms.listEndpoint || '/data-entry-forms/external/list'
+    settings.externalForms.listEndpoint || '/forms'
+  );
+  const [schemaEndpoint, setSchemaEndpoint] = useState(
+    settings.externalForms.schemaEndpoint || '/forms/{formId}'
   );
   const [dataEndpoint, setDataEndpoint] = useState(
-    settings.externalForms.dataEndpoint || '/data-entry-forms/external/{formId}/submissions/lookup'
+    settings.externalForms.dataEndpoint || '/submissions?formId={formId}'
   );
   const [apiKey, setApiKey] = useState(settings.externalForms.apiKey);
   const [enabled, setEnabled] = useState(settings.externalForms.enabled);
@@ -207,7 +210,8 @@ export function SettingsPage() {
     updateExternalFormsConfig({
       baseUrl: baseUrl.replace(/\/$/, ''),
       listEndpoint: listEndpoint.startsWith('/') ? listEndpoint : `/${listEndpoint}`,
-      dataEndpoint: dataEndpoint.startsWith('/') ? dataEndpoint : `/${dataEndpoint}`,
+      schemaEndpoint: schemaEndpoint.startsWith('/') ? schemaEndpoint : `/${schemaEndpoint}`,
+      dataEndpoint: dataEndpoint.startsWith('/') || dataEndpoint.includes('?') ? dataEndpoint : `/${dataEndpoint}`,
       apiKey,
       enabled,
     });
@@ -272,6 +276,8 @@ export function SettingsPage() {
       // Build the data endpoint URL
       const dataEndpointTemplate = dataEndpoint || '/data-entry-forms/external/{formId}/submissions/lookup';
       const formDataEndpoint = dataEndpointTemplate.replace('{formId}', formId);
+      // Use & if endpoint already has query params, otherwise use ?
+      const separator = formDataEndpoint.includes('?') ? '&' : '?';
 
       // Test with a sample lookup (just to verify the endpoint works)
       const response = await fetch(`${API_BASE_URL}/external-forms/proxy`, {
@@ -281,7 +287,7 @@ export function SettingsPage() {
         },
         body: JSON.stringify({
           baseUrl: baseUrl.replace(/\/$/, ''),
-          endpoint: `${formDataEndpoint}?keyField=test&keyValue=test`,
+          endpoint: `${formDataEndpoint}${separator}keyField=test&keyValue=test`,
           apiKey,
           method: 'GET',
         }),
@@ -486,12 +492,29 @@ export function SettingsPage() {
                 type="text"
                 value={listEndpoint}
                 onChange={(e) => setListEndpoint(e.target.value)}
-                placeholder="/data-entry-forms/external/list"
+                placeholder="/forms"
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
               <Route className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             </div>
             <p className="mt-1 text-xs text-gray-500">Endpoint para listar formulários disponíveis</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Endpoint de Schema
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={schemaEndpoint}
+                onChange={(e) => setSchemaEndpoint(e.target.value)}
+                placeholder="/forms/{formId}"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <Route className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            </div>
+            <p className="mt-1 text-xs text-gray-500">Endpoint para obter schema/estrutura do formulário. Use {'{formId}'} como placeholder</p>
           </div>
 
           <div>
@@ -503,12 +526,12 @@ export function SettingsPage() {
                 type="text"
                 value={dataEndpoint}
                 onChange={(e) => setDataEndpoint(e.target.value)}
-                placeholder="/data-entry-forms/external/{formId}/submissions/lookup"
+                placeholder="/submissions?formId={formId}"
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
               <Route className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             </div>
-            <p className="mt-1 text-xs text-gray-500">Endpoint para buscar dados. Use {'{formId}'} como placeholder para o ID do formulário (ex: ?keyField=cpf&keyValue=123)</p>
+            <p className="mt-1 text-xs text-gray-500">Endpoint para buscar dados. Use {'{formId}'} como placeholder (ex: &keyField=cpf&keyValue=123)</p>
           </div>
 
           <div>

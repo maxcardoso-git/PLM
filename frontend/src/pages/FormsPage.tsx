@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileText, AlertCircle, RefreshCw, Eye, FolderOpen, Settings, ExternalLink, Loader2, Lightbulb, Target, BookOpen, Zap } from 'lucide-react';
+import { FileText, AlertCircle, RefreshCw, Eye, FolderOpen, Settings, ExternalLink, Loader2, Lightbulb, Target, BookOpen, Zap, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useSettings } from '../context/SettingsContext';
 import { Modal } from '../components/ui';
@@ -105,6 +105,13 @@ export function FormsPage() {
   const [formValues, setFormValues] = useState<Record<string, any>>({});
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [debugInfo, setDebugInfo] = useState<{ total: number; filtered: number } | null>(null);
+
+  // Data lookup state
+  const [searchField, setSearchField] = useState<string>('');
+  const [searchValue, setSearchValue] = useState<string>('');
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searchResult, setSearchResult] = useState<any | null>(null);
 
   const howItWorksContent: HowItWorksContent = {
     title: 'Formulários',
@@ -255,13 +262,24 @@ export function FormsPage() {
         keys: Object.keys(f)
       })));
 
-      // Filter only Published AND Approved (BIA) forms
-      // Check multiple possible field names for biaStatus
+      // Filter forms based on status/biaStatus if those fields exist
+      // If the API doesn't provide these fields, include all forms
       const forms = allForms.filter(form => {
         const formAny = form as any;
-        const isPublished = form.status?.toLowerCase() === 'published';
+        const hasStatusField = form.status !== undefined;
         const biaValue = formAny.biaStatus || formAny.BIAStatus || formAny.bia_status || formAny.biastatus;
-        const isApproved = biaValue?.toLowerCase() === 'approved';
+        const hasBiaField = biaValue !== undefined;
+
+        // If API doesn't have status/bia fields, include all forms
+        if (!hasStatusField && !hasBiaField) {
+          return true;
+        }
+
+        // If has status field, must be published
+        const isPublished = !hasStatusField || form.status?.toLowerCase() === 'published';
+        // If has BIA field, must be approved
+        const isApproved = !hasBiaField || biaValue?.toLowerCase() === 'approved';
+
         console.log(`Form "${form.name}": status=${form.status}, biaStatus=${biaValue}, passes=${isPublished && isApproved}`);
         return isPublished && isApproved;
       });
@@ -311,9 +329,16 @@ export function FormsPage() {
     setSchemaError(null);
     setFormSchema(null);
     setFormValues({});
+    setSearchField('');
+    setSearchValue('');
+    setSearchError(null);
+    setSearchResult(null);
 
     try {
-      const { baseUrl, apiKey } = settings.externalForms;
+      const { baseUrl, apiKey, schemaEndpoint } = settings.externalForms;
+      // Use configurable schema endpoint with {formId} placeholder
+      const endpoint = (schemaEndpoint || '/forms/{formId}').replace('{formId}', form.id);
+
       const response = await fetch(`${API_BASE_URL}/external-forms/proxy`, {
         method: 'POST',
         headers: {
@@ -321,7 +346,7 @@ export function FormsPage() {
         },
         body: JSON.stringify({
           baseUrl,
-          endpoint: `/data-entry-forms/${form.id}/schema`,
+          endpoint,
           apiKey,
           method: 'GET',
         }),
@@ -367,6 +392,88 @@ export function FormsPage() {
     setFormSchema(null);
     setSchemaError(null);
     setFormValues({});
+    setSearchField('');
+    setSearchValue('');
+    setSearchError(null);
+    setSearchResult(null);
+  };
+
+  const searchSubmissionData = async () => {
+    if (!selectedForm || !searchField || !searchValue.trim()) {
+      setSearchError('Selecione um campo e digite um valor para buscar');
+      return;
+    }
+
+    setSearchLoading(true);
+    setSearchError(null);
+    setSearchResult(null);
+
+    try {
+      const { baseUrl, apiKey } = settings.externalForms;
+
+      // Try to search using the submissions endpoint with query params
+      const searchEndpoint = `/submissions?formId=${selectedForm.id}&keyField=${encodeURIComponent(searchField)}&keyValue=${encodeURIComponent(searchValue.trim())}`;
+
+      const response = await fetch(`${API_BASE_URL}/external-forms/proxy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          baseUrl,
+          endpoint: searchEndpoint,
+          apiKey,
+          method: 'GET',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erro na busca: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Search result:', result);
+
+      // Handle different response formats
+      let data = null;
+      if (Array.isArray(result)) {
+        data = result.length > 0 ? result[0] : null;
+      } else if (result.data) {
+        data = Array.isArray(result.data) ? result.data[0] : result.data;
+      } else if (result.submission) {
+        data = result.submission;
+      } else {
+        data = result;
+      }
+
+      if (data && data.data) {
+        setSearchResult(data);
+        // Fill form with found data - map field.name to field.id
+        const foundData = data.data;
+        const mappedData: Record<string, any> = {};
+
+        if (formSchema?.fields) {
+          formSchema.fields.forEach((field) => {
+            const fieldId = getFieldId(field);
+            const fieldName = field.name || field.id || '';
+            // Try to find value by field.name first, then by field.id
+            if (fieldName && foundData[fieldName] !== undefined) {
+              mappedData[fieldId] = foundData[fieldName];
+            } else if (field.id && foundData[field.id] !== undefined) {
+              mappedData[fieldId] = foundData[field.id];
+            }
+          });
+        }
+
+        setFormValues(prev => ({ ...prev, ...mappedData }));
+        setSearchError(null);
+      } else {
+        setSearchError('Nenhum registro encontrado com esse valor');
+      }
+    } catch (err) {
+      console.error('Search error:', err);
+      setSearchError(err instanceof Error ? err.message : 'Erro ao buscar dados');
+    } finally {
+      setSearchLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -808,6 +915,77 @@ export function FormsPage() {
                 <p className="text-gray-600 text-sm bg-gray-50 p-3 rounded-lg">
                   {formSchema.description}
                 </p>
+              )}
+
+              {/* Data Lookup Section */}
+              {formSchema.fields && formSchema.fields.length > 0 && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-blue-800 mb-3 flex items-center gap-2">
+                    <Search size={16} />
+                    Buscar Dados Existentes
+                  </h4>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="flex-1">
+                      <label className="block text-xs text-blue-700 mb-1">Campo de Busca</label>
+                      <select
+                        value={searchField}
+                        onChange={(e) => setSearchField(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                      >
+                        <option value="">Selecione um campo...</option>
+                        {formSchema.fields.map((field) => (
+                          <option key={getFieldId(field)} value={field.name || field.id}>
+                            {field.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs text-blue-700 mb-1">Valor</label>
+                      <input
+                        type="text"
+                        value={searchValue}
+                        onChange={(e) => setSearchValue(e.target.value)}
+                        placeholder="Digite o valor para buscar..."
+                        className="w-full px-3 py-2 text-sm border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        onKeyDown={(e) => e.key === 'Enter' && searchSubmissionData()}
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <button
+                        onClick={searchSubmissionData}
+                        disabled={searchLoading || !searchField || !searchValue.trim()}
+                        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      >
+                        {searchLoading ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <Search size={16} />
+                        )}
+                        Buscar
+                      </button>
+                    </div>
+                  </div>
+                  {searchError && (
+                    <p className="text-sm text-red-600 mt-2 flex items-center gap-1">
+                      <AlertCircle size={14} />
+                      {searchError}
+                    </p>
+                  )}
+                  {searchResult && (
+                    <div className="mt-3 p-2 bg-green-100 border border-green-300 rounded-lg">
+                      <p className="text-sm text-green-800 flex items-center gap-1">
+                        <span className="font-medium">Registro encontrado!</span>
+                        <span className="text-green-600 text-xs">
+                          (ID: {searchResult.id || searchResult._id})
+                        </span>
+                      </p>
+                      <p className="text-xs text-green-700 mt-1">
+                        Os campos abaixo foram preenchidos com os dados encontrados.
+                      </p>
+                    </div>
+                  )}
+                </div>
               )}
 
               {formSchema.fields && formSchema.fields.length > 0 ? (

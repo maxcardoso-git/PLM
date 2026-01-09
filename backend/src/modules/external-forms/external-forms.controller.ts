@@ -30,7 +30,13 @@ export class ExternalFormsController {
   @ApiResponse({ status: 400, description: 'Missing required fields' })
   @ApiResponse({ status: 502, description: 'External API connection failed' })
   async proxy(@Body() dto: ProxyRequestDto) {
+    console.log('[DEBUG external-forms/proxy] Received request:', JSON.stringify(dto, null, 2));
     if (!dto.baseUrl || !dto.endpoint || !dto.apiKey) {
+      console.log('[DEBUG external-forms/proxy] Missing required fields:', {
+        baseUrl: !!dto?.baseUrl,
+        endpoint: !!dto?.endpoint,
+        apiKey: !!dto?.apiKey,
+      });
       throw new BadRequestException('baseUrl, endpoint, and apiKey are required');
     }
 

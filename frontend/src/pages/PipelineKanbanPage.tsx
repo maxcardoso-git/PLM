@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { FormEvent } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, RefreshCw, FileText, Trash2, AlertTriangle, Calendar, Zap, ChevronDown, ChevronUp, Save, Loader2, CheckCircle, XCircle, Eye, MessageSquare, Send, Key, Edit3, FlaskConical } from 'lucide-react';
+import { ArrowLeft, RefreshCw, FileText, Trash2, AlertTriangle, Calendar, Zap, ChevronDown, ChevronUp, Save, Loader2, CheckCircle, XCircle, Eye, MessageSquare, MessagesSquare, Send, Key, Edit3, FlaskConical } from 'lucide-react';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
 import { useSettings } from '../context/SettingsContext';
 import { KanbanBoard } from '../components/kanban';
 import { Modal } from '../components/ui';
+import { ConversationsModal } from '../components/conversations/ConversationsModal';
 import type { KanbanBoard as KanbanBoardType, KanbanCard, CardFull, KanbanStage } from '../types';
 
 export function PipelineKanbanPage() {
@@ -53,6 +54,9 @@ export function PipelineKanbanPage() {
   const [uniqueKeyValue, setUniqueKeyValue] = useState('');
   const [savingUniqueKey, setSavingUniqueKey] = useState(false);
 
+  // Conversations modal state
+  const [showConversationsModal, setShowConversationsModal] = useState(false);
+
   const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
   const fetchBoard = useCallback(async () => {
@@ -72,6 +76,17 @@ export function PipelineKanbanPage() {
   useEffect(() => {
     fetchBoard();
   }, [fetchBoard]);
+
+  // Auto-refresh every 15 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!selectedCard) { // Only auto-refresh when no card is open
+        fetchBoard();
+      }
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [fetchBoard, selectedCard]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -227,7 +242,7 @@ export function PipelineKanbanPage() {
           const storedForm = await api.getExternalForm(selectedCard.card.id, formId);
           if (storedForm?.externalRowId) {
             console.log('[DEBUG] Found stored externalRowId:', storedForm.externalRowId);
-            // Fetch form data using the stored row ID
+            // Fetch form data using the stored submission ID
             const dataResponse = await fetch(`${API_BASE_URL}/external-forms/proxy`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -244,7 +259,20 @@ export function PipelineKanbanPage() {
               const existingData = formData.data || formData.record || formData;
               console.log('[DEBUG] Loaded form data by rowId:', existingData);
               if (existingData && typeof existingData === 'object') {
-                setExternalFormData(existingData);
+                // Map field.name to field.id for proper display
+                const mappedData: Record<string, any> = {};
+                if (schema?.fields) {
+                  schema.fields.forEach((field: any) => {
+                    const fieldId = field.id || field.name || '';
+                    const fieldName = field.name || field.id || '';
+                    if (fieldName && existingData[fieldName] !== undefined) {
+                      mappedData[fieldId] = existingData[fieldName];
+                    } else if (field.id && existingData[field.id] !== undefined) {
+                      mappedData[fieldId] = existingData[field.id];
+                    }
+                  });
+                }
+                setExternalFormData(Object.keys(mappedData).length > 0 ? mappedData : existingData);
                 return; // Data loaded successfully, no need to try uniqueKey
               }
             }
@@ -283,21 +311,46 @@ export function PipelineKanbanPage() {
           const lookupResult = await dataResponse.json();
           console.log('[DEBUG] Lookup result:', lookupResult);
 
-          if (dataResponse.ok && lookupResult.data) {
-            // New API returns data in the data field
-            const existingData = lookupResult.data.data || lookupResult.data;
-            console.log('[DEBUG] Normalized existing data:', existingData);
-            if (existingData && typeof existingData === 'object') {
-              setExternalFormData(existingData);
+          if (dataResponse.ok) {
+            // Handle both array and object responses
+            let submission = null;
+            if (Array.isArray(lookupResult) && lookupResult.length > 0) {
+              submission = lookupResult[0];
+            } else if (lookupResult.data) {
+              submission = Array.isArray(lookupResult.data) ? lookupResult.data[0] : lookupResult.data;
+            } else {
+              submission = lookupResult;
+            }
 
-              // If we found existing data, also save the submissionId reference
-              if (lookupResult.data.submissionId) {
-                await api.updateExternalForm(selectedCard.card.id, formId, {
-                  stageId: selectedCard.card.currentStageId,
-                  externalRowId: lookupResult.data.submissionId,
-                  status: 'FILLED',
-                });
-                console.log('[DEBUG] Saved submissionId from lookup:', lookupResult.data.submissionId);
+            if (submission) {
+              const existingData = submission.data || submission;
+              console.log('[DEBUG] Normalized existing data:', existingData);
+              if (existingData && typeof existingData === 'object') {
+                // Map field.name to field.id for proper display
+                const mappedData: Record<string, any> = {};
+                if (schema?.fields) {
+                  schema.fields.forEach((field: any) => {
+                    const fieldId = field.id || field.name || '';
+                    const fieldName = field.name || field.id || '';
+                    if (fieldName && existingData[fieldName] !== undefined) {
+                      mappedData[fieldId] = existingData[fieldName];
+                    } else if (field.id && existingData[field.id] !== undefined) {
+                      mappedData[fieldId] = existingData[field.id];
+                    }
+                  });
+                }
+                setExternalFormData(Object.keys(mappedData).length > 0 ? mappedData : existingData);
+
+                // If we found existing data, also save the submissionId reference
+                const submissionId = submission.id || submission._id || submission.submissionId;
+                if (submissionId) {
+                  await api.updateExternalForm(selectedCard.card.id, formId, {
+                    stageId: selectedCard.card.currentStageId,
+                    externalRowId: submissionId,
+                    status: 'FILLED',
+                  });
+                  console.log('[DEBUG] Saved submissionId from lookup:', submissionId);
+                }
               }
             }
           }
@@ -336,7 +389,7 @@ export function PipelineKanbanPage() {
 
     setSavingExternalForm(true);
     try {
-      // Submit form data to external API
+      // Submit form data to external API (POST /submissions)
       const submitResponse = await fetch(`${API_BASE_URL}/external-forms/proxy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -690,6 +743,17 @@ export function PipelineKanbanPage() {
           </div>
         ) : selectedCard ? (
           <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
+            {/* Quick Actions */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowConversationsModal(true)}
+                className="flex items-center gap-2 px-3 py-2 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 text-sm font-medium rounded-lg border border-emerald-200 transition-colors"
+              >
+                <MessagesSquare size={16} />
+                Ver Conversas
+              </button>
+            </div>
+
             {/* Card Info */}
             <div>
               <p className="text-gray-600">{selectedCard.card.description || 'Sem descrição'}</p>
@@ -1236,6 +1300,16 @@ export function PipelineKanbanPage() {
           </div>
         </div>
       </Modal>
+
+      {/* Conversations Modal */}
+      {selectedCard && (
+        <ConversationsModal
+          open={showConversationsModal}
+          onOpenChange={setShowConversationsModal}
+          cardId={selectedCard.card.id}
+          cardTitle={selectedCard.card.title}
+        />
+      )}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import {
   Patch,
   Param,
   Delete,
+  Put,
   ParseUUIDPipe,
   ParseIntPipe,
   UseGuards,
@@ -20,6 +21,7 @@ import {
   CreateTransitionRuleDto,
   UpdateTransitionRuleDto,
   UpdateFormRuleDto,
+  ReorderStagesDto,
 } from './dto';
 import { TenantGuard, RequireOrganization } from '../../common/guards';
 import { Tenant } from '../../common/decorators';
@@ -77,6 +79,17 @@ export class StagesController {
     @Param('stageId', ParseUUIDPipe) stageId: string,
   ) {
     return this.stagesService.delete(ctx, stageId);
+  }
+
+  @Put('pipeline-versions/:versionId/stages/reorder')
+  @ApiOperation({ summary: 'Reorder stages in a pipeline version' })
+  @ApiResponse({ status: 200, description: 'Stages reordered' })
+  reorderStages(
+    @Tenant() ctx: TenantContext,
+    @Param('versionId', ParseUUIDPipe) versionId: string,
+    @Body() dto: ReorderStagesDto,
+  ) {
+    return this.stagesService.reorderStages(ctx, versionId, dto);
   }
 
   @Post('pipelines/:pipelineId/versions/:version/transitions')

@@ -194,6 +194,52 @@ export class StagesService {
     return this.prisma.stage.delete({ where: { id: stageId } });
   }
 
+  async reorderStages(ctx: TenantContext, versionId: string, dto: { stageOrders: { id: string; stageOrder: number }[] }) {
+    // Validate version access by ID
+    const pipelineVersion = await this.prisma.pipelineVersion.findFirst({
+      where: {
+        id: versionId,
+        pipeline: {
+          tenantId: ctx.tenantId,
+          orgId: ctx.orgId,
+        },
+      },
+    });
+
+    if (!pipelineVersion) {
+      throw new NotFoundException('Pipeline version not found');
+    }
+
+    if (pipelineVersion.status === 'published' || pipelineVersion.status === 'archived') {
+      throw new BadRequestException('Cannot modify published or archived version');
+    }
+
+    // Validate that all stage IDs belong to this version
+    const stageIds = dto.stageOrders.map((s) => s.id);
+    const stages = await this.prisma.stage.findMany({
+      where: {
+        id: { in: stageIds },
+        pipelineVersionId: versionId,
+      },
+    });
+
+    if (stages.length !== stageIds.length) {
+      throw new BadRequestException('Some stages do not belong to this pipeline version');
+    }
+
+    // Update all stage orders in a transaction
+    await this.prisma.$transaction(
+      dto.stageOrders.map((item) =>
+        this.prisma.stage.update({
+          where: { id: item.id },
+          data: { stageOrder: item.stageOrder },
+        }),
+      ),
+    );
+
+    return { success: true };
+  }
+
   async createTransition(ctx: TenantContext, pipelineId: string, version: number, dto: CreateTransitionDto) {
     const pipelineVersion = await this.validateVersionAccess(ctx, pipelineId, version);
 

@@ -61,6 +61,14 @@ export class ExternalCreateCardDto {
   @IsOptional()
   @IsObject()
   formData?: Record<string, Record<string, any>>;
+
+  @ApiPropertyOptional({
+    description: 'Chave única para buscar dados externos (CPF, ID cliente, etc)',
+    example: '12345678900',
+  })
+  @IsOptional()
+  @IsString()
+  uniqueKeyValue?: string;
 }
 
 export class ExternalUpdateCardDto {
@@ -78,6 +86,14 @@ export class ExternalUpdateCardDto {
   @IsOptional()
   @IsEnum(CardPriority)
   priority?: CardPriority;
+
+  @ApiPropertyOptional({
+    description: 'Chave única para buscar dados externos (CPF, ID cliente, etc)',
+    example: '12345678900',
+  })
+  @IsOptional()
+  @IsString()
+  uniqueKeyValue?: string;
 }
 
 export class ExternalUpdateFormDto {

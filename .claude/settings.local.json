@@ -61,7 +61,26 @@
       "Bash(/usr/bin/git status)",
       "Bash(tar:*)",
       "Bash(export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\")",
-      "Bash(PATH=\"/opt/homebrew/bin:$PATH\")"
+      "Bash(PATH=\"/opt/homebrew/bin:$PATH\")",
+      "Bash(PATH=\"/opt/homebrew/bin:/opt/homebrew/Cellar/node/24.6.0/bin:/usr/local/bin:$PATH\" npm run build:*)",
+      "Bash(PATH=\"/opt/homebrew/bin:/opt/homebrew/Cellar/node/24.6.0/bin:$PATH\" npm run build:*)",
+      "Bash(export PATH=\"/opt/homebrew/bin:$PATH\")",
+      "Bash(PATH=\"/opt/homebrew/bin:/usr/bin:$PATH\" /opt/homebrew/bin/npm run build:*)",
+      "Bash(PATH=\"/opt/homebrew/bin:/usr/bin:$PATH\" VITE_API_URL=/api/v1 /opt/homebrew/bin/npm run build:*)",
+      "Bash(export PATH=\"/opt/homebrew/bin:/usr/local/bin:/usr/bin:$PATH\")",
+      "Bash(/opt/homebrew/bin/npx tsc -b)",
+      "Bash(/opt/homebrew/bin/npx vite build)",
+      "Bash(PATH=\"/opt/homebrew/bin:/usr/bin:/bin:$PATH\" /opt/homebrew/bin/node /opt/homebrew/bin/npm run build:*)",
+      "Bash(PATH=\"/opt/homebrew/bin:$PATH\" npx prisma generate:*)",
+      "Bash(PATH=\"/opt/homebrew/bin:/usr/bin:/bin:$PATH\" /opt/homebrew/bin/node /opt/homebrew/bin/npx prisma generate:*)",
+      "Bash(export PATH=\"/opt/homebrew/bin:/opt/homebrew/Cellar/node/24.6.0/bin:$PATH\")",
+      "Bash(PATH=\"/opt/homebrew/bin:/opt/homebrew/Cellar/node/24.6.0/bin:/usr/bin:$PATH\" /opt/homebrew/bin/npm run build:*)",
+      "Bash(PATH=\"/opt/homebrew/bin:/opt/homebrew/Cellar/node/24.6.0/bin:/usr/bin:$PATH\" npm run build:*)",
+      "Bash(docker network inspect:*)",
+      "Bash(/opt/homebrew/bin/npm --version)",
+      "Bash(PATH=\"/opt/homebrew/bin:/opt/homebrew/Cellar/node/24.6.0/bin:/usr/bin:/bin:$PATH\" /opt/homebrew/bin/npm run build:*)",
+      "Bash(PATH=\"/opt/homebrew/bin:/opt/homebrew/Cellar/node/24.6.0/bin:/usr/bin:/bin:$PATH\" npm run build:*)",
+      "Bash(GIT_DIR=/Users/maxcardoso/Documents/GitHub/PLM/.git git status:*)"
     ]
   }
 }
