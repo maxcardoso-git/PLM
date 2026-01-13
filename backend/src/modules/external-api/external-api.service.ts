@@ -479,7 +479,7 @@ export class ExternalApiService {
             cardId: card.id,
             content: dto.comment,
             userName: 'External API',
-            userId: 'external_api',
+            userId: null, // External API comments don't have a user ID
           },
         });
       }
