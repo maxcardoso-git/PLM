@@ -82,7 +82,7 @@ export function KanbanColumn({ stage, onCardClick, onAddCard, isOver }: KanbanCo
         items={stage.cards.map((c) => c.id)}
         strategy={verticalListSortingStrategy}
       >
-        <div className="space-y-2 min-h-[100px]">
+        <div className="kanban-column-cards space-y-2">
           {stage.cards.map((card) => (
             <KanbanCard key={card.id} card={card} onClick={onCardClick} stageTriggers={stage.triggers} />
           ))}
