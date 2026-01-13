@@ -6,18 +6,21 @@ import {
   Req,
   Res,
   Logger,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { TahCallbackDto } from './dto/tah-callback.dto';
 import type { Request, Response } from 'express';
 import type { AuthenticatedUser } from './dto/tah-callback.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
+@UseGuards(JwtAuthGuard)
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
