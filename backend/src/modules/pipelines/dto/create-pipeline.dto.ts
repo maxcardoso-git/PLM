@@ -30,6 +30,17 @@ export class CreatePipelineDto {
   @IsString()
   @MaxLength(255)
   projectName?: string;
+
+  @ApiPropertyOptional({ description: 'Orchestrator domain for ISC integration', example: 'credit-recovery' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  domain?: string;
+
+  @ApiPropertyOptional({ description: 'Domain description for AI agents context', example: 'Recuperação de crédito e negociação de dívidas' })
+  @IsOptional()
+  @IsString()
+  domainDescription?: string;
 }
 
 export class UpdatePipelineDto {
@@ -55,6 +66,17 @@ export class UpdatePipelineDto {
   @IsString()
   @MaxLength(255)
   projectName?: string;
+
+  @ApiPropertyOptional({ description: 'Orchestrator domain for ISC integration', example: 'credit-recovery' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  domain?: string;
+
+  @ApiPropertyOptional({ description: 'Domain description for AI agents context' })
+  @IsOptional()
+  @IsString()
+  domainDescription?: string;
 }
 
 export class ClonePipelineVersionDto {

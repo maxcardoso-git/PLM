@@ -270,6 +270,9 @@ model Pipeline {
   description      String?                 @db.Text
   lifecycleStatus  PipelineLifecycleStatus @default(draft) @map("lifecycle_status")
   publishedVersion Int?                    @map("published_version")
+  // Orchestrator Domain Integration (ISC)
+  domain           String?                 @db.VarChar(100) // e.g., 'credit-recovery', 'customer-service'
+  domainDescription String?                @map("domain_description") @db.Text // Domain context for AI agents
   createdBy        String?                 @map("created_by") @db.Uuid
   createdAt        DateTime                @default(now()) @map("created_at") @db.Timestamptz
   updatedAt        DateTime                @updatedAt @map("updated_at") @db.Timestamptz
@@ -286,6 +289,7 @@ model Pipeline {
   @@index([projectId])
   @@index([lifecycleStatus])
   @@index([key])
+  @@index([domain])
   @@map("pipelines")
 }
 
@@ -325,6 +329,9 @@ model Stage {
   wipLimit          Int?                @map("wip_limit")
   slaHours          Int?                @map("sla_hours")
   active            Boolean             @default(true)
+  // Orchestrator ISC (Interaction State Controller) Integration
+  iscStates         Json                @default("[]") @map("isc_states") // Array of ISC states mapped to this stage, e.g., ["VALIDATION", "EVALUATION"]
+  stageStrategy     String?             @map("stage_strategy") @db.Text // AI agent strategy/instructions for this stage
   createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime            @updatedAt @map("updated_at") @db.Timestamptz
 

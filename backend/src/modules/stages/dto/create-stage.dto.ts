@@ -59,6 +59,22 @@ export class CreateStageDto {
   @IsOptional()
   @IsBoolean()
   active?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'ISC states that map to this stage (for Orchestrator integration)',
+    example: ['VALIDATION', 'EVALUATION'],
+    type: [String]
+  })
+  @IsOptional()
+  iscStates?: string[];
+
+  @ApiPropertyOptional({
+    description: 'AI agent strategy/instructions for this stage',
+    example: 'Confirmar dados do cliente e verificar elegibilidade para negociação'
+  })
+  @IsOptional()
+  @IsString()
+  stageStrategy?: string;
 }
 
 export class UpdateStageDto {
@@ -107,6 +123,22 @@ export class UpdateStageDto {
   @IsOptional()
   @IsBoolean()
   active?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'ISC states that map to this stage (for Orchestrator integration)',
+    example: ['VALIDATION', 'EVALUATION'],
+    type: [String]
+  })
+  @IsOptional()
+  iscStates?: string[];
+
+  @ApiPropertyOptional({
+    description: 'AI agent strategy/instructions for this stage',
+    example: 'Confirmar dados do cliente e verificar elegibilidade para negociação'
+  })
+  @IsOptional()
+  @IsString()
+  stageStrategy?: string;
 }
 
 export class CreateTransitionDto {

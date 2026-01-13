@@ -154,6 +154,26 @@ const STAGE_COLORS = [
   '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#06B6D4',
 ];
 
+// ISC (Interaction State Controller) States for Orchestrator integration
+const ISC_STATES = [
+  { value: 'INIT', label: 'Initial', description: 'Initial contact, greeting' },
+  { value: 'IDENTIFICATION', label: 'Identification', description: 'Customer identification (CPF request)' },
+  { value: 'DISCOVERY', label: 'Discovery', description: 'Understanding customer situation' },
+  { value: 'CLARIFICATION', label: 'Clarification', description: 'Clarifying unclear information' },
+  { value: 'VALIDATION', label: 'Validation', description: 'Validating customer identity' },
+  { value: 'EVALUATION', label: 'Evaluation', description: 'Evaluating customer situation/eligibility' },
+  { value: 'DECISION', label: 'Decision', description: 'Making decisions on proposals' },
+  { value: 'NEGOTIATION', label: 'Negotiation', description: 'Negotiating terms' },
+  { value: 'COMMITMENT', label: 'Commitment', description: 'Getting customer commitment' },
+  { value: 'EXECUTION', label: 'Execution', description: 'Processing agreed actions' },
+  { value: 'CONFIRMATION', label: 'Confirmation', description: 'Confirming completion' },
+  { value: 'RESOLUTION', label: 'Resolution', description: 'Case resolved' },
+  { value: 'FOLLOW_UP', label: 'Follow-up', description: 'Post-resolution follow-up' },
+  { value: 'STALL', label: 'Stall', description: 'Customer asked to return later' },
+  { value: 'EXIT', label: 'Exit', description: 'Conversation ended' },
+  { value: 'CLOSED', label: 'Closed', description: 'Case closed' },
+];
+
 // Sortable Stage Item Component
 interface SortableStageItemProps {
   id: string;
@@ -212,6 +232,8 @@ export function PipelineEditorPage() {
     isFinal: false,
     wipLimit: '',
     slaHours: '',
+    iscStates: [] as string[],
+    stageStrategy: '',
   });
   const [savingStage, setSavingStage] = useState(false);
 
@@ -385,6 +407,8 @@ export function PipelineEditorPage() {
       isFinal: false,
       wipLimit: '',
       slaHours: '',
+      iscStates: [],
+      stageStrategy: '',
     });
     setShowStageModal(true);
   };
@@ -399,6 +423,8 @@ export function PipelineEditorPage() {
       isFinal: stage.isFinal,
       wipLimit: stage.wipLimit?.toString() || '',
       slaHours: stage.slaHours?.toString() || '',
+      iscStates: (stage as any).iscStates || [],
+      stageStrategy: (stage as any).stageStrategy || '',
     });
     setShowStageModal(true);
   };
@@ -418,6 +444,9 @@ export function PipelineEditorPage() {
         slaHours: stageForm.slaHours ? parseInt(stageForm.slaHours) : null,
         stageOrder: editingStage ? editingStage.stageOrder : stages.length + 1,
         active: true,
+        // ISC Integration fields
+        iscStates: stageForm.iscStates,
+        stageStrategy: stageForm.stageStrategy || null,
       };
 
       if (editingStage) {
@@ -1968,6 +1997,55 @@ export function PipelineEditorPage() {
               />
               <span className="text-sm">Final Stage</span>
             </label>
+          </div>
+
+          {/* Orchestrator ISC Integration */}
+          <div className="border-t border-gray-200 pt-4 mt-4">
+            <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+              <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
+              Orchestrator ISC States
+            </h4>
+
+            <div className="space-y-3">
+              <div>
+                <label className="label">ISC States Mapping</label>
+                <p className="text-xs text-gray-500 mb-2">Select which ISC states map to this stage</p>
+                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3">
+                  {ISC_STATES.map((state) => (
+                    <label key={state.value} className="flex items-start gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                      <input
+                        type="checkbox"
+                        checked={stageForm.iscStates.includes(state.value)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setStageForm({ ...stageForm, iscStates: [...stageForm.iscStates, state.value] });
+                          } else {
+                            setStageForm({ ...stageForm, iscStates: stageForm.iscStates.filter(s => s !== state.value) });
+                          }
+                        }}
+                        className="rounded border-gray-300 mt-0.5"
+                      />
+                      <div>
+                        <span className="text-sm font-medium">{state.label}</span>
+                        <p className="text-xs text-gray-500">{state.description}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="label">Stage Strategy</label>
+                <textarea
+                  value={stageForm.stageStrategy}
+                  onChange={(e) => setStageForm({ ...stageForm, stageStrategy: e.target.value })}
+                  className="input mt-1"
+                  rows={2}
+                  placeholder="Instructions for AI agent when card is in this stage..."
+                />
+                <p className="text-xs text-gray-500 mt-1">Describe what the AI agent should focus on in this stage</p>
+              </div>
+            </div>
           </div>
 
           <div className="flex justify-end gap-3 pt-4">

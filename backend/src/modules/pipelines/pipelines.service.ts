@@ -35,6 +35,9 @@ export class PipelinesService {
           projectId: dto.projectId,
           projectName: dto.projectName,
           lifecycleStatus: 'draft',
+          // Orchestrator domain integration
+          domain: dto.domain,
+          domainDescription: dto.domainDescription,
         },
       });
 

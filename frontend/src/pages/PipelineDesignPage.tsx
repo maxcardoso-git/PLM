@@ -43,7 +43,7 @@ export function PipelineDesignPage() {
   const [loading, setLoading] = useState(true);
   const [_loadingProjects, setLoadingProjects] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newPipeline, setNewPipeline] = useState({ key: '', name: '', description: '', projectId: '', projectName: '' });
+  const [newPipeline, setNewPipeline] = useState({ key: '', name: '', description: '', projectId: '', projectName: '', domain: '', domainDescription: '' });
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabFilter>('all');
@@ -623,6 +623,45 @@ export function PipelineDesignPage() {
               rows={3}
               placeholder={t('pipelines.descriptionPlaceholder')}
             />
+          </div>
+
+          {/* Orchestrator Domain Integration */}
+          <div className="border-t border-gray-200 pt-4 mt-4">
+            <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+              <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
+              Orchestrator Integration (ISC)
+            </h4>
+
+            <div className="space-y-3">
+              <div>
+                <label className="label">Domain</label>
+                <select
+                  value={newPipeline.domain}
+                  onChange={(e) => setNewPipeline({ ...newPipeline, domain: e.target.value })}
+                  className="input mt-1"
+                >
+                  <option value="">Select a domain (optional)</option>
+                  <option value="credit-recovery">Credit Recovery</option>
+                  <option value="customer-service">Customer Service</option>
+                  <option value="sales">Sales</option>
+                  <option value="support">Support</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">Associate this pipeline with an Orchestrator domain for automatic ISC state mapping</p>
+              </div>
+
+              {newPipeline.domain && (
+                <div>
+                  <label className="label">Domain Description</label>
+                  <textarea
+                    value={newPipeline.domainDescription}
+                    onChange={(e) => setNewPipeline({ ...newPipeline, domainDescription: e.target.value })}
+                    className="input mt-1"
+                    rows={2}
+                    placeholder="Describe the domain context for AI agents..."
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex justify-end gap-3 pt-4">

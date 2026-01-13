@@ -840,6 +840,9 @@ export class ExternalApiService {
       key: pipeline.key,
       description: pipeline.description,
       lifecycleStatus: pipeline.lifecycleStatus,
+      // Orchestrator domain integration
+      domain: pipeline.domain,
+      domainDescription: pipeline.domainDescription,
       stages: version?.stages?.map((stage: any) => ({
         id: stage.id,
         name: stage.name,
@@ -850,6 +853,9 @@ export class ExternalApiService {
         isFinal: stage.isFinal,
         wipLimit: stage.wipLimit,
         color: stage.color,
+        // ISC state mapping
+        iscStates: stage.iscStates || [],
+        stageStrategy: stage.stageStrategy,
       })) || [],
     };
   }
@@ -862,6 +868,9 @@ export class ExternalApiService {
       key: pipeline.key,
       description: pipeline.description,
       lifecycleStatus: pipeline.lifecycleStatus,
+      // Orchestrator domain integration
+      domain: pipeline.domain,
+      domainDescription: pipeline.domainDescription,
       stages: version?.stages?.map((stage: any) => ({
         id: stage.id,
         name: stage.name,
@@ -872,6 +881,9 @@ export class ExternalApiService {
         isFinal: stage.isFinal,
         wipLimit: stage.wipLimit,
         color: stage.color,
+        // ISC state mapping
+        iscStates: stage.iscStates || [],
+        stageStrategy: stage.stageStrategy,
         attachedForms: stage.formAttachRules?.map((rule: any) => ({
           formId: rule.formDefinition?.id,
           formName: rule.formDefinition?.name,
@@ -964,6 +976,15 @@ export class ExternalApiService {
       throw new NotFoundException(`Published version not found for pipeline '${identifier}'`);
     }
 
+    // Build ISC state to stage mapping for Orchestrator
+    const iscStateMapping: Record<string, string> = {};
+    for (const stage of pipelineVersion.stages) {
+      const iscStates = (stage as any).iscStates || [];
+      for (const iscState of iscStates) {
+        iscStateMapping[iscState] = stage.key || stage.name;
+      }
+    }
+
     // Format the workflow for AI consumption
     return {
       pipeline: {
@@ -973,7 +994,12 @@ export class ExternalApiService {
         description: pipeline.description,
         status: pipeline.lifecycleStatus,
         version: pipelineVersion.version,
+        // Orchestrator domain integration
+        domain: pipeline.domain,
+        domainDescription: pipeline.domainDescription,
       },
+      // ISC state to stage mapping (for Orchestrator automatic stage resolution)
+      iscStateMapping,
       stages: pipelineVersion.stages.map((stage) => ({
         id: stage.id,
         name: stage.name,
@@ -985,6 +1011,9 @@ export class ExternalApiService {
         isFinal: stage.isFinal,
         wipLimit: stage.wipLimit,
         color: stage.color,
+        // ISC states mapped to this stage (for Orchestrator integration)
+        iscStates: (stage as any).iscStates || [],
+        stageStrategy: (stage as any).stageStrategy,
         // Forms that get attached at this stage
         forms: stage.formAttachRules.map((rule) => ({
           id: rule.formDefinition?.id || rule.externalFormId,
@@ -1018,6 +1047,8 @@ export class ExternalApiService {
         initialStage: pipelineVersion.stages.find((s) => s.isInitial)?.name,
         finalStages: pipelineVersion.stages.filter((s) => s.isFinal).map((s) => s.name),
         stageFlow: pipelineVersion.stages.map((s) => s.name).join(' → '),
+        // Quick ISC mapping reference
+        iscStatesConfigured: Object.keys(iscStateMapping).length > 0,
       },
     };
   }
