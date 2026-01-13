@@ -7,6 +7,7 @@ import {
   IsEnum,
   Matches,
   IsUUID,
+  IsArray,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -66,6 +67,8 @@ export class CreateStageDto {
     type: [String]
   })
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
   iscStates?: string[];
 
   @ApiPropertyOptional({
@@ -130,6 +133,8 @@ export class UpdateStageDto {
     type: [String]
   })
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
   iscStates?: string[];
 
   @ApiPropertyOptional({
