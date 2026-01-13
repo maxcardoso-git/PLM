@@ -221,7 +221,7 @@ export function PipelineDesignPage() {
         projectName: newPipeline.projectName || undefined,
       });
       setShowCreateModal(false);
-      setNewPipeline({ key: '', name: '', description: '', projectId: '', projectName: '' });
+      setNewPipeline({ key: '', name: '', description: '', projectId: '', projectName: '', domain: '', domainDescription: '' });
       fetchPipelines(activeTab);
     } catch (err: any) {
       const message = err.response?.data?.message || err.message || 'Failed to create pipeline';
