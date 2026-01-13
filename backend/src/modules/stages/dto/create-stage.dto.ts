@@ -241,7 +241,7 @@ export class UpdateFormRuleDto {
 
 // Stage Order Item
 import { Type } from 'class-transformer';
-import { ValidateNested, IsArray } from 'class-validator';
+import { ValidateNested } from 'class-validator';
 
 export class StageOrderItem {
   @ApiProperty({ description: 'Stage ID' })
