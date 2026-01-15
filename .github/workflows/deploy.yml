@@ -35,13 +35,13 @@ jobs:
             docker stop plm_backend plm_frontend 2>/dev/null || true
             docker rm plm_backend plm_frontend 2>/dev/null || true
 
-            # Create network if not exists
-            docker network create plm_network 2>/dev/null || true
+            # Create network if not exists (plm_default is where postgres runs)
+            docker network create plm_default 2>/dev/null || true
 
             # Start backend with correct config
             docker run -d --name plm_backend \
-              --network plm_network \
-              -e DATABASE_URL="postgresql://plm:plm_secret@host.docker.internal:5439/plm?schema=public" \
+              --network plm_default \
+              -e DATABASE_URL="postgresql://plm:plmsecret2024@plm-postgres:5432/plm?schema=public" \
               -e NODE_ENV=production \
               -e PORT=3000 \
               -e TAH_BASE_URL=http://72.61.52.70:3050 \
@@ -55,13 +55,12 @@ jobs:
               -e BACKEND_URL=http://72.61.52.70:3333 \
               -e FRONTEND_URL=http://72.61.52.70:8090 \
               -p 3333:3000 \
-              --add-host=host.docker.internal:host-gateway \
               --restart unless-stopped \
               ghcr.io/maxcardoso-git/plm/backend:latest
 
-            # Start frontend
+            # Start frontend (also needs plm_default to resolve plm_backend hostname)
             docker run -d --name plm_frontend \
-              --network plm_network \
+              --network plm_default \
               -p 8090:80 \
               --restart unless-stopped \
               ghcr.io/maxcardoso-git/plm/frontend:latest
