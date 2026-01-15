@@ -761,107 +761,129 @@ export function PipelineKanbanPage() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
           </div>
         ) : selectedCard ? (
-          <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
-            {/* Quick Actions */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowConversationsModal(true)}
-                className="flex items-center gap-2 px-3 py-2 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 text-sm font-medium rounded-lg border border-emerald-200 transition-colors"
+          <div className="space-y-5 max-h-[70vh] overflow-y-auto pr-2">
+            {/* Status Badges */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Priority Badge */}
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+                selectedCard.card.priority === 'urgent' ? 'bg-red-100 text-red-700' :
+                selectedCard.card.priority === 'high' ? 'bg-orange-100 text-orange-700' :
+                selectedCard.card.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                'bg-gray-100 text-gray-600'
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  selectedCard.card.priority === 'urgent' ? 'bg-red-500' :
+                  selectedCard.card.priority === 'high' ? 'bg-orange-500' :
+                  selectedCard.card.priority === 'medium' ? 'bg-yellow-500' :
+                  'bg-gray-400'
+                }`} />
+                {selectedCard.card.priority === 'urgent' ? 'Urgente' :
+                 selectedCard.card.priority === 'high' ? 'Alta' :
+                 selectedCard.card.priority === 'medium' ? 'Média' : 'Baixa'}
+              </span>
+
+              {/* Status Badge */}
+              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                selectedCard.card.status === 'active' ? 'bg-emerald-100 text-emerald-700' :
+                selectedCard.card.status === 'closed' ? 'bg-gray-100 text-gray-600' :
+                'bg-blue-100 text-blue-700'
+              }`}>
+                {selectedCard.card.status === 'active' ? 'Ativo' :
+                 selectedCard.card.status === 'closed' ? 'Fechado' : selectedCard.card.status}
+              </span>
+
+              {/* Current Stage Badge */}
+              <span
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
+                style={{
+                  backgroundColor: `${selectedCard.card.currentStage.color}15`,
+                  color: selectedCard.card.currentStage.color
+                }}
               >
-                <MessagesSquare size={16} />
-                Ver Conversas
-              </button>
+                <span
+                  className="w-2 h-2 rounded-full"
+                  style={{ backgroundColor: selectedCard.card.currentStage.color }}
+                />
+                {selectedCard.card.currentStage.name}
+              </span>
             </div>
 
-            {/* Card Info */}
-            <div>
-              <p className="text-gray-600">{selectedCard.card.description || 'Sem descrição'}</p>
-              <div className="flex gap-4 mt-3 text-sm text-gray-500 flex-wrap">
-                <span>Prioridade: <span className="font-medium capitalize">{selectedCard.card.priority}</span></span>
-                <span>Status: <span className="font-medium">{selectedCard.card.status}</span></span>
-                <span>Estágio: <span className="font-medium">{selectedCard.card.currentStage.name}</span></span>
-              </div>
+            {/* Description */}
+            {selectedCard.card.description && (
+              <p className="text-gray-600 text-sm">{selectedCard.card.description}</p>
+            )}
 
-              {/* Dates */}
-              <div className="flex gap-4 mt-2 text-xs text-gray-400">
-                <span className="flex items-center gap-1">
-                  <Calendar size={12} />
-                  Criado: {new Date(selectedCard.card.createdAt).toLocaleString('pt-BR')}
-                </span>
-                {selectedCard.card.updatedAt && selectedCard.card.updatedAt !== selectedCard.card.createdAt && (
-                  <span className="flex items-center gap-1">
-                    <Calendar size={12} />
-                    Atualizado: {new Date(selectedCard.card.updatedAt).toLocaleString('pt-BR')}
-                  </span>
-                )}
-              </div>
+            {/* Dates - Compact */}
+            <div className="flex items-center gap-3 text-xs text-gray-400">
+              <span className="flex items-center gap-1">
+                <Calendar size={12} />
+                {new Date(selectedCard.card.createdAt).toLocaleDateString('pt-BR')}
+              </span>
+              {selectedCard.card.updatedAt && selectedCard.card.updatedAt !== selectedCard.card.createdAt && (
+                <>
+                  <span className="text-gray-300">•</span>
+                  <span>Atualizado {new Date(selectedCard.card.updatedAt).toLocaleDateString('pt-BR')}</span>
+                </>
+              )}
+            </div>
 
-              {/* Unique Key Value - only show if stage has external forms configured */}
-              {(() => {
-                const currentStage = board?.stages.find(s => s.id === selectedCard.card.currentStageId);
-                const hasExternalForms = currentStage?.formAttachRules?.some(r => r.externalFormId);
-                if (!hasExternalForms) return null;
+            {/* Unique Key Value - only show if stage has external forms configured */}
+            {(() => {
+              const currentStage = board?.stages.find(s => s.id === selectedCard.card.currentStageId);
+              const hasExternalForms = currentStage?.formAttachRules?.some(r => r.externalFormId);
+              if (!hasExternalForms) return null;
 
-                return (
-                  <div className="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-sm font-medium text-indigo-900 flex items-center gap-2">
-                        <Key size={14} />
-                        Chave Única (para buscar dados externos)
-                      </label>
-                      {!editingUniqueKey && (
-                        <button
-                          onClick={() => setEditingUniqueKey(true)}
-                          className="text-indigo-600 hover:text-indigo-800 p-1"
-                          title="Editar"
-                        >
-                          <Edit3 size={14} />
-                        </button>
-                      )}
-                    </div>
+              return (
+                <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                  <Key size={16} className="text-slate-500 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs text-slate-500 block">Chave Única</span>
                     {editingUniqueKey ? (
-                      <div className="flex gap-2">
+                      <div className="flex items-center gap-2 mt-1">
                         <input
                           type="text"
                           value={uniqueKeyValue}
                           onChange={(e) => setUniqueKeyValue(e.target.value)}
-                          className="input text-sm flex-1"
-                          placeholder="Ex: CPF, CNPJ, ID do cliente..."
+                          className="input text-sm flex-1 py-1"
+                          placeholder="CPF, CNPJ, ID..."
                           autoFocus
                         />
                         <button
                           onClick={handleSaveUniqueKey}
                           disabled={savingUniqueKey}
-                          className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1 text-sm"
+                          className="p-1.5 bg-slate-700 text-white rounded hover:bg-slate-800 disabled:opacity-50"
                         >
-                          {savingUniqueKey ? (
-                            <Loader2 size={14} className="animate-spin" />
-                          ) : (
-                            <Save size={14} />
-                          )}
-                          Salvar
+                          {savingUniqueKey ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                         </button>
                         <button
                           onClick={() => {
                             setEditingUniqueKey(false);
                             setUniqueKeyValue(selectedCard.card.uniqueKeyValue || '');
                           }}
-                          className="px-3 py-1.5 text-gray-600 hover:text-gray-800 text-sm"
+                          className="p-1.5 text-slate-500 hover:text-slate-700"
                         >
-                          Cancelar
+                          <XCircle size={14} />
                         </button>
                       </div>
                     ) : (
-                      <p className="text-sm text-indigo-700">
+                      <span className="text-sm font-medium text-slate-800">
                         {selectedCard.card.uniqueKeyValue || (
-                          <span className="text-indigo-400 italic">Não definido - clique em editar para configurar</span>
+                          <span className="text-slate-400 font-normal">Não definido</span>
                         )}
-                      </p>
+                      </span>
                     )}
                   </div>
-                );
-              })()}
-            </div>
+                  {!editingUniqueKey && (
+                    <button
+                      onClick={() => setEditingUniqueKey(true)}
+                      className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded"
+                    >
+                      <Edit3 size={14} />
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Integration Info */}
             {(() => {
@@ -983,56 +1005,70 @@ export function PipelineKanbanPage() {
                 const externalForms = currentStage?.formAttachRules?.filter(r => r.externalFormId) || [];
                 const totalForms = selectedCard.forms.length + externalForms.length;
 
+                if (totalForms === 0) return null;
+
                 return (
                   <>
-                    <h4 className="font-semibold text-gray-900 mb-2">Formulários ({totalForms})</h4>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Formulários</h4>
                     <div className="space-y-2">
                       {/* Local forms */}
                       {selectedCard.forms.map((form) => (
                         <div
                           key={form.id}
-                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                          className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg"
                         >
-                          <div>
-                            <span className="font-medium">{form.formDefinition?.name || 'Formulário'}</span>
-                            <span className="text-xs text-gray-500 ml-2">v{form.formVersion}</span>
-                          </div>
-                          <span className={`text-xs px-2 py-1 rounded-full ${
-                            form.status === 'FILLED' ? 'bg-green-100 text-green-700' :
-                            form.status === 'LOCKED' ? 'bg-gray-100 text-gray-700' :
-                            'bg-amber-100 text-amber-700'
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            form.status === 'FILLED' ? 'bg-emerald-100' :
+                            form.status === 'LOCKED' ? 'bg-gray-100' :
+                            'bg-amber-100'
                           }`}>
-                            {form.status}
-                          </span>
+                            {form.status === 'FILLED' ? (
+                              <CheckCircle size={16} className="text-emerald-600" />
+                            ) : form.status === 'LOCKED' ? (
+                              <FileText size={16} className="text-gray-500" />
+                            ) : (
+                              <FileText size={16} className="text-amber-600" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm font-medium text-gray-800 block truncate">
+                              {form.formDefinition?.name || 'Formulário'}
+                            </span>
+                            <span className="text-xs text-gray-400">
+                              {form.status === 'FILLED' ? 'Preenchido' :
+                               form.status === 'LOCKED' ? 'Bloqueado' : 'Pendente'}
+                            </span>
+                          </div>
                         </div>
                       ))}
                       {/* External forms */}
                       {externalForms.map((rule) => (
-                        <div key={rule.id} className="bg-blue-50 rounded-lg border border-blue-200 overflow-hidden">
+                        <div key={rule.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                           <div
-                            className="flex items-center justify-between p-3 cursor-pointer hover:bg-blue-100"
+                            className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 transition-colors"
                             onClick={() => handleExpandExternalForm(rule.externalFormId!, rule.uniqueKeyFieldId)}
                           >
-                            <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
                               <FileText size={16} className="text-blue-600" />
-                              <span className="font-medium">{rule.externalFormName || 'Formulário Externo'}</span>
-                              <span className="text-xs text-blue-500">(externo)</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-blue-600">
-                                {expandedExternalForm === rule.externalFormId ? 'Fechar' : 'Preencher'}
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm font-medium text-gray-800 block truncate">
+                                {rule.externalFormName || 'Formulário Externo'}
                               </span>
+                              <span className="text-xs text-blue-500">Externo</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-gray-400">
                               {expandedExternalForm === rule.externalFormId ? (
-                                <ChevronUp size={16} className="text-blue-600" />
+                                <ChevronUp size={18} />
                               ) : (
-                                <ChevronDown size={16} className="text-blue-600" />
+                                <ChevronDown size={18} />
                               )}
                             </div>
                           </div>
 
                           {/* Expanded form content */}
                           {expandedExternalForm === rule.externalFormId && (
-                            <div className="border-t border-blue-200 p-4 bg-white">
+                            <div className="border-t border-gray-200 p-4 bg-gray-50">
                               {loadingExternalForm ? (
                                 <div className="flex items-center justify-center py-8">
                                   <Loader2 size={24} className="animate-spin text-blue-600" />
@@ -1136,68 +1172,71 @@ export function PipelineKanbanPage() {
             </div>
 
             {/* Allowed Transitions */}
-            <div>
-              <h4 className="font-semibold text-gray-900 mb-2">Move to</h4>
-              <div className="flex flex-wrap gap-2">
-                {selectedCard.allowedTransitions.map((stage) => (
-                  <button
-                    key={stage.id}
-                    onClick={async () => {
-                      await api.moveCard(selectedCard.card.id, stage.id, 'manual');
-                      setSelectedCard(null);
-                      fetchBoard();
-                    }}
-                    className="px-3 py-1.5 rounded-lg text-sm font-medium border-2 hover:opacity-80 transition-opacity"
-                    style={{ borderColor: stage.color, color: stage.color }}
-                  >
-                    {stage.name}
-                  </button>
-                ))}
-                {selectedCard.allowedTransitions.length === 0 && (
-                  <span className="text-gray-500 text-sm">No transitions available</span>
-                )}
+            {selectedCard.allowedTransitions.length > 0 && (
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">Mover para</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {selectedCard.allowedTransitions.map((stage) => (
+                    <button
+                      key={stage.id}
+                      onClick={async () => {
+                        await api.moveCard(selectedCard.card.id, stage.id, 'manual');
+                        setSelectedCard(null);
+                        fetchBoard();
+                      }}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-white border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all text-left"
+                    >
+                      <span
+                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: stage.color }}
+                      />
+                      <span className="truncate">{stage.name}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* History */}
-            <div>
-              <h4 className="font-semibold text-gray-900 mb-2">Histórico ({selectedCard.history.length})</h4>
-              <div className="space-y-2 max-h-40 overflow-y-auto">
-                {selectedCard.history.map((move) => (
-                  <div key={move.id} className="flex items-center gap-2 text-sm">
-                    <span
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: move.fromStage?.color }}
-                    />
-                    <span className="text-gray-600">{move.fromStage?.name}</span>
-                    <span className="text-gray-400">→</span>
-                    <span
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: move.toStage?.color }}
-                    />
-                    <span className="text-gray-600">{move.toStage?.name}</span>
-                    <span className="text-gray-400 ml-auto text-xs">
-                      {new Date(move.movedAt).toLocaleString()}
-                    </span>
-                  </div>
-                ))}
+            {selectedCard.history.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Histórico</h4>
+                <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                  {selectedCard.history.map((move) => (
+                    <div key={move.id} className="flex items-center gap-2 text-xs bg-gray-50 rounded px-2 py-1.5">
+                      <span
+                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: move.fromStage?.color }}
+                      />
+                      <span className="text-gray-600 truncate">{move.fromStage?.name}</span>
+                      <span className="text-gray-300">→</span>
+                      <span
+                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: move.toStage?.color }}
+                      />
+                      <span className="text-gray-600 truncate">{move.toStage?.name}</span>
+                      <span className="text-gray-400 ml-auto flex-shrink-0">
+                        {new Date(move.movedAt).toLocaleDateString('pt-BR')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Comments */}
             <div>
-              <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                <MessageSquare size={16} />
-                Comentários ({selectedCard.comments?.length || 0})
+              <h4 className="text-sm font-medium text-gray-700 mb-2">
+                Comentários {selectedCard.comments?.length ? `(${selectedCard.comments.length})` : ''}
               </h4>
 
               {/* Add comment input */}
-              <div className="flex gap-2 mb-4">
+              <div className="flex gap-2 mb-3">
                 <textarea
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="Adicionar um comentário..."
-                  className="input flex-1 text-sm resize-none"
+                  placeholder="Escreva um comentário..."
+                  className="input flex-1 text-sm resize-none py-2"
                   rows={2}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -1208,29 +1247,29 @@ export function PipelineKanbanPage() {
                 <button
                   onClick={handleSubmitComment}
                   disabled={submittingComment || !newComment.trim()}
-                  className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed self-end"
+                  className="px-3 bg-gray-800 text-white rounded-lg hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed self-stretch flex items-center justify-center"
                   title="Enviar (Ctrl+Enter)"
                 >
                   {submittingComment ? (
-                    <Loader2 size={18} className="animate-spin" />
+                    <Loader2 size={16} className="animate-spin" />
                   ) : (
-                    <Send size={18} />
+                    <Send size={16} />
                   )}
                 </button>
               </div>
 
               {/* Comments list */}
-              <div className="space-y-3 max-h-60 overflow-y-auto">
+              <div className="space-y-2 max-h-48 overflow-y-auto">
                 {selectedCard.comments && selectedCard.comments.length > 0 ? (
                   selectedCard.comments.map((comment) => (
                     <div key={comment.id} className="bg-gray-50 rounded-lg p-3">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="font-medium text-gray-900 text-sm">{comment.userName}</span>
+                        <span className="font-medium text-gray-800 text-sm">{comment.userName}</span>
                         <span className="text-xs text-gray-400">
-                          {new Date(comment.createdAt).toLocaleString('pt-BR')}
+                          {new Date(comment.createdAt).toLocaleDateString('pt-BR')}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{comment.content}</p>
+                      <p className="text-sm text-gray-600 whitespace-pre-wrap">{comment.content}</p>
                     </div>
                   ))
                 ) : (
@@ -1239,14 +1278,21 @@ export function PipelineKanbanPage() {
               </div>
             </div>
 
-            {/* Delete Card */}
-            <div className="border-t pt-4">
+            {/* Footer Actions */}
+            <div className="border-t pt-4 flex items-center justify-between">
+              <button
+                onClick={() => setShowConversationsModal(true)}
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-800 text-sm"
+              >
+                <MessagesSquare size={16} />
+                Ver Conversas
+              </button>
               <button
                 onClick={() => setShowDeleteModal(true)}
-                className="flex items-center gap-2 text-red-600 hover:text-red-800 text-sm"
+                className="flex items-center gap-2 text-red-500 hover:text-red-700 text-sm"
               >
                 <Trash2 size={16} />
-                Excluir Card
+                Excluir
               </button>
             </div>
           </div>
