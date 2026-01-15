@@ -28,42 +28,36 @@ jobs:
             # Pull latest code
             git pull origin main
 
-            # Build images (no cache to ensure latest code)
-            docker compose -f docker-compose.prod.yml build --no-cache backend frontend
-
-            # Stop and remove old containers
-            docker stop plm_backend plm_frontend 2>/dev/null || true
-            docker rm plm_backend plm_frontend 2>/dev/null || true
-
-            # Create network if not exists (plm_default is where postgres runs)
+            # Ensure plm_default network exists (postgres runs here)
             docker network create plm_default 2>/dev/null || true
 
-            # Start backend with correct config
-            docker run -d --name plm_backend \
-              --network plm_default \
-              -e DATABASE_URL="postgresql://plm:plmsecret2024@plm-postgres:5432/plm?schema=public" \
-              -e NODE_ENV=production \
-              -e PORT=3000 \
-              -e TAH_BASE_URL=http://72.61.52.70:3050 \
-              -e TAH_JWKS_URL=http://72.61.52.70:3050/.well-known/jwks.json \
-              -e TAH_ISSUER=http://72.61.52.70:3050 \
-              -e APP_ID=p_l_m \
-              -e JWT_SECRET="${{ secrets.PLM_JWT_SECRET }}" \
-              -e JWT_EXPIRES_IN=24h \
-              -e COOKIE_DOMAIN=72.61.52.70 \
-              -e CORS_ORIGIN=http://72.61.52.70:8090 \
-              -e BACKEND_URL=http://72.61.52.70:3333 \
-              -e FRONTEND_URL=http://72.61.52.70:8090 \
-              -p 3333:3000 \
-              --restart unless-stopped \
-              ghcr.io/maxcardoso-git/plm/backend:latest
+            # Create .env file for docker compose
+            echo "POSTGRES_USER=plm" > .env
+            echo "POSTGRES_PASSWORD=plmsecret2024" >> .env
+            echo "POSTGRES_PASSWORD_ENCODED=plmsecret2024" >> .env
+            echo "POSTGRES_DB=plm" >> .env
+            echo "NODE_ENV=production" >> .env
+            echo "TAH_BASE_URL=http://72.61.52.70:3050" >> .env
+            echo "TAH_JWKS_URL=http://72.61.52.70:3050/.well-known/jwks.json" >> .env
+            echo "TAH_ISSUER=http://72.61.52.70:3050" >> .env
+            echo "APP_ID=p_l_m" >> .env
+            echo "JWT_SECRET=${{ secrets.PLM_JWT_SECRET }}" >> .env
+            echo "JWT_EXPIRES_IN=24h" >> .env
+            echo "COOKIE_DOMAIN=72.61.52.70" >> .env
+            echo "CORS_ORIGIN=http://72.61.52.70:8090" >> .env
+            echo "BACKEND_URL=http://72.61.52.70:3333" >> .env
+            echo "FRONTEND_URL=http://72.61.52.70:8090" >> .env
+            echo "VITE_API_URL=/api/v1" >> .env
 
-            # Start frontend (also needs plm_default to resolve plm_backend hostname)
-            docker run -d --name plm_frontend \
-              --network plm_default \
-              -p 8090:80 \
-              --restart unless-stopped \
-              ghcr.io/maxcardoso-git/plm/frontend:latest
+            # Stop existing containers
+            docker compose -f docker-compose.prod.yml stop backend frontend 2>/dev/null || true
+            docker compose -f docker-compose.prod.yml rm -f backend frontend 2>/dev/null || true
+
+            # Build images with no cache to ensure latest code
+            docker compose -f docker-compose.prod.yml build --no-cache backend frontend
+
+            # Start services using docker compose (uses the images we just built)
+            docker compose -f docker-compose.prod.yml up -d backend frontend
 
             # Cleanup old images
             docker image prune -f
