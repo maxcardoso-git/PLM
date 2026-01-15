@@ -291,9 +291,20 @@ export function PipelineKanbanPage() {
         formId,
       });
       if (selectedCard?.card.uniqueKeyValue && uniqueKeyFieldId) {
+        // Find the field name from schema using uniqueKeyFieldId
+        // The uniqueKeyFieldId is stored as field.id but API expects field.name
+        let keyFieldName = uniqueKeyFieldId;
+        if (schema?.fields) {
+          const keyField = schema.fields.find((f: any) => f.id === uniqueKeyFieldId);
+          if (keyField) {
+            keyFieldName = keyField.name || keyField.id;
+          }
+        }
+
         console.log('[DEBUG] Fetching form data with uniqueKey lookup:', {
           formId,
           uniqueKeyFieldId,
+          keyFieldName,
           uniqueKeyValue: selectedCard.card.uniqueKeyValue,
         });
         try {
@@ -302,7 +313,8 @@ export function PipelineKanbanPage() {
           const dataEndpoint = dataEndpointTemplate.replace('{formId}', formId);
           // Use & if endpoint already has query params, otherwise use ?
           const separator = dataEndpoint.includes('?') ? '&' : '?';
-          const lookupEndpoint = `${dataEndpoint}${separator}keyField=${uniqueKeyFieldId}&keyValue=${encodeURIComponent(selectedCard.card.uniqueKeyValue)}`;
+          // Use keyFieldName (the actual field name) instead of uniqueKeyFieldId (the technical ID)
+          const lookupEndpoint = `${dataEndpoint}${separator}keyField=${encodeURIComponent(keyFieldName)}&keyValue=${encodeURIComponent(selectedCard.card.uniqueKeyValue)}`;
           const dataResponse = await fetch(`${API_BASE_URL}/external-forms/proxy`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
