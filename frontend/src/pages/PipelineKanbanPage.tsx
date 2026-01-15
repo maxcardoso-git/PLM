@@ -283,6 +283,13 @@ export function PipelineKanbanPage() {
       }
 
       // Fallback: If card has a unique key value, try to fetch existing form data using lookup
+      console.log('[DEBUG] UniqueKey lookup check:', {
+        hasUniqueKeyValue: !!selectedCard?.card.uniqueKeyValue,
+        uniqueKeyValue: selectedCard?.card.uniqueKeyValue,
+        hasUniqueKeyFieldId: !!uniqueKeyFieldId,
+        uniqueKeyFieldId,
+        formId,
+      });
       if (selectedCard?.card.uniqueKeyValue && uniqueKeyFieldId) {
         console.log('[DEBUG] Fetching form data with uniqueKey lookup:', {
           formId,

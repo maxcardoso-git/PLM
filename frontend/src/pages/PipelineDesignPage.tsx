@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, Workflow, Users, AlertCircle, Settings, Play, FolderOpen, RefreshCw, Trash2, Lightbulb, Target, BookOpen, Zap } from 'lucide-react';
+import { Plus, Workflow, Users, AlertCircle, Settings, Play, FolderOpen, RefreshCw, Trash2, Copy, Lightbulb, Target, BookOpen, Zap } from 'lucide-react';
 import { api } from '../services/api';
 import { useTenant } from '../context/TenantContext';
 import { useSettings } from '../context/SettingsContext';
@@ -50,6 +50,9 @@ export function PipelineDesignPage() {
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [deleteModal, setDeleteModal] = useState<{ show: boolean; pipeline: Pipeline | null }>({ show: false, pipeline: null });
   const [deleting, setDeleting] = useState(false);
+  const [cloneModal, setCloneModal] = useState<{ show: boolean; pipeline: Pipeline | null }>({ show: false, pipeline: null });
+  const [cloneForm, setCloneForm] = useState({ newKey: '', newName: '' });
+  const [cloning, setCloning] = useState(false);
   const [showHowItWorks, setShowHowItWorks] = useState(false);
 
   const howItWorksContent: HowItWorksContent = {
@@ -255,6 +258,37 @@ export function PipelineDesignPage() {
     } finally {
       setDeleting(false);
     }
+  };
+
+  const handleClone = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!cloneModal.pipeline || !cloneForm.newKey) return;
+
+    setCloning(true);
+    setError(null);
+    try {
+      await api.clonePipeline(cloneModal.pipeline.id, {
+        newKey: cloneForm.newKey,
+        newName: cloneForm.newName || undefined,
+      });
+      setCloneModal({ show: false, pipeline: null });
+      setCloneForm({ newKey: '', newName: '' });
+      fetchPipelines(activeTab);
+    } catch (err: any) {
+      const message = err.response?.data?.message || err.message || 'Falha ao clonar pipeline';
+      setError(message);
+    } finally {
+      setCloning(false);
+    }
+  };
+
+  const openCloneModal = (pipeline: Pipeline) => {
+    setCloneModal({ show: true, pipeline });
+    setCloneForm({
+      newKey: `${pipeline.key}_copy`,
+      newName: `${pipeline.name} (Cópia)`,
+    });
+    setError(null);
   };
 
   const toggleProject = (projectId: string) => {
@@ -465,6 +499,13 @@ export function PipelineDesignPage() {
                           >
                             <Trash2 size={14} />
                           </button>
+                          <button
+                            onClick={() => openCloneModal(pipeline)}
+                            className="flex items-center gap-1 px-2 py-1.5 text-xs font-medium text-purple-600 hover:bg-purple-50 border border-transparent hover:border-purple-200 rounded-md transition-colors"
+                            title="Clonar Pipeline"
+                          >
+                            <Copy size={14} />
+                          </button>
                           <Link
                             to={`/pipeline-design/${pipeline.id}/edit`}
                             className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-100 rounded-md transition-colors"
@@ -551,6 +592,86 @@ export function PipelineDesignPage() {
             </button>
           </div>
         </div>
+      </Modal>
+
+      {/* Clone Pipeline Modal */}
+      <Modal
+        isOpen={cloneModal.show}
+        onClose={() => {
+          setCloneModal({ show: false, pipeline: null });
+          setError(null);
+        }}
+        title="Clonar Pipeline"
+      >
+        <form onSubmit={handleClone} className="space-y-4">
+          {error && (
+            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              <AlertCircle size={16} />
+              {error}
+            </div>
+          )}
+
+          <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-purple-100 rounded-full">
+                <Copy className="text-purple-600" size={20} />
+              </div>
+              <div>
+                <h4 className="font-medium text-purple-800">Criar cópia do pipeline</h4>
+                <p className="text-sm text-purple-700 mt-1">
+                  Clonando <strong>"{cloneModal.pipeline?.name}"</strong>.
+                  O novo pipeline será criado como <strong>Draft</strong>.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="label">Chave do novo pipeline</label>
+            <input
+              type="text"
+              value={cloneForm.newKey}
+              onChange={(e) => setCloneForm({ ...cloneForm, newKey: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
+              className="input mt-1"
+              placeholder="ex: meu_pipeline_v2"
+              required
+            />
+            <p className="text-xs text-gray-500 mt-1">Identificador único para o novo pipeline</p>
+          </div>
+
+          <div>
+            <label className="label">Nome do novo pipeline</label>
+            <input
+              type="text"
+              value={cloneForm.newName}
+              onChange={(e) => setCloneForm({ ...cloneForm, newName: e.target.value })}
+              className="input mt-1"
+              placeholder="Nome do pipeline"
+            />
+            <p className="text-xs text-gray-500 mt-1">Se vazio, será usado o nome original com " (Cópia)"</p>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <button
+              type="button"
+              onClick={() => {
+                setCloneModal({ show: false, pipeline: null });
+                setError(null);
+              }}
+              className="btn-secondary"
+              disabled={cloning}
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              type="submit"
+              disabled={cloning || !cloneForm.newKey}
+              className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors"
+            >
+              {cloning ? 'Clonando...' : 'Clonar Pipeline'}
+            </button>
+          </div>
+        </form>
       </Modal>
 
       {/* Create Pipeline Modal */}

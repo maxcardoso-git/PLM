@@ -101,6 +101,15 @@ class ApiClient {
     return data;
   }
 
+  async clonePipeline(id: string, payload: {
+    newKey: string;
+    newName?: string;
+    fromVersion?: number;
+  }): Promise<Pipeline> {
+    const { data } = await this.client.post(`/pipelines/${id}/clone`, payload);
+    return data;
+  }
+
   // Kanban Board
   async getKanbanBoard(pipelineId: string): Promise<KanbanBoard> {
     const { data } = await this.client.get(`/cards/kanban/${pipelineId}`);

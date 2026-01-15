@@ -783,7 +783,7 @@ export function PipelineEditorPage() {
         const updatePayload = {
           defaultFormStatus: formSettings.defaultFormStatus,
           lockOnLeaveStage: formSettings.lockOnLeaveStage,
-          uniqueKeyFieldId: formSettings.defaultFormStatus === 'FILLED' ? formSettings.uniqueKeyFieldId : null,
+          uniqueKeyFieldId: formSettings.uniqueKeyFieldId || null,
         };
 
         const res = await fetch(`${API_BASE_URL}/stage-form-rules/${editingFormRule.id}`, {
@@ -834,13 +834,13 @@ export function PipelineEditorPage() {
             ...(externalVersion != null && !isNaN(externalVersion) ? { externalFormVersion: externalVersion } : {}),
             defaultFormStatus: formSettings.defaultFormStatus,
             lockOnLeaveStage: formSettings.lockOnLeaveStage,
-            ...(formSettings.defaultFormStatus === 'FILLED' && formSettings.uniqueKeyFieldId ? { uniqueKeyFieldId: formSettings.uniqueKeyFieldId } : {}),
+            ...(formSettings.uniqueKeyFieldId ? { uniqueKeyFieldId: formSettings.uniqueKeyFieldId } : {}),
           }
         : {
             formDefinitionId: selectedFormId,
             defaultFormStatus: formSettings.defaultFormStatus,
             lockOnLeaveStage: formSettings.lockOnLeaveStage,
-            ...(formSettings.defaultFormStatus === 'FILLED' && formSettings.uniqueKeyFieldId ? { uniqueKeyFieldId: formSettings.uniqueKeyFieldId } : {}),
+            ...(formSettings.uniqueKeyFieldId ? { uniqueKeyFieldId: formSettings.uniqueKeyFieldId } : {}),
           };
 
       console.log('[DEBUG] Sending payload:', JSON.stringify(payload, null, 2));
@@ -1911,6 +1911,17 @@ export function PipelineEditorPage() {
         title={editingStage ? 'Edit Stage' : 'Create Stage'}
       >
         <div className="space-y-4">
+          {/* Warning when pipeline is not in draft mode */}
+          {currentVersion?.status !== 'draft' && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-amber-800">Pipeline em modo somente leitura</p>
+                <p className="text-xs text-amber-600">Para editar os estágios, a versão do pipeline precisa estar em status "Draft".</p>
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="label">Name</label>
             <input
@@ -2050,15 +2061,17 @@ export function PipelineEditorPage() {
 
           <div className="flex justify-end gap-3 pt-4">
             <button onClick={() => setShowStageModal(false)} className="btn-secondary">
-              Cancel
+              {currentVersion?.status !== 'draft' ? 'Fechar' : 'Cancel'}
             </button>
-            <button
-              onClick={handleSaveStage}
-              disabled={savingStage || !stageForm.name}
-              className="btn-primary"
-            >
-              {savingStage ? 'Saving...' : 'Save Stage'}
-            </button>
+            {currentVersion?.status === 'draft' && (
+              <button
+                onClick={handleSaveStage}
+                disabled={savingStage || !stageForm.name}
+                className="btn-primary"
+              >
+                {savingStage ? 'Saving...' : 'Save Stage'}
+              </button>
+            )}
           </div>
         </div>
       </Modal>
@@ -2159,7 +2172,7 @@ export function PipelineEditorPage() {
             <label className="label">Status inicial do formulário</label>
             <select
               value={formSettings.defaultFormStatus}
-              onChange={(e) => setFormSettings({ ...formSettings, defaultFormStatus: e.target.value, uniqueKeyFieldId: '' })}
+              onChange={(e) => setFormSettings({ ...formSettings, defaultFormStatus: e.target.value })}
               className="input mt-1"
             >
               <option value="TO_FILL">A preencher</option>
@@ -2168,8 +2181,8 @@ export function PipelineEditorPage() {
             </select>
           </div>
 
-          {/* Unique Key Field Selector - only shown when status is FILLED */}
-          {formSettings.defaultFormStatus === 'FILLED' && selectedFormId && (
+          {/* Unique Key Field Selector - for external form data lookup */}
+          {selectedFormId && (
             <div>
               <label className="label">Campo chave única (para buscar registro existente)</label>
               {loadingFormFields ? (
@@ -2192,7 +2205,7 @@ export function PipelineEditorPage() {
                     ))}
                   </select>
                   <p className="text-xs text-gray-500 mt-1">
-                    Este campo será usado para recuperar dados existentes do formulário na base externa.
+                    Este campo será usado para buscar dados existentes quando o card tiver uma "Chave Única" definida.
                   </p>
                 </>
               ) : (

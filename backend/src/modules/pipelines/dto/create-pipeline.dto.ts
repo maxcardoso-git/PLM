@@ -89,3 +89,21 @@ export class ClonePipelineVersionDto {
   @IsString()
   targetStatus?: 'draft' | 'test';
 }
+
+export class ClonePipelineDto {
+  @ApiProperty({ description: 'New pipeline key (must be unique)', example: 'sales_pipeline_copy' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  newKey: string;
+
+  @ApiPropertyOptional({ description: 'New pipeline name. If not provided, will use original name with " (Copy)" suffix' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  newName?: string;
+
+  @ApiPropertyOptional({ description: 'Version to clone from. If null, clones the latest/published version' })
+  @IsOptional()
+  fromVersion?: number;
+}

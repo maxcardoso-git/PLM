@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiHeader, ApiQuery } from '@nestjs/swagger';
 import { PipelinesService } from './pipelines.service';
-import { CreatePipelineDto, UpdatePipelineDto, ClonePipelineVersionDto } from './dto';
+import { CreatePipelineDto, UpdatePipelineDto, ClonePipelineVersionDto, ClonePipelineDto } from './dto';
 import { TenantGuard, RequireOrganization } from '../../common/guards';
 import { Tenant } from '../../common/decorators';
 import type { TenantContext } from '../../common/decorators';
@@ -167,5 +167,17 @@ export class PipelinesController {
     @Param('pipelineId', ParseUUIDPipe) pipelineId: string,
   ) {
     return this.pipelinesService.delete(ctx, pipelineId);
+  }
+
+  @Post(':pipelineId/clone')
+  @ApiOperation({ summary: 'Clone pipeline (creates new pipeline in draft status)' })
+  @ApiResponse({ status: 201, description: 'Pipeline cloned successfully' })
+  @ApiResponse({ status: 409, description: 'Pipeline with same key already exists' })
+  clonePipeline(
+    @Tenant() ctx: TenantContext,
+    @Param('pipelineId', ParseUUIDPipe) pipelineId: string,
+    @Body() dto: ClonePipelineDto,
+  ) {
+    return this.pipelinesService.clonePipeline(ctx, pipelineId, dto);
   }
 }

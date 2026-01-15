@@ -5,7 +5,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { CreatePipelineDto, UpdatePipelineDto, ClonePipelineVersionDto } from './dto';
+import { CreatePipelineDto, UpdatePipelineDto, ClonePipelineVersionDto, ClonePipelineDto } from './dto';
 import { TenantContext } from '../../common/decorators';
 
 @Injectable()
@@ -597,6 +597,218 @@ export class PipelinesService {
       });
 
       return { deleted: true, id };
+    });
+  }
+
+  async clonePipeline(ctx: TenantContext, sourcePipelineId: string, dto: ClonePipelineDto) {
+    // Check if the source pipeline exists
+    const sourcePipeline = await this.findOne(ctx, sourcePipelineId);
+
+    // Check if the new key already exists
+    const existingWithKey = await this.prisma.pipeline.findFirst({
+      where: {
+        tenantId: ctx.tenantId,
+        orgId: ctx.orgId!,
+        key: dto.newKey,
+      },
+    });
+
+    if (existingWithKey) {
+      throw new ConflictException(`Pipeline with key "${dto.newKey}" already exists in this organization`);
+    }
+
+    // Determine which version to clone
+    const versionToClone = dto.fromVersion || sourcePipeline.publishedVersion || 1;
+
+    // Get the source version with all its data
+    const sourceVersion = await this.prisma.pipelineVersion.findFirst({
+      where: {
+        pipelineId: sourcePipelineId,
+        version: versionToClone,
+      },
+      include: {
+        stages: {
+          include: {
+            formAttachRules: true,
+            triggers: {
+              include: {
+                conditions: true,
+              },
+            },
+          },
+          orderBy: { stageOrder: 'asc' },
+        },
+        transitions: {
+          include: {
+            rules: true,
+          },
+        },
+      },
+    });
+
+    if (!sourceVersion) {
+      throw new NotFoundException(`Version ${versionToClone} not found in source pipeline`);
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // Create the new pipeline (always as draft)
+      const newPipeline = await tx.pipeline.create({
+        data: {
+          tenantId: ctx.tenantId,
+          orgId: ctx.orgId!,
+          key: dto.newKey,
+          name: dto.newName || `${sourcePipeline.name} (Cópia)`,
+          description: sourcePipeline.description,
+          projectId: sourcePipeline.projectId,
+          projectName: sourcePipeline.projectName,
+          domain: sourcePipeline.domain,
+          domainDescription: sourcePipeline.domainDescription,
+          lifecycleStatus: 'draft', // Always draft
+          publishedVersion: null, // Not published
+        },
+      });
+
+      // Create version 1 (draft)
+      const newVersion = await tx.pipelineVersion.create({
+        data: {
+          pipelineId: newPipeline.id,
+          version: 1,
+          status: 'draft',
+        },
+      });
+
+      // Map old stage IDs to new stage IDs
+      const stageIdMap = new Map<string, string>();
+
+      // Clone stages
+      for (const stage of sourceVersion.stages) {
+        const newStage = await tx.stage.create({
+          data: {
+            pipelineVersionId: newVersion.id,
+            key: stage.key,
+            name: stage.name,
+            stageOrder: stage.stageOrder,
+            classification: stage.classification,
+            color: stage.color,
+            isInitial: stage.isInitial,
+            isFinal: stage.isFinal,
+            wipLimit: stage.wipLimit,
+            slaHours: stage.slaHours,
+            active: stage.active,
+            // Orchestrator ISC fields
+            iscStates: stage.iscStates as any,
+            stageStrategy: stage.stageStrategy,
+          },
+        });
+
+        stageIdMap.set(stage.id, newStage.id);
+
+        // Clone form attach rules
+        for (const rule of stage.formAttachRules) {
+          await tx.stageFormAttachRule.create({
+            data: {
+              stageId: newStage.id,
+              formDefinitionId: rule.formDefinitionId,
+              externalFormId: rule.externalFormId,
+              externalFormName: rule.externalFormName,
+              externalFormVersion: rule.externalFormVersion,
+              defaultFormStatus: rule.defaultFormStatus,
+              lockOnLeaveStage: rule.lockOnLeaveStage,
+              uniqueKeyFieldId: rule.uniqueKeyFieldId,
+            },
+          });
+        }
+
+        // Clone triggers
+        for (const trigger of stage.triggers) {
+          // Map fromStageId to new stage ID if it exists
+          const newFromStageId = trigger.fromStageId ? stageIdMap.get(trigger.fromStageId) : null;
+
+          const newTrigger = await tx.stageTrigger.create({
+            data: {
+              stageId: newStage.id,
+              integrationId: trigger.integrationId,
+              eventType: trigger.eventType,
+              fromStageId: newFromStageId || null,
+              formDefinitionId: trigger.formDefinitionId,
+              externalFormId: trigger.externalFormId,
+              externalFormName: trigger.externalFormName,
+              fieldId: trigger.fieldId,
+              executionOrder: trigger.executionOrder,
+              enabled: trigger.enabled,
+            },
+          });
+
+          // Clone trigger conditions
+          for (const condition of trigger.conditions) {
+            await tx.stageTriggerCondition.create({
+              data: {
+                triggerId: newTrigger.id,
+                fieldPath: condition.fieldPath,
+                operator: condition.operator,
+                value: condition.value,
+              },
+            });
+          }
+        }
+      }
+
+      // Clone transitions
+      for (const transition of sourceVersion.transitions) {
+        const newFromId = stageIdMap.get(transition.fromStageId);
+        const newToId = stageIdMap.get(transition.toStageId);
+
+        if (newFromId && newToId) {
+          const newTransition = await tx.stageTransition.create({
+            data: {
+              pipelineVersionId: newVersion.id,
+              fromStageId: newFromId,
+              toStageId: newToId,
+            },
+          });
+
+          // Clone transition rules
+          for (const rule of transition.rules) {
+            await tx.stageTransitionRule.create({
+              data: {
+                transitionId: newTransition.id,
+                ruleType: rule.ruleType,
+                formDefinitionId: rule.formDefinitionId,
+                enabled: rule.enabled,
+              },
+            });
+          }
+        }
+      }
+
+      // Create outbox event
+      await tx.outboxEvent.create({
+        data: {
+          tenantId: ctx.tenantId,
+          orgId: ctx.orgId!,
+          eventType: 'PLM.PIPE.CLONED',
+          entityType: 'Pipeline',
+          entityId: newPipeline.id,
+          payload: {
+            sourcePipelineId,
+            sourcePipelineName: sourcePipeline.name,
+            newPipelineId: newPipeline.id,
+            newPipelineName: newPipeline.name,
+            clonedFromVersion: versionToClone,
+          },
+          status: 'pending',
+        },
+      });
+
+      return {
+        ...newPipeline,
+        latestVersion: newVersion,
+        clonedFrom: {
+          pipelineId: sourcePipelineId,
+          pipelineName: sourcePipeline.name,
+          version: versionToClone,
+        },
+      };
     });
   }
 }
