@@ -28,8 +28,8 @@ jobs:
             # Pull latest code
             git pull origin main
 
-            # Build images
-            docker compose -f docker-compose.prod.yml build backend frontend
+            # Build images (no cache to ensure latest code)
+            docker compose -f docker-compose.prod.yml build --no-cache backend frontend
 
             # Stop and remove old containers
             docker stop plm_backend plm_frontend 2>/dev/null || true
