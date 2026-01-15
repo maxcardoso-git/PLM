@@ -14,6 +14,7 @@ import {
   ExternalCreateConversationDto,
   ExternalAddMessagesDto,
   ExternalUpdateConversationDto,
+  ExternalCreateCommentDto,
 } from './dto';
 
 interface ExternalApiContext {
@@ -697,6 +698,64 @@ export class ExternalApiService {
           }
         : null,
       messageCount: conversation._count?.messages || 0,
+    };
+  }
+
+  // ======================================
+  // Comment Methods
+  // ======================================
+
+  async addComment(
+    ctx: ExternalApiContext,
+    identifier: string,
+    type: CardIdentifierType,
+    dto: ExternalCreateCommentDto,
+  ) {
+    const card = await this.findCard(ctx, identifier, type);
+
+    const comment = await this.prisma.cardComment.create({
+      data: {
+        cardId: card.id,
+        content: dto.content,
+        userName: dto.userName || 'External API',
+        userId: dto.userId || null,
+      },
+    });
+
+    return {
+      id: comment.id,
+      cardId: card.id,
+      sessionId: card.sessionId,
+      content: comment.content,
+      userName: comment.userName,
+      userId: comment.userId,
+      createdAt: comment.createdAt,
+    };
+  }
+
+  async listComments(
+    ctx: ExternalApiContext,
+    identifier: string,
+    type: CardIdentifierType,
+  ) {
+    const card = await this.findCard(ctx, identifier, type);
+
+    const comments = await this.prisma.cardComment.findMany({
+      where: { cardId: card.id },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      cardId: card.id,
+      sessionId: card.sessionId,
+      comments: comments.map((c) => ({
+        id: c.id,
+        content: c.content,
+        userName: c.userName,
+        userId: c.userId,
+        createdAt: c.createdAt,
+      })),
+      total: comments.length,
     };
   }
 

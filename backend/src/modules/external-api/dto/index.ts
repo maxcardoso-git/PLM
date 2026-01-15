@@ -312,3 +312,34 @@ export class ExternalUpdateConversationDto {
   @IsObject()
   metadata?: Record<string, any>;
 }
+
+// ======================================
+// Comment DTOs
+// ======================================
+
+export class ExternalCreateCommentDto {
+  @ApiProperty({
+    description: 'Conteúdo do comentário',
+    example: 'Cliente solicitou mais informações sobre o produto.',
+  })
+  @IsString()
+  @IsNotEmpty()
+  content: string;
+
+  @ApiPropertyOptional({
+    description: 'Nome do usuário que está adicionando o comentário',
+    example: 'Bot Atendimento',
+    default: 'External API',
+  })
+  @IsOptional()
+  @IsString()
+  userName?: string;
+
+  @ApiPropertyOptional({
+    description: 'ID do usuário no sistema externo',
+    example: 'user_123',
+  })
+  @IsOptional()
+  @IsString()
+  userId?: string;
+}

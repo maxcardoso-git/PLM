@@ -27,6 +27,7 @@ import {
   ExternalCreateConversationDto,
   ExternalAddMessagesDto,
   ExternalUpdateConversationDto,
+  ExternalCreateCommentDto,
 } from './dto';
 import { ApiKeyGuard, RequireApiKeyPermissions } from '../../common/guards/api-key.guard';
 
@@ -147,6 +148,53 @@ export class ExternalApiController {
       orgId: req.apiKeyAuth.orgId,
     };
     return this.externalApiService.moveCard(ctx, identifier, type, dto);
+  }
+
+  // ======================================
+  // Comment Endpoints
+  // ======================================
+
+  @Post('cards/:identifier/comments')
+  @RequireApiKeyPermissions('cards:update')
+  @ApiOperation({ summary: 'Add a comment to a card' })
+  @ApiParam({ name: 'identifier', description: 'Card ID or Session ID' })
+  @ApiQuery({ name: 'type', enum: CardIdentifierType, required: false, description: 'Type of identifier (default: cardId)' })
+  @ApiResponse({ status: 201, description: 'Comment added successfully' })
+  @ApiResponse({ status: 401, description: 'Invalid API key' })
+  @ApiResponse({ status: 403, description: 'Insufficient permissions' })
+  @ApiResponse({ status: 404, description: 'Card not found' })
+  async addComment(
+    @Req() req: any,
+    @Param('identifier') identifier: string,
+    @Query('type') type: CardIdentifierType = CardIdentifierType.CARD_ID,
+    @Body() dto: ExternalCreateCommentDto,
+  ) {
+    const ctx = {
+      tenantId: req.apiKeyAuth.tenantId,
+      orgId: req.apiKeyAuth.orgId,
+    };
+    return this.externalApiService.addComment(ctx, identifier, type, dto);
+  }
+
+  @Get('cards/:identifier/comments')
+  @RequireApiKeyPermissions('cards:read')
+  @ApiOperation({ summary: 'List comments on a card' })
+  @ApiParam({ name: 'identifier', description: 'Card ID or Session ID' })
+  @ApiQuery({ name: 'type', enum: CardIdentifierType, required: false, description: 'Type of identifier (default: cardId)' })
+  @ApiResponse({ status: 200, description: 'List of comments' })
+  @ApiResponse({ status: 401, description: 'Invalid API key' })
+  @ApiResponse({ status: 403, description: 'Insufficient permissions' })
+  @ApiResponse({ status: 404, description: 'Card not found' })
+  async listComments(
+    @Req() req: any,
+    @Param('identifier') identifier: string,
+    @Query('type') type: CardIdentifierType = CardIdentifierType.CARD_ID,
+  ) {
+    const ctx = {
+      tenantId: req.apiKeyAuth.tenantId,
+      orgId: req.apiKeyAuth.orgId,
+    };
+    return this.externalApiService.listComments(ctx, identifier, type);
   }
 
   // ======================================
