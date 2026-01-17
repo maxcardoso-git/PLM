@@ -159,7 +159,6 @@ const ISC_STATES = [
   { value: 'INIT', label: 'Initial', description: 'Initial contact, greeting' },
   { value: 'IDENTIFICATION', label: 'Identification', description: 'Customer identification (CPF request)' },
   { value: 'DISCOVERY', label: 'Discovery', description: 'Understanding customer situation' },
-  { value: 'CLARIFICATION', label: 'Clarification', description: 'Clarifying unclear information' },
   { value: 'VALIDATION', label: 'Validation', description: 'Validating customer identity' },
   { value: 'EVALUATION', label: 'Evaluation', description: 'Evaluating customer situation/eligibility' },
   { value: 'DECISION', label: 'Decision', description: 'Making decisions on proposals' },
