@@ -28,9 +28,6 @@ jobs:
             # Pull latest code
             git pull origin main
 
-            # Ensure plm_default network exists (postgres runs here)
-            docker network create plm_default 2>/dev/null || true
-
             # Create .env file for docker compose
             echo "POSTGRES_USER=plm" > .env
             echo "POSTGRES_PASSWORD=plmsecret2024" >> .env

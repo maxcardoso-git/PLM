@@ -46,7 +46,10 @@ services:
     ports:
       - "3333:3000"
     networks:
-      - plm_default
+      - plm_network
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   frontend:
     image: ${FRONTEND_IMAGE:-ghcr.io/maxcardoso-git/plm/frontend:latest}
@@ -62,14 +65,12 @@ services:
     depends_on:
       - backend
     networks:
-      - plm_default
+      - plm_network
 
 volumes:
   plm_postgres_data:
     external: true
 
 networks:
-  plm_default:
-    external: true
   plm_network:
     driver: bridge
