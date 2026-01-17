@@ -8,9 +8,32 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePipelineDto, UpdatePipelineDto, ClonePipelineVersionDto, ClonePipelineDto } from './dto';
 import { TenantContext } from '../../common/decorators';
 
+// ISC (Interaction State Controller) States for Orchestrator integration
+const ISC_STATES = [
+  { value: 'INIT', label: 'Initial', description: 'Initial contact, greeting' },
+  { value: 'IDENTIFICATION', label: 'Identification', description: 'Customer identification (CPF request)' },
+  { value: 'DISCOVERY', label: 'Discovery', description: 'Understanding customer situation' },
+  { value: 'VALIDATION', label: 'Validation', description: 'Validating customer identity' },
+  { value: 'EVALUATION', label: 'Evaluation', description: 'Evaluating customer situation/eligibility' },
+  { value: 'DECISION', label: 'Decision', description: 'Making decisions on proposals' },
+  { value: 'NEGOTIATION', label: 'Negotiation', description: 'Negotiating terms' },
+  { value: 'COMMITMENT', label: 'Commitment', description: 'Getting customer commitment' },
+  { value: 'EXECUTION', label: 'Execution', description: 'Processing agreed actions' },
+  { value: 'CONFIRMATION', label: 'Confirmation', description: 'Confirming completion' },
+  { value: 'RESOLUTION', label: 'Resolution', description: 'Case resolved' },
+  { value: 'FOLLOW_UP', label: 'Follow-up', description: 'Post-resolution follow-up' },
+  { value: 'STALL', label: 'Stall', description: 'Customer asked to return later' },
+  { value: 'EXIT', label: 'Exit', description: 'Conversation ended' },
+  { value: 'CLOSED', label: 'Closed', description: 'Case closed' },
+];
+
 @Injectable()
 export class PipelinesService {
   constructor(private prisma: PrismaService) {}
+
+  getIscStates() {
+    return { items: ISC_STATES };
+  }
 
   async create(ctx: TenantContext, dto: CreatePipelineDto) {
     const existing = await this.prisma.pipeline.findFirst({

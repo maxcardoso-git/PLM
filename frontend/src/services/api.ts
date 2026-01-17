@@ -85,6 +85,11 @@ class ApiClient {
     return data;
   }
 
+  async getIscStates(): Promise<ListResponse<{ value: string; label: string; description: string }>> {
+    const { data } = await this.client.get('/pipelines/metadata/isc-states');
+    return data;
+  }
+
   async createPipeline(payload: {
     key: string;
     name: string;

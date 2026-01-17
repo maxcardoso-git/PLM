@@ -27,6 +27,13 @@ import type { TenantContext } from '../../common/decorators';
 export class PipelinesController {
   constructor(private readonly pipelinesService: PipelinesService) {}
 
+  @Get('metadata/isc-states')
+  @ApiOperation({ summary: 'Get available ISC (Interaction State Controller) states' })
+  @ApiResponse({ status: 200, description: 'List of available ISC states' })
+  getIscStates() {
+    return this.pipelinesService.getIscStates();
+  }
+
   @Post()
   @ApiOperation({ summary: 'Create pipeline (creates version 1 as draft)' })
   @ApiResponse({ status: 201, description: 'Pipeline created' })

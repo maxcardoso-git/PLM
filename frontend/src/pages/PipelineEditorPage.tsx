@@ -154,25 +154,6 @@ const STAGE_COLORS = [
   '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#06B6D4',
 ];
 
-// ISC (Interaction State Controller) States for Orchestrator integration
-const ISC_STATES = [
-  { value: 'INIT', label: 'Initial', description: 'Initial contact, greeting' },
-  { value: 'IDENTIFICATION', label: 'Identification', description: 'Customer identification (CPF request)' },
-  { value: 'DISCOVERY', label: 'Discovery', description: 'Understanding customer situation' },
-  { value: 'VALIDATION', label: 'Validation', description: 'Validating customer identity' },
-  { value: 'EVALUATION', label: 'Evaluation', description: 'Evaluating customer situation/eligibility' },
-  { value: 'DECISION', label: 'Decision', description: 'Making decisions on proposals' },
-  { value: 'NEGOTIATION', label: 'Negotiation', description: 'Negotiating terms' },
-  { value: 'COMMITMENT', label: 'Commitment', description: 'Getting customer commitment' },
-  { value: 'EXECUTION', label: 'Execution', description: 'Processing agreed actions' },
-  { value: 'CONFIRMATION', label: 'Confirmation', description: 'Confirming completion' },
-  { value: 'RESOLUTION', label: 'Resolution', description: 'Case resolved' },
-  { value: 'FOLLOW_UP', label: 'Follow-up', description: 'Post-resolution follow-up' },
-  { value: 'STALL', label: 'Stall', description: 'Customer asked to return later' },
-  { value: 'EXIT', label: 'Exit', description: 'Conversation ended' },
-  { value: 'CLOSED', label: 'Closed', description: 'Case closed' },
-];
-
 // Sortable Stage Item Component
 interface SortableStageItemProps {
   id: string;
@@ -272,6 +253,8 @@ export function PipelineEditorPage() {
   const [showTriggerModal, setShowTriggerModal] = useState(false);
   const [triggerStage, setTriggerStage] = useState<Stage | null>(null);
   const [integrations, setIntegrations] = useState<Integration[]>([]);
+  const [iscStates, setIscStates] = useState<{ value: string; label: string; description: string }[]>([]);
+
   const [triggerForm, setTriggerForm] = useState<{
     integrationId: string;
     eventType: TriggerEventType;
@@ -356,6 +339,19 @@ export function PipelineEditorPage() {
   useEffect(() => {
     fetchPipeline();
   }, [fetchPipeline]);
+
+  // Fetch ISC states from API
+  useEffect(() => {
+    const fetchIscStates = async () => {
+      try {
+        const response = await api.getIscStates();
+        setIscStates(response.items || []);
+      } catch (err) {
+        console.error('Failed to fetch ISC states:', err);
+      }
+    };
+    fetchIscStates();
+  }, []);
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -2021,7 +2017,7 @@ export function PipelineEditorPage() {
                 <label className="label">ISC States Mapping</label>
                 <p className="text-xs text-gray-500 mb-2">Select which ISC states map to this stage</p>
                 <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3">
-                  {ISC_STATES.map((state) => (
+                  {iscStates.map((state) => (
                     <label key={state.value} className="flex items-start gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
                       <input
                         type="checkbox"
